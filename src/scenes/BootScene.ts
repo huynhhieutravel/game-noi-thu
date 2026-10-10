@@ -43,17 +43,11 @@ export class BootScene extends Phaser.Scene {
     // Helper to ensure relative asset URLs for both web and Capacitor WKWebView
     const resolveAsset = (p: string) => p.replace(/^\/+/, '');
 
-    // Preload active theme & default yokai theme characters
-    const selectedTheme = SaveSystem.getInstance().getSelectedTheme() || 'yokai';
-    const activeThemes = new Set(['yokai', selectedTheme]);
-
+    // Preload ALL 495 characters across all 16 themes (Yokai, Egypt, Greece, Wuxia, Korea, India, Sea, Pirate, Dinosaur, Monster, Fantasy, Space, Robot, Animal, Plant, etc.)
     for (const char of (charactersData as CharacterData[])) {
-      const theme = (char as any).theme || char.collection;
-      if (activeThemes.has(theme)) {
-        const rawUrl = char.asset || char.imagePath;
-        if (rawUrl) {
-          this.load.image(`char_${char.id}`, resolveAsset(rawUrl));
-        }
+      const rawUrl = char.asset || char.imagePath;
+      if (rawUrl) {
+        this.load.image(`char_${char.id}`, resolveAsset(rawUrl));
       }
     }
 

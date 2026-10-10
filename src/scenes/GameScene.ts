@@ -72,6 +72,7 @@ export class GameScene extends Phaser.Scene {
   private bossWarningText!: Phaser.GameObjects.Text;
   private bossSprite: Phaser.GameObjects.Image | null = null;
   private bossContainer: Phaser.GameObjects.Container | null = null;
+  private isBossDefeatedSequence: boolean = false;
 
   // Booster UI Texts
   private hintCountText!: Phaser.GameObjects.Text;
@@ -109,6 +110,7 @@ export class GameScene extends Phaser.Scene {
   public init(data: { levelId?: string; lives?: number; isZenMode?: boolean; isSurvivalMode?: boolean; bossId?: string }): void {
     this.isZenMode = !!data.isZenMode;
     this.isSurvivalMode = !!data.isSurvivalMode;
+    this.isBossDefeatedSequence = false;
     const levelId = data.levelId || 'level_01';
     const allLevels = levelsData as LevelConfig[];
     const found = allLevels.find(l => l.id === levelId) || allLevels[0];
@@ -149,11 +151,11 @@ export class GameScene extends Phaser.Scene {
         title: `👑 ĐẠI CHIẾN: ${bData.name} (${bData.title})`,
         rows: 8,
         columns: 12,
-        timeLimit: 150,
+        timeLimit: 240,
         movement: 'chaos',
         modifiers: {
-          iceCount: 5,
-          stoneCount: 3,
+          iceCount: 4,
+          stoneCount: 2,
           thornCount: 2,
           barricadeCount: 2
         },
@@ -164,7 +166,7 @@ export class GameScene extends Phaser.Scene {
           stars: 3
         }
       };
-      this.lives = data.lives !== undefined ? data.lives : 5;
+      this.lives = data.lives !== undefined ? data.lives : 8;
       this.timeRemaining = this.levelConfig.timeLimit;
     } else if (this.isSurvivalMode) {
       // 5. ❄️ Chế Độ Sinh Tồn Dâng Trào (Survival Blizzard Mode)
@@ -342,7 +344,7 @@ export class GameScene extends Phaser.Scene {
           }
         },
         onDefeated: () => {
-          this.handleVictory();
+          this.triggerBossDefeatSequence();
         }
       });
     } else {
@@ -409,7 +411,11 @@ export class GameScene extends Phaser.Scene {
       },
       onBoardReshuffled: (isAuto?: boolean) => {
         if (isAuto) {
-          if (!this.isZenMode && !this.isSurvivalMode) {
+          if (this.levelConfig.boss) {
+            // Trong chế độ Boss, tự động đảo bàn là giải tỏa bí đường do dịch chuyển / chướng ngại vật của Boss, KHÔNG trừ mạng!
+            this.showNotice('🔄 BÀN CỜ ĐÃ TỰ ĐỘNG ĐẢO VỊ TRÍ!', 0x00f5d4);
+            this.audio.playShuffle();
+          } else if (!this.isZenMode && !this.isSurvivalMode) {
             this.lives--;
             this.updateLivesDisplay();
             this.showNotice(`⚠️ HẾT ĐƯỜNG ĐI! TỰ ĐỘNG ĐẢO BÀN (Mạng còn: ${this.lives})`, 0xff595e);
@@ -2295,8 +2301,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Boss timer update (freezes when Ryujin Time Freeze is active)
-    if (this.bossManager && !this.isTimeFrozen) {
+    // Boss timer update (freezes when Ryujin Time Freeze or Defeat sequence is active)
+    if (this.bossManager && !this.isTimeFrozen && !this.isBossDefeatedSequence) {
       this.bossManager.update(
         deltaSec,
         this.boardManager.getGrid(),
@@ -2340,6 +2346,73 @@ export class GameScene extends Phaser.Scene {
     if (!success) {
       this.handleGameOver('❄️ Băng tuyết đã dâng chạm kịch nóc trên!');
     }
+  }
+
+  private triggerBossDefeatSequence(): void {
+    if (this.isBossDefeatedSequence || this.isVictory || this.isGameOver) return;
+    this.isBossDefeatedSequence = true;
+
+    // 1. Play dramatic sounds & haptic feedback
+    this.audio.playTaikoHit(false, true);
+    this.audio.playVictory();
+    this.haptic.combo();
+
+    // 2. Camera shake to emphasize the epic titan fall
+    this.cameras.main.shake(700, 0.018);
+
+    // 3. Boss Sprite Dramatic Defeat Animation
+    if (this.bossContainer) {
+      this.tweens.add({
+        targets: this.bossContainer,
+        scaleX: 1.3,
+        scaleY: 1.3,
+        angle: 12,
+        duration: 200,
+        yoyo: true,
+        repeat: 3,
+        onComplete: () => {
+          this.tweens.add({
+            targets: this.bossContainer,
+            alpha: 0,
+            scaleX: 0.1,
+            scaleY: 0.1,
+            duration: 400,
+            ease: 'Back.easeIn'
+          });
+        }
+      });
+    }
+
+    // 4. Gold & Spark Explosion at Boss Header
+    const width = GAME_WIDTH;
+    this.feverParticles.explode(50, width / 2, 70);
+
+    // 5. Shatter all obstacle blocks on the board
+    if (this.boardManager) {
+      const grid = this.boardManager.getGrid();
+      const rows = this.boardManager.getRows();
+      const cols = this.boardManager.getCols();
+      for (let r = 1; r <= rows; r++) {
+        for (let c = 1; c <= cols; c++) {
+          const t = grid[r][c];
+          if (t.modifier === 'stone' || t.modifier === 'ice' || t.modifier === 'thorn' || t.modifier === 'barricade') {
+            t.modifier = 'none';
+            t.modifierLevel = 0;
+            t.iceLayers = 0;
+          }
+        }
+      }
+      this.boardManager.syncViewsAfterMovement();
+    }
+
+    const bossCfg = this.bossManager?.getBossConfig();
+    const bossName = bossCfg?.name || 'ĐẠI TRÙM';
+    this.showNotice(`👑 CHIẾN CÔNG HIỂN HÁCH! ĐÃ HẠ GỤC ${bossName.toUpperCase()}!`, 0xffd700);
+
+    // 6. Smooth delay before transitioning to Victory dialog
+    this.time.delayedCall(1600, () => {
+      this.handleVictory();
+    });
   }
 
   private handleVictory(): void {

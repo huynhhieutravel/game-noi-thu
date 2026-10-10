@@ -88,7 +88,7 @@ export interface TileState {
 }
 
 export interface BossSkill {
-  type: 'ice_curse' | 'rock_blocker' | 'tile_swap' | 'fog_curse' | 'time_drain';
+  type: string;
   name: string;
   description: string;
 }

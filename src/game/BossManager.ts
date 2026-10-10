@@ -70,79 +70,90 @@ export class BossManager {
 
     const skill = this.config.skills[Math.floor(Math.random() * this.config.skills.length)];
 
-    switch (skill.type) {
-      case 'ice_curse': {
-        // Freeze up to 4 active non-ice tiles (2 pairs)
-        const candidates: TileState[] = [];
-        for (let r = 1; r <= rows; r++) {
-          for (let c = 1; c <= cols; c++) {
-            const tile = grid[r][c];
-            if (!tile.isCleared && tile.characterId && tile.modifier !== 'ice' && tile.modifier !== 'stone') {
-              candidates.push(tile);
-            }
-          }
-        }
-        for (let i = 0; i < Math.min(4, candidates.length); i++) {
-          const randIdx = Math.floor(Math.random() * candidates.length);
-          const t = candidates.splice(randIdx, 1)[0];
-          t.modifier = 'ice';
-          t.iceLayers = 2;
-        }
-        break;
-      }
+    const type = skill.type;
 
-      case 'rock_blocker': {
-        // Spawn up to 2 stone obstacles in already cleared slots to block connecting paths
-        const clearedSlots: TileState[] = [];
-        for (let r = 1; r <= rows; r++) {
-          for (let c = 1; c <= cols; c++) {
-            const tile = grid[r][c];
-            if (tile.isCleared) {
-              clearedSlots.push(tile);
-            }
+    // 1. Freeze / Lock skills
+    if (
+      type === 'ice_curse' || type === 'dark_lock' || type === 'taiji_freeze' ||
+      type === 'flame_chakra' || type === 'abyssal_bubble' || type === 'sticky_mucus' ||
+      type === 'blizzard_howl' || type === 'thunder_strike'
+    ) {
+      const candidates: TileState[] = [];
+      for (let r = 1; r <= rows; r++) {
+        for (let c = 1; c <= cols; c++) {
+          const tile = grid[r][c];
+          if (!tile.isCleared && tile.characterId && tile.modifier !== 'ice' && tile.modifier !== 'stone') {
+            candidates.push(tile);
           }
         }
-        for (let i = 0; i < Math.min(2, clearedSlots.length); i++) {
-          const randIdx = Math.floor(Math.random() * clearedSlots.length);
-          const randSlot = clearedSlots.splice(randIdx, 1)[0];
-          randSlot.modifier = 'stone';
-          randSlot.modifierLevel = 3;
-          randSlot.isCleared = false;
-          randSlot.characterId = null;
-        }
-        break;
       }
-
-      case 'tile_swap': {
-        // Swap up to 3 random pairs of active tiles to disrupt memorized lines
-        const activeTiles: TileState[] = [];
-        for (let r = 1; r <= rows; r++) {
-          for (let c = 1; c <= cols; c++) {
-            const tile = grid[r][c];
-            if (!tile.isCleared && tile.characterId && tile.modifier !== 'stone') {
-              activeTiles.push(tile);
-            }
+      for (let i = 0; i < Math.min(3, candidates.length); i++) {
+        const randIdx = Math.floor(Math.random() * candidates.length);
+        const t = candidates.splice(randIdx, 1)[0];
+        t.modifier = 'ice';
+        t.iceLayers = 2;
+      }
+    }
+    // 2. Obstacle / Stone / Vines spawn
+    else if (
+      type === 'rock_blocker' || type === 'petrify_stone' || type === 'elephant_quake' ||
+      type === 'forest_vines' || type === 'powder_barrel' || type === 'volcanic_eruption' ||
+      type === 'root_strangle' || type === 'trex_stomp'
+    ) {
+      const clearedSlots: TileState[] = [];
+      for (let r = 1; r <= rows; r++) {
+        for (let c = 1; c <= cols; c++) {
+          const tile = grid[r][c];
+          if (tile.isCleared) {
+            clearedSlots.push(tile);
           }
         }
-        for (let i = 0; i < 3; i++) {
-          if (activeTiles.length >= 2) {
-            const idx1 = Math.floor(Math.random() * activeTiles.length);
-            let idx2 = Math.floor(Math.random() * activeTiles.length);
-            while (idx2 === idx1 && activeTiles.length > 1) {
-              idx2 = Math.floor(Math.random() * activeTiles.length);
-            }
-            const tmp = activeTiles[idx1].characterId;
-            activeTiles[idx1].characterId = activeTiles[idx2].characterId;
-            activeTiles[idx2].characterId = tmp;
+      }
+      for (let i = 0; i < Math.min(2, clearedSlots.length); i++) {
+        const randIdx = Math.floor(Math.random() * clearedSlots.length);
+        const randSlot = clearedSlots.splice(randIdx, 1)[0];
+        randSlot.modifier = 'stone';
+        randSlot.modifierLevel = 2;
+        randSlot.isCleared = false;
+        randSlot.characterId = null;
+      }
+    }
+    // 3. Tile swap / Whirlwind / Tempest
+    else if (
+      type === 'tile_swap' || type === 'whirlwind_shift' || type === 'flying_swords' ||
+      type === 'naga_waters' || type === 'tentacle_slam' || type === 'slime_split' ||
+      type === 'wing_tempest' || type === 'gravity_warp' || type === 'pack_call' ||
+      type === 'celestial_ascend' || type === 'tidal_surge'
+    ) {
+      const activeTiles: TileState[] = [];
+      for (let r = 1; r <= rows; r++) {
+        for (let c = 1; c <= cols; c++) {
+          const tile = grid[r][c];
+          if (!tile.isCleared && tile.characterId && tile.modifier !== 'stone') {
+            activeTiles.push(tile);
           }
         }
-        break;
       }
-
-      case 'time_drain': {
-        // Drain 5 seconds of player's precious time
-        break;
+      for (let i = 0; i < 3; i++) {
+        if (activeTiles.length >= 2) {
+          const idx1 = Math.floor(Math.random() * activeTiles.length);
+          let idx2 = Math.floor(Math.random() * activeTiles.length);
+          while (idx2 === idx1 && activeTiles.length > 1) {
+            idx2 = Math.floor(Math.random() * activeTiles.length);
+          }
+          const tmp = activeTiles[idx1].characterId;
+          activeTiles[idx1].characterId = activeTiles[idx2].characterId;
+          activeTiles[idx2].characterId = tmp;
+        }
       }
+    }
+    // 4. Time drain skills
+    else if (
+      type === 'time_drain' || type === 'acid_breath' || type === 'dragon_roar' ||
+      type === 'ten_head_roar' || type === 'plasma_cannon' || type === 'event_horizon' ||
+      type === 'crown_jewel_blast' || type === 'inferno_breath'
+    ) {
+      // Drained via onBossSkillTriggered callback in GameScene
     }
 
     this.events.onBossSkillTriggered?.(skill.name, skill.description, skill.type);
