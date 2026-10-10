@@ -40,6 +40,9 @@ export class BoardManager {
   private boardFrameContainer: Phaser.GameObjects.Container | null = null;
 
   // ⛩️ Torii Portals (Left & Right wormhole gates)
+  private hasPortals: boolean = false;
+  private isRescuePortalsActive: boolean = false;
+  private rescuePortalTimer: Phaser.Time.TimerEvent | null = null;
   private portalGridA: GridPoint = { r: 1, c: 0 };
   private portalGridB: GridPoint = { r: 1, c: 0 };
   private portalContainerA: Phaser.GameObjects.Container | null = null;
@@ -55,6 +58,7 @@ export class BoardManager {
   constructor(scene: Phaser.Scene, config: LevelConfig, events: BoardEvents = {}) {
     this.scene = scene;
     this.config = config;
+    this.hasPortals = !!config.hasPortals;
     this.rows = config.rows;
     this.cols = config.columns;
     this.events = events;
@@ -222,9 +226,20 @@ export class BoardManager {
     return frameContainer;
   }
 
-  private renderToriiPortals(): void {
-    if (this.portalContainerA) this.portalContainerA.destroy();
-    if (this.portalContainerB) this.portalContainerB.destroy();
+  private renderToriiPortals(isRescue: boolean = false): void {
+    if (this.portalContainerA) {
+      this.portalContainerA.destroy();
+      this.portalContainerA = null;
+    }
+    if (this.portalContainerB) {
+      this.portalContainerB.destroy();
+      this.portalContainerB = null;
+    }
+
+    // Only render if map explicitly has portals or emergency rescue portals are triggered!
+    if (!this.hasPortals && !this.isRescuePortalsActive) {
+      return;
+    }
 
     const gridLeft = this.boardOffsetX - this.tileSize / 2;
     const gridTop = this.boardOffsetY - this.tileSize / 2;
@@ -251,6 +266,70 @@ export class BoardManager {
     this.portalContainerB = this.createPortalGate(portalBX, portalY, 'B', 0x3a86ff, gateW, gateH);
 
     this.boardContainer.add([this.portalContainerA, this.portalContainerB]);
+
+    if (isRescue && this.portalContainerA && this.portalContainerB) {
+      this.portalContainerA.setAlpha(0).setScale(0.65);
+      this.portalContainerB.setAlpha(0).setScale(0.65);
+      this.scene.tweens.add({
+        targets: [this.portalContainerA, this.portalContainerB],
+        alpha: 1,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 500,
+        ease: 'Back.easeOut'
+      });
+    }
+  }
+
+  public activateRescuePortals(durationSeconds: number = 25): void {
+    if (this.hasPortals || this.isRescuePortalsActive) return;
+    this.isRescuePortalsActive = true;
+
+    // Phase in portals dynamically
+    this.renderToriiPortals(true);
+
+    (this.scene as any).audio?.playPortalWarp?.();
+    (this.scene as any).haptic?.combo?.();
+    (this.scene as any).showNotice?.('⛩️ CỔNG CỨU HỘ A - B ĐÃ MỞ! Nối xuyên không gian để giải vây!', 0x00f5d4);
+
+    if (this.rescuePortalTimer) {
+      this.rescuePortalTimer.destroy();
+    }
+
+    this.rescuePortalTimer = this.scene.time.delayedCall(durationSeconds * 1000, () => {
+      this.deactivateRescuePortals();
+    });
+  }
+
+  public deactivateRescuePortals(): void {
+    if (!this.isRescuePortalsActive || this.hasPortals) return;
+    this.isRescuePortalsActive = false;
+
+    if (this.rescuePortalTimer) {
+      this.rescuePortalTimer.destroy();
+      this.rescuePortalTimer = null;
+    }
+
+    if (this.portalContainerA && this.portalContainerB) {
+      this.scene.tweens.add({
+        targets: [this.portalContainerA, this.portalContainerB],
+        alpha: 0,
+        scaleX: 0.65,
+        scaleY: 0.65,
+        duration: 500,
+        ease: 'Cubic.easeIn',
+        onComplete: () => {
+          if (this.portalContainerA) {
+            this.portalContainerA.destroy();
+            this.portalContainerA = null;
+          }
+          if (this.portalContainerB) {
+            this.portalContainerB.destroy();
+            this.portalContainerB = null;
+          }
+        }
+      });
+    }
   }
 
   private createPortalGate(x: number, y: number, label: string, color: number, gateW: number, gateH: number): Phaser.GameObjects.Container {
@@ -634,7 +713,7 @@ export class BoardManager {
       boardGridAdapter,
       { r: firstTile.r, c: firstTile.c },
       { r: secondTile.r, c: secondTile.c },
-      { portalA: this.portalGridA, portalB: this.portalGridB }
+      this.getPortals()
     );
 
     // 🌙 Giờ Bách Quỷ Dạ Hành: Laser xuyên thấu vật cản!
@@ -1046,14 +1125,23 @@ export class BoardManager {
       return;
     }
 
-    // Check for available matches (accounting for Torii Portals)
-    const available = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, {
-      portalA: this.portalGridA,
-      portalB: this.portalGridB
-    });
+    // Check for available matches (accounting for Torii Portals if active)
+    let available = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, this.getPortals());
 
-    // CRITICAL: Do NOT auto-shuffle deadlock if Piercing Laser is active!
-    // Player can pierce through obstacles to connect any matching pair!
+    // ⛩️ Rescue Mechanism: If regular moves are stuck on a map without portals, check if Torii Rescue Portals can unlock matches!
+    if (!available && !this.hasPortals && !this.isRescuePortalsActive && !this.isPiercingLaserActive) {
+      const portalMatch = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, {
+        portalA: this.portalGridA,
+        portalB: this.portalGridB
+      });
+      if (portalMatch) {
+        // Unlock Cổng Cứu Hộ A-B dynamically to save the player from deadlock!
+        this.activateRescuePortals(25);
+        available = portalMatch;
+      }
+    }
+
+    // CRITICAL: Do NOT auto-shuffle deadlock if Piercing Laser or Rescue Portals is handling it!
     if (!available && !this.isPiercingLaserActive) {
       // Deadlock detected -> slight pause for player to comprehend before smooth auto-shuffle
       this.scene.time.delayedCall(350, () => {
@@ -1063,19 +1151,13 @@ export class BoardManager {
   }
 
   public performShuffle(isAuto: boolean = false): void {
-    BoardGenerator.reshuffleBoard(this.grid, this.rows, this.cols, {
-      portalA: this.portalGridA,
-      portalB: this.portalGridB
-    });
+    BoardGenerator.reshuffleBoard(this.grid, this.rows, this.cols, this.getPortals());
     this.syncViewsAfterMovement();
     this.events.onBoardReshuffled?.(isAuto);
   }
 
   public showHint(): boolean {
-    let match = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, {
-      portalA: this.portalGridA,
-      portalB: this.portalGridB
-    });
+    let match = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, this.getPortals());
 
     if (!match && this.isPiercingLaserActive) {
       // Find ANY pair of identical active characters on the board!
@@ -1131,10 +1213,7 @@ export class BoardManager {
   }
 
   public triggerBomb(): boolean {
-    let match = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, {
-      portalA: this.portalGridA,
-      portalB: this.portalGridB
-    });
+    let match = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, this.getPortals());
 
     if (!match && this.isPiercingLaserActive) {
       // Find ANY pair of identical active characters on the board
@@ -1201,7 +1280,7 @@ export class BoardManager {
       boardGridAdapter,
       p1,
       p2,
-      { portalA: this.portalGridA, portalB: this.portalGridB }
+      this.getPortals()
     );
 
     const pathOrPoints = matchPath || [p1, p2];
@@ -1287,7 +1366,10 @@ export class BoardManager {
     }
   }
 
-  public getPortals(): { portalA: GridPoint; portalB: GridPoint } {
+  public getPortals(): { portalA: GridPoint; portalB: GridPoint } | null {
+    if (!this.hasPortals && !this.isRescuePortalsActive) {
+      return null;
+    }
     return {
       portalA: this.portalGridA,
       portalB: this.portalGridB
@@ -1535,6 +1617,10 @@ export class BoardManager {
     if (this.shapeshifterTimer) {
       this.shapeshifterTimer.destroy();
       this.shapeshifterTimer = null;
+    }
+    if (this.rescuePortalTimer) {
+      this.rescuePortalTimer.destroy();
+      this.rescuePortalTimer = null;
     }
     if (this.portalContainerA) this.portalContainerA.destroy();
     if (this.portalContainerB) this.portalContainerB.destroy();

@@ -46,12 +46,14 @@ export class BoardGenerator {
       totalPairs
     );
 
-    let expandedPool = [...characterPool];
+    let expandedPool = characterPool.filter(id => !CharacterRegistry.isBoss(id));
     if (expandedPool.length < targetUniqueCount) {
       // Find theme from first character or fallback to yokai
       const firstChar = characterPool.length > 0 ? CharacterRegistry.get(characterPool[0]) : undefined;
       const theme = firstChar?.collection || (firstChar as any)?.theme || 'yokai';
-      const allThemeChars = CharacterRegistry.getByCollection(theme).map(c => c.id);
+      const allThemeChars = CharacterRegistry.getByCollection(theme)
+        .filter(c => !CharacterRegistry.isBoss(c))
+        .map(c => c.id);
       this.shuffleArray(allThemeChars);
 
       for (const id of allThemeChars) {
@@ -61,9 +63,11 @@ export class BoardGenerator {
         }
       }
 
-      // If still not enough, pull from all characters in registry
+      // If still not enough, pull from all non-boss characters in registry
       if (expandedPool.length < targetUniqueCount) {
-        const allChars = CharacterRegistry.getAll().map(c => c.id);
+        const allChars = CharacterRegistry.getAll()
+          .filter(c => !CharacterRegistry.isBoss(c))
+          .map(c => c.id);
         this.shuffleArray(allChars);
         for (const id of allChars) {
           if (!expandedPool.includes(id)) {
@@ -464,10 +468,7 @@ export class BoardGenerator {
       }
     }
 
-    const effectivePortals = portals !== undefined ? portals : {
-      portalA: { r: Math.ceil(rows / 2), c: 0 },
-      portalB: { r: Math.ceil(rows / 2), c: cols + 1 }
-    };
+    const effectivePortals = portals || null;
 
     const boardGridAdapter: BoardGrid = {
       rows,

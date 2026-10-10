@@ -26,6 +26,23 @@ export class CharacterRegistry {
     return this.getAll().filter(c => c.collection === collection);
   }
 
+  public static isBoss(char: CharacterData | string): boolean {
+    const data = typeof char === 'string' ? this.get(char) : char;
+    if (!data) return false;
+    return (
+      data.id.endsWith('_boss') ||
+      data.id.startsWith('boss_') ||
+      data.id.includes('_boss') ||
+      data.chapterId === 'chapter_12_bosses' ||
+      data.chapter === 12 ||
+      (data as any).isBoss === true
+    );
+  }
+
+  public static getNonBossByCollection(collection: string): CharacterData[] {
+    return this.getByCollection(collection).filter(c => !this.isBoss(c));
+  }
+
   public static getRarityColor(rarity: Rarity): number {
     switch (rarity) {
       case 'common': return 0xa0aab2;

@@ -258,6 +258,7 @@
     ],
     "timeLimit": 120,
     "movement": "split_vertical",
+    "hasPortals": true,
     "modifiers": {
       "stoneCount": 4,
       "thornCount": 2,

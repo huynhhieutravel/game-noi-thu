@@ -171,6 +171,7 @@ export class GameScene extends Phaser.Scene {
     } else if (this.isSurvivalMode) {
       // 5. ❄️ Chế Độ Sinh Tồn Dâng Trào (Survival Blizzard Mode)
       // 8 hàng x 10 cột, khởi đầu 4 hàng dưới, mỗi 10s dâng 1 hàng lên
+      const nonBossThemeChars = CharacterRegistry.getNonBossByCollection(currentTheme);
       this.levelConfig = {
         id: 'survival_blizzard',
         levelNumber: 0,
@@ -180,7 +181,9 @@ export class GameScene extends Phaser.Scene {
         columns: 10,
         timeLimit: 999999,
         movement: 'none',
-        characterPool: themeChars.length >= 8 ? themeChars.map(c => c.id) : found.characterPool,
+        characterPool: (nonBossThemeChars.length >= 8 ? nonBossThemeChars : themeChars)
+          .filter(c => !CharacterRegistry.isBoss(c))
+          .map(c => c.id),
         rewards: { stars: 3, coins: 0 }
       };
       this.lives = 5;
@@ -190,6 +193,7 @@ export class GameScene extends Phaser.Scene {
       this.isBlizzardPushing = false;
     } else if (this.isZenMode) {
       // Endless Relaxing Mode: 6x8 board, no gravity, pure zen matching
+      const nonBossThemeChars = CharacterRegistry.getNonBossByCollection(currentTheme);
       this.levelConfig = {
         id: 'zen_mode',
         levelNumber: 0,
@@ -199,7 +203,9 @@ export class GameScene extends Phaser.Scene {
         columns: 8,
         timeLimit: 999999,
         movement: 'none',
-        characterPool: themeChars.length >= 8 ? themeChars.map(c => c.id) : found.characterPool,
+        characterPool: (nonBossThemeChars.length >= 8 ? nonBossThemeChars : themeChars)
+          .filter(c => !CharacterRegistry.isBoss(c))
+          .map(c => c.id),
         rewards: { stars: 3, coins: 100 }
       };
       this.lives = 999;
@@ -214,13 +220,24 @@ export class GameScene extends Phaser.Scene {
           found.boss.title = 'Bát Kỳ Thần Xà Cổ Đại';
         }
         this.levelConfig = found;
-      } else if (themeChars.length >= 6) {
+      } else if (currentTheme !== 'yokai') {
+        // Player picked a non-Yokai theme in main menu (e.g. Egypt, Greece)
+        const nonBossThemeChars = CharacterRegistry.getNonBossByCollection(currentTheme);
+        const poolSize = found.characterPool?.length || 15;
         this.levelConfig = {
           ...found,
-          characterPool: themeChars.map(c => c.id)
+          characterPool: (nonBossThemeChars.length >= 8 ? nonBossThemeChars : themeChars)
+            .filter(c => !CharacterRegistry.isBoss(c))
+            .map(c => c.id)
+            .slice(0, poolSize)
         };
       } else {
-        this.levelConfig = found;
+        // Yokai default theme: ALWAYS preserve the handcrafted level characterPool!
+        // Strictly filter out any boss characters so normal levels are pure puzzle animals!
+        this.levelConfig = {
+          ...found,
+          characterPool: found.characterPool.filter(id => !CharacterRegistry.isBoss(id))
+        };
       }
 
       this.lives = data.lives !== undefined ? data.lives : 5;

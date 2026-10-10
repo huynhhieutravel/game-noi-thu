@@ -131,6 +131,7 @@ export interface LevelConfig {
     webCount?: number;
     barricadeCount?: number;
   };
+  hasPortals?: boolean;
   boss?: BossConfig;
   rewards: {
     coins: number;
