@@ -47,6 +47,9 @@ export class TileView extends Phaser.GameObjects.Container {
       if (!scene.textures.exists(charKey)) {
         TextureGenerator.ensureCharacterTexture(scene, state.characterId);
       }
+      if (!scene.textures.exists(charKey)) {
+        charKey = 'tile_base';
+      }
     }
     this.charSprite = scene.add.image(0, 0, charKey)
       .setDisplaySize(tileSize * 0.94, tileSize * 0.94)
@@ -99,9 +102,12 @@ export class TileView extends Phaser.GameObjects.Container {
       return;
     }
 
-    const charKey = state.characterId ? `char_${state.characterId}` : 'tile_base';
+    let charKey = state.characterId ? `char_${state.characterId}` : 'tile_base';
     if (state.characterId && !this.scene.textures.exists(charKey)) {
       TextureGenerator.ensureCharacterTexture(this.scene, state.characterId);
+    }
+    if (!this.scene.textures.exists(charKey)) {
+      charKey = 'tile_base';
     }
     this.charSprite.setTexture(charKey)
       .setDisplaySize(tileSize * 0.94, tileSize * 0.94)
@@ -353,9 +359,12 @@ export class TileView extends Phaser.GameObjects.Container {
       ease: 'Back.easeIn',
       onComplete: () => {
         this.tileState.characterId = newCharId;
-        const charKey = `char_${newCharId}`;
+        let charKey = `char_${newCharId}`;
         if (!this.scene.textures.exists(charKey)) {
           TextureGenerator.ensureCharacterTexture(this.scene, newCharId);
+        }
+        if (!this.scene.textures.exists(charKey)) {
+          charKey = 'tile_base';
         }
         this.charSprite.setTexture(charKey);
         this.charSprite.setDisplaySize(targetW, targetH);

@@ -96,9 +96,25 @@ export class TextureGenerator {
     if (scene.textures.exists(key)) return;
 
     const char = CharacterRegistry.get(charId);
-    if (!char) return;
+    if (char) {
+      this.createCharacterCardTexture(scene, char);
+      return;
+    }
 
-    this.createCharacterCardTexture(scene, char);
+    // Bulletproof Fallback: Never let Phaser draw __MISSING (black box with green slash)
+    const fallbackChar = {
+      id: charId,
+      name: charId.replace(/_/g, ' '),
+      japaneseName: '妖怪',
+      symbol: '👺',
+      palette: {
+        bg: '#251a30',
+        primary: '#7209b7',
+        accent: '#f72585',
+        glow: '#4cc9f0'
+      }
+    };
+    this.createCharacterCardTexture(scene, fallbackChar);
   }
 
   public static createCharacterCardTexture(scene: Phaser.Scene, char: any): void {
