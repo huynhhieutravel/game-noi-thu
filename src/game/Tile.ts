@@ -72,12 +72,14 @@ export class TileView extends Phaser.GameObjects.Container {
 
     if (state.isCleared || (!state.characterId && !isObstacle)) {
       this.scene.tweens.killTweensOf(this);
+      this.scene.tweens.killTweensOf(this.charSprite);
       this.setVisible(false);
       this.disableInteractive();
       return;
     }
 
     this.scene.tweens.killTweensOf(this);
+    this.scene.tweens.killTweensOf(this.charSprite);
     this.setVisible(true);
     this.setAlpha(1);
     this.setScale(1);
@@ -338,21 +340,37 @@ export class TileView extends Phaser.GameObjects.Container {
       onComplete: () => leaf.destroy()
     });
 
+    this.scene.tweens.killTweensOf(this.charSprite);
+    const targetW = tileSize * 0.94;
+    const targetH = tileSize * 0.94;
+
     this.scene.tweens.add({
       targets: this.charSprite,
-      scaleX: 0.1,
-      scaleY: 0.1,
-      duration: 160,
+      scaleX: 0,
+      scaleY: 0,
+      alpha: 0.2,
+      duration: 140,
       ease: 'Back.easeIn',
-      yoyo: true,
-      onYoyo: () => {
+      onComplete: () => {
         this.tileState.characterId = newCharId;
         const charKey = `char_${newCharId}`;
         if (!this.scene.textures.exists(charKey)) {
           TextureGenerator.ensureCharacterTexture(this.scene, newCharId);
         }
         this.charSprite.setTexture(charKey);
-        this.charSprite.setDisplaySize(tileSize * 0.94, tileSize * 0.94);
+        this.charSprite.setDisplaySize(targetW, targetH);
+        const finalScaleX = this.charSprite.scaleX;
+        const finalScaleY = this.charSprite.scaleY;
+        this.charSprite.setScale(0, 0);
+
+        this.scene.tweens.add({
+          targets: this.charSprite,
+          scaleX: finalScaleX,
+          scaleY: finalScaleY,
+          alpha: 1,
+          duration: 180,
+          ease: 'Back.easeOut'
+        });
       }
     });
   }
@@ -501,5 +519,17 @@ export class TileView extends Phaser.GameObjects.Container {
       ease: 'Cubic.easeOut',
       onComplete: () => toast.destroy()
     });
+  }
+
+  public destroy(fromScene?: boolean): void {
+    this.scene.tweens.killTweensOf(this);
+    if (this.charSprite) {
+      this.scene.tweens.killTweensOf(this.charSprite);
+    }
+    if (this.hintTween) {
+      this.hintTween.stop();
+      this.hintTween = null;
+    }
+    super.destroy(fromScene);
   }
 }

@@ -84,6 +84,7 @@ export class BoardManager {
         rows: this.rows,
         cols: this.cols,
         characterPool: this.config.characterPool,
+        levelNumber: this.config.levelNumber,
         iceCount: this.config.modifiers?.iceCount,
         stoneCount: this.config.modifiers?.stoneCount,
         lockCount: this.config.modifiers?.lockCount,
@@ -626,41 +627,38 @@ export class BoardManager {
 
     const tile = this.grid[r][c];
     if (tile.modifier === 'stone') {
-      const lvl = tile.modifierLevel || 3;
-      this.tileViews[r][c]?.playObstacleFeedback(`🪨 CẤP ${lvl}`);
+      const lvl = tile.modifierLevel || 1;
+      this.tileViews[r][c]?.playObstacleFeedback(`🪨 ĐÁ (CÒN ${lvl} HIT)`);
       const audio = (this.scene as any).audio;
       audio?.playError();
       const haptic = (this.scene as any).haptic;
-      haptic?.medium();
-      ObstacleInfoModal.open(this.scene, tile);
+      haptic?.light();
       return;
     }
 
     if (tile.modifier === 'barricade') {
-      const lvl = tile.modifierLevel || 3;
-      this.tileViews[r][c]?.playObstacleFeedback(`🛡️ CẤP ${lvl}`);
+      const lvl = tile.modifierLevel || 1;
+      this.tileViews[r][c]?.playObstacleFeedback(`🛡️ LỒNG SẮT (CÒN ${lvl} HIT)`);
       const audio = (this.scene as any).audio;
       audio?.playError();
       const haptic = (this.scene as any).haptic;
-      haptic?.medium();
-      ObstacleInfoModal.open(this.scene, tile);
+      haptic?.light();
       return;
     }
 
     if (tile.modifier === 'thorn') {
-      const lvl = tile.modifierLevel || 3;
-      this.tileViews[r][c]?.playObstacleFeedback(`🌿 CẤP ${lvl}`);
+      const lvl = tile.modifierLevel || 1;
+      this.tileViews[r][c]?.playObstacleFeedback(`🌿 DÂY GAI (CÒN ${lvl} HIT)`);
       const audio = (this.scene as any).audio;
       audio?.playError();
       const haptic = (this.scene as any).haptic;
-      haptic?.medium();
-      ObstacleInfoModal.open(this.scene, tile);
+      haptic?.light();
       return;
     }
 
     if (tile.isCleared || !tile.characterId || tile.isLocked) {
       if (tile.isLocked) {
-        ObstacleInfoModal.open(this.scene, tile);
+        this.tileViews[r][c]?.playObstacleFeedback('🔒 ĐANG BỊ KHÓA');
         const audio = (this.scene as any).audio;
         audio?.playError();
       }
@@ -881,7 +879,7 @@ export class BoardManager {
     }
 
     // 💥 Shockwave damage to adjacent obstacles (Stone, Thorn, Web, Barricade)
-    this.damageAdjacentObstacles(t1, t2);
+    this.damageAdjacentObstacles(t1, t2, path);
 
     this.events.onMatchSuccess?.(t1, t2, path);
 
@@ -927,9 +925,9 @@ export class BoardManager {
   }
 
   /**
-   * 💥 Gây damage lên các ô vật cản xung quanh cặp ô vừa nối (Stone, Thorn, Web, Barricade)
+   * 💥 Gây damage lên các ô vật cản xung quanh cặp ô vừa nối và dọc theo đường laser nối
    */
-  private damageAdjacentObstacles(t1: TileState, t2: TileState): void {
+  private damageAdjacentObstacles(t1: TileState, t2: TileState, matchPathOrPoints?: GridPoint[] | { points: GridPoint[] }): void {
     const coordsToCheck: GridPoint[] = [];
     const dirs = [
       { r: -1, c: 0 },
@@ -938,9 +936,32 @@ export class BoardManager {
       { r: 0, c: 1 }
     ];
 
+    // 1. Endpoint neighbors
     for (const d of dirs) {
       coordsToCheck.push({ r: t1.r + d.r, c: t1.c + d.c });
       coordsToCheck.push({ r: t2.r + d.r, c: t2.c + d.c });
+    }
+
+    // 2. ⚡ Laser Path Collateral Damage: Sóng laser quét qua cũng làm nứt vật cản sát bên đường truyền!
+    if (matchPathOrPoints) {
+      const pts = Array.isArray(matchPathOrPoints) ? matchPathOrPoints : matchPathOrPoints.points;
+      if (pts && pts.length >= 2) {
+        for (let i = 0; i < pts.length - 1; i++) {
+          const pA = pts[i];
+          const pB = pts[i + 1];
+          const minR = Math.min(pA.r, pB.r);
+          const maxR = Math.max(pA.r, pB.r);
+          const minC = Math.min(pA.c, pB.c);
+          const maxC = Math.max(pA.c, pB.c);
+          for (let r = minR; r <= maxR; r++) {
+            for (let c = minC; c <= maxC; c++) {
+              for (const d of dirs) {
+                coordsToCheck.push({ r: r + d.r, c: c + d.c });
+              }
+            }
+          }
+        }
+      }
     }
 
     const seen = new Set<string>();
@@ -1050,6 +1071,28 @@ export class BoardManager {
         (this.scene as any).addScore?.(200);
       }
     }
+  }
+
+  /**
+   * ⚡ Combo Shockwave: Gây sát thương lên vật cản ngẫu nhiên khi đạt Combo cao
+   */
+  public damageRandomObstacles(count: number = 1): number {
+    const obstacleCoords: GridPoint[] = [];
+    for (let r = 1; r <= this.rows; r++) {
+      for (let c = 1; c <= this.cols; c++) {
+        const t = this.grid[r][c];
+        if (t && !t.isCleared && (t.modifier === 'stone' || t.modifier === 'thorn' || t.modifier === 'barricade' || t.modifier === 'web')) {
+          obstacleCoords.push({ r, c });
+        }
+      }
+    }
+    if (obstacleCoords.length === 0) return 0;
+    BoardGenerator.shuffleArray(obstacleCoords);
+    const hitCount = Math.min(count, obstacleCoords.length);
+    for (let i = 0; i < hitCount; i++) {
+      this.hitObstacle(obstacleCoords[i].r, obstacleCoords[i].c);
+    }
+    return hitCount;
   }
 
   /**
@@ -1253,6 +1296,19 @@ export class BoardManager {
     this.isProcessingMatch = true;
     this.drawMatchPath(match.path, () => {
       this.processClearedTiles(t1, t2, match.path);
+      // 💣 Bomb radial shockwave: extra blast deals 1 hit to all obstacles within 2 tiles
+      for (let r = 1; r <= this.rows; r++) {
+        for (let c = 1; c <= this.cols; c++) {
+          const d1 = Math.abs(r - t1.r) + Math.abs(c - t1.c);
+          const d2 = Math.abs(r - t2.r) + Math.abs(c - t2.c);
+          if (d1 <= 2 || d2 <= 2) {
+            const ob = this.grid[r][c];
+            if (ob && !ob.isCleared && (ob.modifier === 'stone' || ob.modifier === 'thorn' || ob.modifier === 'barricade' || ob.modifier === 'web')) {
+              this.hitObstacle(r, c);
+            }
+          }
+        }
+      }
     });
 
     return true;

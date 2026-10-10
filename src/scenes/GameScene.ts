@@ -1869,9 +1869,15 @@ export class GameScene extends Phaser.Scene {
     this.audio.playLaserZap();
     this.audio.playMatch(comboData.combo);
 
-    // Tactile haptic feedback
+    // Tactile haptic feedback & Combo shockwave against obstacles
     if (comboData.combo >= 2 || comboData.isFever) {
       this.haptic.combo();
+      if (comboData.combo >= 3) {
+        const damaged = this.boardManager.damageRandomObstacles(1);
+        if (damaged > 0) {
+          this.showNotice?.(`⚡ COMBO x${comboData.combo}! Sóng chấn động làm nứt vật cản!`, 0xffd166);
+        }
+      }
     } else {
       this.haptic.medium();
     }

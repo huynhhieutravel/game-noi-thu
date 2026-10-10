@@ -6,13 +6,18 @@ export interface BoardConfigOptions {
   rows: number;
   cols: number;
   characterPool: string[];
+  levelNumber?: number;
   iceCount?: number;
   stoneCount?: number;
+  stoneLevel?: number;
   lockCount?: number;
   fogCount?: number;
   thornCount?: number;
+  thornLevel?: number;
   webCount?: number;
+  webLevel?: number;
   barricadeCount?: number;
+  barricadeLevel?: number;
 }
 
 export class BoardGenerator {
@@ -122,12 +127,18 @@ export class BoardGenerator {
     }
     this.shuffleArray(innerCoords);
 
+    const defaultObstacleLvl = options.levelNumber ? (options.levelNumber <= 3 ? 1 : options.levelNumber <= 6 ? 2 : 3) : 2;
+    const stoneLvl = options.stoneLevel || defaultObstacleLvl;
+    const thornLvl = options.thornLevel || defaultObstacleLvl;
+    const barricadeLvl = options.barricadeLevel || Math.min(defaultObstacleLvl, 2);
+    const webLvl = options.webLevel || (options.levelNumber && options.levelNumber <= 3 ? 1 : 2);
+
     // Place stone obstacles if any
     let placedStones = 0;
     while (placedStones < stoneCount && innerCoords.length > 0) {
       const coord = innerCoords.pop()!;
       grid[coord.r][coord.c].modifier = 'stone';
-      grid[coord.r][coord.c].modifierLevel = 3; // Cự thạch cấp 3
+      grid[coord.r][coord.c].modifierLevel = stoneLvl;
       grid[coord.r][coord.c].characterId = null;
       grid[coord.r][coord.c].isCleared = false;
       placedStones++;
@@ -157,30 +168,30 @@ export class BoardGenerator {
     }
     this.shuffleArray(activeTiles);
 
-    // Apply Thorn Bramble (3 levels)
+    // Apply Thorn Bramble
     let appliedThorn = 0;
     while (appliedThorn < thornCount && activeTiles.length > 0) {
       const t = activeTiles.pop()!;
       t.modifier = 'thorn';
-      t.modifierLevel = 3;
+      t.modifierLevel = thornLvl;
       appliedThorn++;
     }
 
-    // Apply Spider Web (2 levels)
+    // Apply Spider Web
     let appliedWeb = 0;
     while (appliedWeb < webCount && activeTiles.length > 0) {
       const t = activeTiles.pop()!;
       t.modifier = 'web';
-      t.modifierLevel = 2;
+      t.modifierLevel = webLvl;
       appliedWeb++;
     }
 
-    // Apply Iron Barricade (3 levels)
+    // Apply Iron Barricade
     let appliedBarricade = 0;
     while (appliedBarricade < barricadeCount && activeTiles.length > 0) {
       const t = activeTiles.pop()!;
       t.modifier = 'barricade';
-      t.modifierLevel = 3;
+      t.modifierLevel = barricadeLvl;
       appliedBarricade++;
     }
 
