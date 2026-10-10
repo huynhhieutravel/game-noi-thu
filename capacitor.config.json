@@ -1,0 +1,25 @@
+{
+  "appId": "com.yokai.onet",
+  "appName": "Yokai Onet",
+  "webDir": "dist",
+  "backgroundColor": "#0d0f17",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "launchAutoHide": true,
+      "backgroundColor": "#0d0f17",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP"
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK"
+    },
+    "ScreenOrientation": {
+      "orientation": "landscape"
+    }
+  }
+}

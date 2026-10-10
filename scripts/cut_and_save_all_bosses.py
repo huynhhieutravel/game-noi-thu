@@ -1,0 +1,512 @@
+import os
+import cv2
+import numpy as np
+from PIL import Image
+
+BASE_UPLOAD_DIR = "/Users/huynhtronghieu/.gemini/antigravity-ide/brain/10bcefd0-d8c8-4018-88ba-57dbcff8ce87/.user_uploaded"
+OUTPUT_BOSSES_DIR = "/Users/huynhtronghieu/Documents/game/noi-thu/public/assets/bosses"
+OUTPUT_THEMES_DIR = "/Users/huynhtronghieu/Documents/game/noi-thu/public/assets/themes"
+
+# Map 4 source files
+PHASE_SOURCES = {
+    1: os.path.join(BASE_UPLOAD_DIR, "media_1791506098481.jpg"), # Ancient Myth
+    2: os.path.join(BASE_UPLOAD_DIR, "media_1791506098499.jpg"), # Eastern & Sacred Kingdoms
+    3: os.path.join(BASE_UPLOAD_DIR, "media_1791506098462.jpg"), # Cataclysm Beasts
+    4: os.path.join(BASE_UPLOAD_DIR, "media_1791506098441.jpg"), # Endgame Apocalypse
+}
+
+PHASE_SHEET_NAMES = {
+    1: "phase_01_ancient_myth.jpg",
+    2: "phase_02_eastern_sacred.jpg",
+    3: "phase_03_cataclysm_beasts.jpg",
+    4: "phase_04_endgame_apocalypse.jpg"
+}
+
+# 16 Boss Configs
+BOSS_LIST = [
+    # Phase 1: Ancient Myth
+    {
+        "phase": 1,
+        "slot": 0, # Top-Left
+        "id": "boss_orochi",
+        "theme": "yokai",
+        "name": "Yamata-no-Orochi",
+        "native_name": "八岐大蛇",
+        "title": "Bát Kỳ Thần Xà Cổ Đại",
+        "element": "water",
+        "symbol": "🐉",
+        "max_hp": 400,
+        "parts": 8,
+        "part_name": "Đầu Xà Băng Lôi",
+        "action_interval": 12,
+        "skills": [
+            {"type": "ice_curse", "name": "Hơi Thở Băng Giá", "description": "Đóng băng ngẫu nhiên các ô trên bàn cờ"},
+            {"type": "rock_blocker", "name": "Địa Chấn Vụn Đá", "description": "Tạo đá cản trở đường nối"},
+            {"type": "tile_swap", "name": "Cuồng Phong Bát Quái", "description": "Đảo lộn vị trí các thẻ"}
+        ],
+        "desc": "Rồng thần 8 đầu huyền thoại Nhật Bản uốn lượn uy dũng, mắt đỏ rực như quả thù du chín, sừng tím viền vàng, thở ra băng tuyết ngút ngàn."
+    },
+    {
+        "phase": 1,
+        "slot": 1, # Top-Right
+        "id": "boss_apep_pharaoh",
+        "theme": "egypt",
+        "name": "Apep & Pharaoh Golem",
+        "native_name": "عفيت و الفرعون",
+        "title": "Tử Xà Bóng Đêm & Hộ Vệ Thần",
+        "element": "dark",
+        "symbol": "🏺",
+        "max_hp": 450,
+        "parts": 6,
+        "part_name": "Trụ Sa Thạch Kim Tự Tháp",
+        "action_interval": 13,
+        "skills": [
+            {"type": "sandstorm_blind", "name": "Bão Cát Sa Mạc", "description": "Tạo sương mù bao phủ các góc bàn cờ"},
+            {"type": "petrify_stone", "name": "Lời Nguyền Hóa Đá", "description": "Biến 2 ô linh thú thành đá bất tử"},
+            {"type": "dark_lock", "name": "Xiềng Xích Tử Thần", "description": "Khóa xích các thẻ đang mở"}
+        ],
+        "desc": "Hắc xà bóng đêm cổ đại cuộn quanh Kim Tự Tháp, mang mũ miện Pharaoh Nemes và bọ hung ngọc bích tỏa bão cát sa mạc mịt mù."
+    },
+    {
+        "phase": 1,
+        "slot": 2, # Bottom-Left
+        "id": "boss_typhon_hydra",
+        "theme": "greece",
+        "name": "Typhon & Hydra Lerna",
+        "native_name": "Τυφῶν καὶ Ὕδρα",
+        "title": "Titan Bão Tố & Cửu Đầu Xà",
+        "element": "thunder",
+        "symbol": "🏛️",
+        "max_hp": 480,
+        "parts": 9,
+        "part_name": "Đầu Mãng Xà Độc Dược",
+        "action_interval": 12,
+        "skills": [
+            {"type": "thunder_strike", "name": "Lôi Đình Zeus", "description": "Giật sét làm tê liệt thẻ trong 5 giây"},
+            {"type": "acid_breath", "name": "Nọc Độc Hydra", "description": "Phun nọc ăn mòn thời gian còn lại"},
+            {"type": "whirlwind_shift", "name": "Cơn Lốc Titan", "description": "Dịch chuyển hàng cờ ngẫu nhiên"}
+        ],
+        "desc": "Titan bão tố thân mặc giáp vàng Hy Lạp cầm tia sét Zeus, nửa thân dưới là 9 đầu mãng xà Hydra vảy lục bảo phun sương độc lấp lánh."
+    },
+    {
+        "phase": 1,
+        "slot": 3, # Bottom-Right
+        "id": "boss_chaos_dragon",
+        "theme": "wuxia",
+        "name": "Thái Cổ Hắc Long",
+        "native_name": "太古黑龙·剑阵",
+        "title": "Hắc Long Kiếm Trận Hỗn Độn",
+        "element": "fire",
+        "symbol": "🗡️",
+        "max_hp": 460,
+        "parts": 5,
+        "part_name": "Thái Cổ Bảo Kiếm Luân Hồi",
+        "action_interval": 11,
+        "skills": [
+            {"type": "flying_swords", "name": "Vạn Kiếm Quy Tông", "description": "Phóng kiếm khí chặn đường bẻ góc"},
+            {"type": "taiji_freeze", "name": "Thái Cực Phong Ấn", "description": "Đóng băng âm dương các thẻ đối xứng"},
+            {"type": "dragon_roar", "name": "Long Ngâm Chấn Thiên", "description": "Làm rung lắc bàn cờ và trừ thời gian"}
+        ],
+        "desc": "Thần Long phương Đông đen tuyền uy dũng uốn quanh trận đồ Thái Cực Bát Quái, ngự trị 5 thanh cổ kiếm tỏa kiếm khí rực lửa xé rách hư không."
+    },
+
+    # Phase 2: Eastern & Sacred Kingdoms
+    {
+        "phase": 2,
+        "slot": 0, # Top-Left
+        "id": "boss_imoogi_ascension",
+        "theme": "korea",
+        "name": "Imoogi Thăng Thiên",
+        "native_name": "이무기 승천 (Yeouiju)",
+        "title": "Long Châu Thần Xà Hóa Long",
+        "element": "light",
+        "symbol": "🐯",
+        "max_hp": 450,
+        "parts": 7,
+        "part_name": "Vầng Mây Ngũ Sắc Triều Tiên",
+        "action_interval": 13,
+        "skills": [
+            {"type": "pearl_blessing", "name": "Hào Quang Yeouiju", "description": "Hóa phép ngọc rồng tỏa sáng ảo ảnh"},
+            {"type": "cloud_mist", "name": "Ngũ Sắc Vân Vụ", "description": "Che phủ mây ngũ sắc lên các thẻ biên"},
+            {"type": "celestial_ascend", "name": "Thiên Long Đằng Vân", "description": "Trọng lực đảo chiều lên trên"}
+        ],
+        "desc": "Thần xà Imoogi vảy trắng ngọc đang hóa rồng trời kiêu hãnh, ngậm ngọc rồng Yeouiju cầu vồng rực sáng giữa tầng mây ngũ sắc linh thiêng."
+    },
+    {
+        "phase": 2,
+        "slot": 1, # Top-Right
+        "id": "boss_ravana_asura",
+        "theme": "india",
+        "name": "Asura Mười Đầu Ravana",
+        "native_name": "दशानन रावण",
+        "title": "Chiến Tượng Ma & Vua Mười Đầu",
+        "element": "fire",
+        "symbol": "🐘",
+        "max_hp": 500,
+        "parts": 10,
+        "part_name": "Vương Miện Hồng Ngọc Asura",
+        "action_interval": 11,
+        "skills": [
+            {"type": "ten_head_roar", "name": "Thập Thủ Ma Hống", "description": "Trừ 5 giây và đảo vị trí 4 ô"},
+            {"type": "elephant_quake", "name": "Địa Chấn Chiến Tượng", "description": "Đập nứt sàn tạo ô đá cản đường"},
+            {"type": "flame_chakra", "name": "Hỏa Diệm Luân Xa", "description": "Tạo vòng lửa khóa chặt cặp thẻ đang chọn"}
+        ],
+        "desc": "Vua quỷ Ravana 10 đầu đội 10 vương miện hoàng gia Ấn Độ, 20 cánh tay cầm thần khí cổ xưa cưỡi voi chiến bọc giáp đồng rực lửa hào quang."
+    },
+    {
+        "phase": 2,
+        "slot": 2, # Bottom-Left
+        "id": "boss_barong_naga",
+        "theme": "sea",
+        "name": "Thần Thú Barong & Naga",
+        "native_name": "Barong & Phaya Naga",
+        "title": "Chúa Tể Rừng Thiêng & Thần Xà Đền Đá",
+        "element": "wood",
+        "symbol": "🌴",
+        "max_hp": 470,
+        "parts": 6,
+        "part_name": "Linh Phù Đền Đá Angkor",
+        "action_interval": 12,
+        "skills": [
+            {"type": "forest_vines", "name": "Dây Leo Rừng Thiêng", "description": "Mọc dây leo quấn chặt các ô trung tâm"},
+            {"type": "naga_waters", "name": "Thánh Thủy Naga", "description": "Dạt các thẻ theo dòng nước xoáy"},
+            {"type": "temple_ward", "name": "Hộ Thể Thạch Phù", "description": "Tạo khiên bảo vệ boss trong 6 giây"}
+        ],
+        "desc": "Vua rừng thiêng Barong mặt nạ vàng son lông ngũ sắc cùng Thần Xà Naga 7 đầu ngự trước cổng đền đá cổ kính, triệu hồi dòng nước thiêng gột rửa ma quái."
+    },
+    {
+        "phase": 2,
+        "slot": 3, # Bottom-Right
+        "id": "boss_davy_jones_kraken",
+        "theme": "pirate",
+        "name": "Davy Jones & Cự Quái Kraken",
+        "native_name": "Ghost Captain & Kraken",
+        "title": "Vua Hải Tặc U Linh Biển Sâu",
+        "element": "water",
+        "symbol": "🏴‍☠️",
+        "max_hp": 480,
+        "parts": 8,
+        "part_name": "Xúc Tu Lân Tinh Khổng Lồ",
+        "action_interval": 12,
+        "skills": [
+            {"type": "tentacle_slam", "name": "Xúc Tu Quật Sàn", "description": "Đập nát đường nối và tạo ô trũng"},
+            {"type": "powder_barrel", "name": "Thùng Thuốc Súng Thủy Lôi", "description": "Đặt bom đếm ngược gây nổ bàn cờ"},
+            {"type": "ghost_fog", "name": "Sương Mù Tàu Ma", "description": "Che khuất nửa bàn cờ dưới làn sương xanh"}
+        ],
+        "desc": "Thuyền trưởng Davy Jones râu xúc tu tím, tay càng cua vàng khổng lồ đứng trên mũi xác tàu đắm ngập tràn xúc tu Kraken ma quái cuộn sóng biển sâu."
+    },
+
+    # Phase 3: Cataclysm Beasts
+    {
+        "phase": 3,
+        "slot": 0, # Top-Left
+        "id": "boss_leviathan_atlantis",
+        "theme": "underwater",
+        "name": "Leviathan Vua Atlantis",
+        "native_name": "Leviathan of Atlantis",
+        "title": "Thần Thú Cá Voi Rồng Biển Sâu",
+        "element": "water",
+        "symbol": "🌊",
+        "max_hp": 500,
+        "parts": 6,
+        "part_name": "Vây Ngư Lôi Ngọc Trai",
+        "action_interval": 13,
+        "skills": [
+            {"type": "tidal_surge", "name": "Sóng Thần Atlantis", "description": "Đẩy dồn toàn bộ ô cờ dạt sang một bên"},
+            {"type": "abyssal_bubble", "name": "Bong Bóng Thủy Áp", "description": "Nhốt thẻ vào bong bóng cần 2 lần click"},
+            {"type": "luminescence_flash", "name": "Lân Tinh Hải Đăng", "description": "Chớp lóa làm xáo trộn trí nhớ vị trí"}
+        ],
+        "desc": "Cá voi rồng khổng lồ phát quang xanh lam ngọc bích, đội vương miện san hô vàng Atlantis, bơi lội giữa bọt sóng ma thuật và vòng xoáy đại dương."
+    },
+    {
+        "phase": 3,
+        "slot": 1, # Top-Right
+        "id": "boss_magma_trex",
+        "theme": "dinosaur",
+        "name": "Bạo Chúa Nham Thạch Magma T-Rex",
+        "native_name": "Apex Magma Tyrannosaurus",
+        "title": "Bạo Chúa Núi Lửa Tiền Sử",
+        "element": "fire",
+        "symbol": "🦖",
+        "max_hp": 520,
+        "parts": 5,
+        "part_name": "Lõi Nham Thạch Hắc Diện Thạch",
+        "action_interval": 11,
+        "skills": [
+            {"type": "volcanic_eruption", "name": "Phun Trào Núi Lửa", "description": "Mưa đá lửa biến ô trống thành dung nham"},
+            {"type": "trex_stomp", "name": "Đại Địa Chấn T-Rex", "description": "Làm xáo trộn vị trí các thẻ liền kề"},
+            {"type": "magma_armor", "name": "Giáp Đá Nóng Chảy", "description": "Giảm sát thương nhận vào 50% trong 5 giây"}
+        ],
+        "desc": "T-Rex vảy đá obsidian nứt toác cuồn cuộn dung nham đỏ cam, gai lưng phun cột khói tàn tro lửa, há ngoạm hàm răng sắc nhọn gầm vang rúng động đất trời."
+    },
+    {
+        "phase": 3,
+        "slot": 2, # Bottom-Left
+        "id": "boss_king_slime_behemoth",
+        "theme": "monster",
+        "name": "Vua Slime Hoàng Gia & Behemoth",
+        "native_name": "Royal King Slime & Behemoth",
+        "title": "Đại Hoàng Đế Slime Hắc Ngọc",
+        "element": "magic",
+        "symbol": "👾",
+        "max_hp": 480,
+        "parts": 8,
+        "part_name": "Kim Cương Vương Miện Tím",
+        "action_interval": 12,
+        "skills": [
+            {"type": "slime_split", "name": "Phân Bào Slime Nhí", "description": "Tạo ra các slime con cản trở đường nối"},
+            {"type": "sticky_mucus", "name": "Chất Nhờn Dính Nháp", "description": "Làm chậm tốc độ thao tác và bẫy click"},
+            {"type": "crown_jewel_blast", "name": "Bảo Thạch Quang Tuyến", "description": "Bắn tia laser đổi ngẫu nhiên 3 cặp thẻ"}
+        ],
+        "desc": "Khối thạch khổng lồ tím hồng óng ánh đội vương miện vàng nạm kim cương, trong bụng chứa rương kho báu vàng nổi và những bé slime mini tung tăng nhào lộn."
+    },
+    {
+        "phase": 3,
+        "slot": 3, # Bottom-Right
+        "id": "boss_dragon_emperor_ignis",
+        "theme": "fantasy",
+        "name": "Cổ Long Hoàng Đế Ignis",
+        "native_name": "Dragon Emperor Ignis",
+        "title": "Cổ Long Lửa Hoàng Gia Vàng Ròng",
+        "element": "fire",
+        "symbol": "🏰",
+        "max_hp": 520,
+        "parts": 7,
+        "part_name": "Long Lân Hoàng Kim Cổ Ngữ",
+        "action_interval": 11,
+        "skills": [
+            {"type": "inferno_breath", "name": "Hơi Thở Rồng Lửa", "description": "Thiêu đốt 10 giây trên đồng hồ đếm ngược"},
+            {"type": "gold_hoard_shield", "name": "Kim Sơn Hộ Giáp", "description": "Chuyển hóa 4 ô thành rương vàng phải phá"},
+            {"type": "wing_tempest", "name": "Long Dực Phong Bạo", "description": "Thổi bay các ô cờ dạt về hai phía"}
+        ],
+        "desc": "Rồng lửa phương Tây quý tộc với cánh đỏ rực viền vàng, sừng rồng mạ vàng khắc cổ ngữ runic, tọa lạc kiêu hãnh trên núi tiền vàng châu báu lấp lánh."
+    },
+
+    # Phase 4: Endgame Apocalypse
+    {
+        "phase": 4,
+        "slot": 0, # Top-Left
+        "id": "boss_singularity_void_dragon",
+        "theme": "space",
+        "name": "Rồng Hố Đen Singularity",
+        "native_name": "Singularity Void Dragon",
+        "title": "Chúa Tể Không Gian Tinh Vân",
+        "element": "space",
+        "symbol": "🚀",
+        "max_hp": 550,
+        "parts": 8,
+        "part_name": "Vệ Tinh Tinh Cầu Thiên Hà",
+        "action_interval": 10,
+        "skills": [
+            {"type": "event_horizon", "name": "Hút Hố Đen Vũ Trụ", "description": "Hút các thẻ rơi vào tâm điểm ma trận"},
+            {"type": "gravity_warp", "name": "Bẻ Cong Không Gian", "description": "Đảo ngược mọi hướng trọng lực hiện tại"},
+            {"type": "supernova_flash", "name": "Siêu Tân Tinh Bùng Nổ", "description": "Làm tối màn hình tạm thời trong 3 giây"}
+        ],
+        "desc": "Rồng không gian cấu tạo từ tinh vân tím và bụi sao neon lấp lánh, ngực là lỗ đen vũ trụ chân không xoay tròn bao quanh bởi các hành tinh mini phát sáng."
+    },
+    {
+        "phase": 4,
+        "slot": 1, # Top-Right
+        "id": "boss_omega_mecha_colossus",
+        "theme": "robot",
+        "name": "Cỗ Máy Tối Thượng Omega Colossus",
+        "native_name": "Omega Prime Mecha Colossus",
+        "title": "Bá Chủ Công Xưởng Cơ Giới",
+        "element": "metal",
+        "symbol": "🤖",
+        "max_hp": 540,
+        "parts": 6,
+        "part_name": "Lõi Năng Lượng Plasma",
+        "action_interval": 11,
+        "skills": [
+            {"type": "plasma_cannon", "name": "Đại Pháo Plasma Hạt Nhân", "description": "Bắn nổ một hàng cờ tạo thành khoảng trống"},
+            {"type": "emp_shockwave", "name": "Sóng Xung Kích EMP", "description": "Khóa toàn bộ kỹ năng trợ giúp (Hint/Bomb/Shuffle)"},
+            {"type": "factory_reboot", "name": "Khởi Động Lại Hệ Thống", "description": "Hồi phục 30 HP nếu không bị đánh trúng trong 5s"}
+        ],
+        "desc": "Robot khổng lồ titan vàng vằn đen công nghiệp nặng, vai gắn đại pháo plasma phát sáng cyan neon, ngực lò phản ứng bánh răng và kìm thủy lực kẹp tia lửa điện."
+    },
+    {
+        "phase": 4,
+        "slot": 2, # Bottom-Left
+        "id": "boss_primal_white_wolf",
+        "theme": "animal",
+        "name": "Đại Bạch Lang Fenrir Vua Muôn Thú",
+        "native_name": "Primal Guardian White Wolf Fenrir",
+        "title": "Vua Muôn Thú & Sói Bão Tuyết",
+        "element": "ice",
+        "symbol": "🐾",
+        "max_hp": 500,
+        "parts": 6,
+        "part_name": "Linh Ấn Cổ Ngữ Bốn Mùa",
+        "action_interval": 12,
+        "skills": [
+            {"type": "blizzard_howl", "name": "Tiếng Hú Bão Tuyết", "description": "Đóng băng toàn bộ hàng cờ trên cùng"},
+            {"type": "pack_call", "name": "Triệu Hồi Bầy Sói Tuyết", "description": "Cướp đi các thẻ chìa khóa trên bàn"},
+            {"type": "seasonal_wind", "name": "Gió Lốc Bốn Mùa", "description": "Thổi bay các ô sương mù đảo lộn vị trí"}
+        ],
+        "desc": "Thần sói tuyết trắng muốt lông bồng bềnh, bờm vàng óng ánh ánh mặt trời, đeo chuông vàng và phù ấn cổ ngữ runic bốn mùa, chân đạp gió tuyết uy dũng linh thiêng."
+    },
+    {
+        "phase": 4,
+        "slot": 3, # Bottom-Right
+        "id": "boss_yggdrasil_tree_king",
+        "theme": "plant",
+        "name": "Cổ Thụ Thế Giới Yggdrasil & Hỏa Liên",
+        "native_name": "World Tree Emperor & Sunflare Lotus",
+        "title": "Hoàng Đế Sinh Mệnh Cổ Thụ & Đại Hỏa Liên",
+        "element": "plant",
+        "symbol": "🌱",
+        "max_hp": 530,
+        "parts": 8,
+        "part_name": "Đại Hỏa Liên Thần Thoại",
+        "action_interval": 11,
+        "skills": [
+            {"type": "root_strangle", "name": "Rễ Cây Địa Ngục", "description": "Mọc rễ đá khóa cứng 3 ô ngẫu nhiên"},
+            {"type": "spore_haze", "name": "Phấn Hoa Mê Hoặc", "description": "Làm mờ tất cả biểu tượng thẻ trong 4 giây"},
+            {"type": "solar_flare", "name": "Hỏa Liên Bùng Cháy", "description": "Phóng quả cầu lửa đốt thời gian gấp bội"}
+        ],
+        "desc": "Cổ thụ ngàn năm khắc phù điêu ngọc bích rực rỡ, trên ngọn nở bung đóa Đại Hỏa Liên thần thoại đa sắc với nhụy ngọc lửa rực rỡ và đom đóm thần tiên bao quanh."
+    }
+]
+
+def main():
+    os.makedirs(OUTPUT_BOSSES_DIR, exist_ok=True)
+    os.makedirs(os.path.join(OUTPUT_BOSSES_DIR, "sheets"), exist_ok=True)
+
+    # 1. Save copies of the 4 full phase sheets
+    for phase_num, src_path in PHASE_SOURCES.items():
+        sheet_dest = os.path.join(OUTPUT_BOSSES_DIR, "sheets", PHASE_SHEET_NAMES[phase_num])
+        img = Image.open(src_path)
+        img.save(sheet_dest, quality=95)
+        print(f"Saved phase sheet: {sheet_dest}")
+
+    # 2. Process each boss
+    # Slot coordinates in 2x2 grid (1024x1024 total)
+    # slot 0: (0, 0, 512, 512)
+    # slot 1: (512, 0, 1024, 512)
+    # slot 2: (0, 512, 512, 1024)
+    # slot 3: (512, 512, 1024, 1024)
+    slot_coords = {
+        0: (0, 0, 512, 512),
+        1: (512, 0, 1024, 512),
+        2: (0, 512, 512, 1024),
+        3: (512, 512, 1024, 1024)
+    }
+
+    cropped_bosses_preview = []
+
+    for b in BOSS_LIST:
+        phase_num = b["phase"]
+        src_path = PHASE_SOURCES[phase_num]
+        slot = b["slot"]
+        gx1, gy1, gx2, gy2 = slot_coords[slot]
+
+        # Load OpenCV and PIL
+        im_cv_full = cv2.imread(src_path)
+        sub_cv = im_cv_full[gy1:gy2, gx1:gx2].astype(np.float32)
+
+        # Calculate bounding box of character within this quadrant
+        val = np.max(sub_cv, axis=2)
+        binary = (val > 15).astype(np.uint8) * 255
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary)
+
+        min_x, min_y, max_x, max_y = 512, 512, 0, 0
+        valid_labels = []
+
+        # Find significant components
+        for label_id in range(1, num_labels):
+            area = stats[label_id, cv2.CC_STAT_AREA]
+            if area > 100: # Filter tiny noise
+                valid_labels.append(label_id)
+                x = stats[label_id, cv2.CC_STAT_LEFT]
+                y = stats[label_id, cv2.CC_STAT_TOP]
+                w = stats[label_id, cv2.CC_STAT_WIDTH]
+                h = stats[label_id, cv2.CC_STAT_HEIGHT]
+                min_x = min(min_x, x)
+                min_y = min(min_y, y)
+                max_x = max(max_x, x + w)
+                max_y = max(max_y, y + h)
+
+        if max_x <= min_x or max_y <= min_y:
+            min_x, min_y, max_x, max_y = 0, 0, 512, 512
+
+        pad = 8
+        min_x = max(0, min_x - pad)
+        min_y = max(0, min_y - pad)
+        max_x = min(512, max_x + pad)
+        max_y = min(512, max_y + pad)
+
+        cropped_region = sub_cv[min_y:max_y, min_x:max_x]
+        cropped_labels = labels[min_y:max_y, min_x:max_x]
+        in_mask = np.isin(cropped_labels, valid_labels)
+
+        # Anti-aliased alpha threshold ramp
+        sub_val = np.max(cropped_region, axis=2)
+        alpha = np.zeros_like(sub_val)
+        mask_mid = (sub_val > 4) & (sub_val <= 32) & in_mask
+        mask_high = (sub_val > 32) & in_mask
+        alpha[mask_mid] = (sub_val[mask_mid] - 4) / 28.0
+        alpha[mask_high] = 1.0
+
+        # Un-premultiply BGR by alpha to avoid black fringes
+        bgr = cropped_region.copy()
+        alpha_safe = np.maximum(alpha, 0.05)[:, :, np.newaxis]
+        bgr = np.clip(bgr / alpha_safe, 0, 255)
+
+        rgb = cv2.cvtColor(bgr.astype(np.uint8), cv2.COLOR_BGR2RGB)
+        rgba = np.dstack([rgb, (alpha * 255).astype(np.uint8)])
+        char_img = Image.fromarray(rgba)
+
+        # Square and center
+        cw, ch = char_img.size
+        sq_size = max(cw, ch) + 16
+        square_canvas = Image.new("RGBA", (sq_size, sq_size), (0, 0, 0, 0))
+        offset_x = (sq_size - cw) // 2
+        offset_y = (sq_size - ch) // 2
+        square_canvas.paste(char_img, (offset_x, offset_y), char_img)
+
+        # Resize to standard high-res 512x512
+        final_img = square_canvas.resize((512, 512), Image.Resampling.LANCZOS)
+
+        # 3. Save to public/assets/bosses/{id}.png
+        boss_dest = os.path.join(OUTPUT_BOSSES_DIR, f"{b['id']}.png")
+        final_img.save(boss_dest, "PNG")
+
+        # 4. Save to theme specific folder: public/assets/themes/{theme}/boss/{id}.png
+        theme_boss_dir = os.path.join(OUTPUT_THEMES_DIR, b["theme"], "boss")
+        os.makedirs(theme_boss_dir, exist_ok=True)
+        theme_boss_dest = os.path.join(theme_boss_dir, f"{b['id']}.png")
+        final_img.save(theme_boss_dest, "PNG")
+
+        # Also save as boss.png inside theme boss dir for generic binding
+        generic_theme_dest = os.path.join(theme_boss_dir, "boss.png")
+        final_img.save(generic_theme_dest, "PNG")
+
+        # Special case for yokai backwards compatibility
+        if b["theme"] == "yokai":
+            yokai_compat1 = "/Users/huynhtronghieu/Documents/game/noi-thu/public/assets/characters/yamata_no_orochi_boss.png"
+            final_img.save(yokai_compat1, "PNG")
+            yokai_compat2 = "/Users/huynhtronghieu/Documents/game/noi-thu/public/assets/themes/yokai/characters/chapter_12_bosses/yamata_no_orochi_boss.png"
+            os.makedirs(os.path.dirname(yokai_compat2), exist_ok=True)
+            final_img.save(yokai_compat2, "PNG")
+
+        print(f"✓ Saved Boss [{b['theme']}] {b['name']} -> {boss_dest}")
+        cropped_bosses_preview.append((b, final_img))
+
+    # 4. Create composite 4x4 preview image (2048x2048) of all 16 bosses
+    preview_canvas = Image.new("RGBA", (2048, 2048), (15, 17, 26, 255))
+    tile_w, tile_h = 512, 512
+
+    for idx, (b_meta, b_img) in enumerate(cropped_bosses_preview):
+        row = idx // 4
+        col = idx % 4
+        px = col * tile_w
+        py = row * tile_h
+        preview_canvas.paste(b_img, (px, py), b_img)
+
+    preview_dest = "/Users/huynhtronghieu/.gemini/antigravity-ide/brain/10bcefd0-d8c8-4018-88ba-57dbcff8ce87/preview_all_16_bosses.png"
+    preview_canvas.save(preview_dest, "PNG")
+    print(f"\n★ Composite preview of all 16 bosses saved to: {preview_dest}")
+
+if __name__ == "__main__":
+    main()

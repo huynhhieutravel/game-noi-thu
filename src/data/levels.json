@@ -1,0 +1,379 @@
+[
+  {
+    "id": "level_01",
+    "levelNumber": 1,
+    "worldId": "yokai",
+    "title": "Màn 1: Tĩnh Lặng Cổ Điển",
+    "rows": 4,
+    "columns": 6,
+    "characterPool": [
+      "kasa_obake",
+      "nurikabe",
+      "fukurokuju",
+      "aka_oni",
+      "azuki_arai",
+      "konaki_jiji"
+    ],
+    "timeLimit": 90,
+    "movement": "none",
+    "modifiers": {},
+    "rewards": {
+      "coins": 150,
+      "stars": 3,
+      "unlockCharacterId": "kasa_obake"
+    }
+  },
+  {
+    "id": "level_02",
+    "levelNumber": 2,
+    "worldId": "yokai",
+    "title": "Màn 2: Trọng Lực Đáy (Mạng Nhện Sơ Khai)",
+    "rows": 6,
+    "columns": 8,
+    "characterPool": [
+      "kasa_obake",
+      "nurikabe",
+      "fukurokuju",
+      "aka_oni",
+      "sunakake_baba",
+      "zashiki_warashi",
+      "keukegen",
+      "umibozu"
+    ],
+    "timeLimit": 120,
+    "movement": "down",
+    "modifiers": {
+      "webCount": 2
+    },
+    "rewards": {
+      "coins": 180,
+      "stars": 3,
+      "unlockCharacterId": "nurikabe"
+    }
+  },
+  {
+    "id": "level_03",
+    "levelNumber": 3,
+    "worldId": "yokai",
+    "title": "Màn 3: Khinh Khí Đỉnh (Thạch Trận Ngăn Lối)",
+    "rows": 6,
+    "columns": 8,
+    "characterPool": [
+      "kasa_obake",
+      "nurikabe",
+      "fukurokuju",
+      "aka_oni",
+      "keukegen",
+      "umibozu",
+      "funayurei",
+      "samebito"
+    ],
+    "timeLimit": 125,
+    "movement": "up",
+    "modifiers": {
+      "stoneCount": 2
+    },
+    "rewards": {
+      "coins": 220,
+      "stars": 3,
+      "unlockCharacterId": "fukurokuju"
+    }
+  },
+  {
+    "id": "level_04",
+    "levelNumber": 4,
+    "worldId": "yokai",
+    "title": "Màn 4: Thủy Triều Trái (Bụi Gai Cổ Thụ)",
+    "rows": 6,
+    "columns": 8,
+    "characterPool": [
+      "kasa_obake",
+      "nurikabe",
+      "aka_oni",
+      "umibozu",
+      "same_ronin",
+      "ningyo",
+      "sazae_oni",
+      "suiryu"
+    ],
+    "timeLimit": 135,
+    "movement": "left",
+    "modifiers": {
+      "thornCount": 2,
+      "iceCount": 2
+    },
+    "rewards": {
+      "coins": 260,
+      "stars": 3,
+      "unlockCharacterId": "aka_oni"
+    }
+  },
+  {
+    "id": "level_05",
+    "levelNumber": 5,
+    "worldId": "yokai",
+    "title": "Màn 5: Phong Vân Phải (Song Sắt Thiết Ngục)",
+    "rows": 6,
+    "columns": 8,
+    "characterPool": [
+      "nurikabe",
+      "fukurokuju",
+      "umibozu",
+      "same_ronin",
+      "ningyo",
+      "tako_hachimaki",
+      "suiryu",
+      "namazu"
+    ],
+    "timeLimit": 135,
+    "movement": "right",
+    "modifiers": {
+      "barricadeCount": 2,
+      "stoneCount": 2
+    },
+    "rewards": {
+      "coins": 300,
+      "stars": 3,
+      "unlockCharacterId": "umibozu"
+    }
+  },
+  {
+    "id": "level_06",
+    "levelNumber": 6,
+    "worldId": "yokai",
+    "title": "Màn 6: Hợp Tung Ngang (Hỗn Chiến Gai & Nhện)",
+    "rows": 6,
+    "columns": 10,
+    "characterPool": [
+      "kasa_obake",
+      "nurikabe",
+      "aka_oni",
+      "umibozu",
+      "same_ronin",
+      "ningyo",
+      "suiryu",
+      "namazu",
+      "jorogumo",
+      "tsuchigumo"
+    ],
+    "timeLimit": 150,
+    "movement": "center_row",
+    "modifiers": {
+      "thornCount": 2,
+      "webCount": 2,
+      "stoneCount": 2
+    },
+    "rewards": {
+      "coins": 350,
+      "stars": 3,
+      "unlockCharacterId": "same_ronin"
+    }
+  },
+  {
+    "id": "level_07",
+    "levelNumber": 7,
+    "worldId": "yokai",
+    "title": "Màn 7: Quy Tụ Dọc (Thiết Ngục & Mạng Nhện)",
+    "rows": 6,
+    "columns": 10,
+    "characterPool": [
+      "fukurokuju",
+      "sunakake_baba",
+      "umibozu",
+      "same_ronin",
+      "ningyo",
+      "suiryu",
+      "jorogumo",
+      "yuki_onna",
+      "ungaikyo",
+      "bakezori"
+    ],
+    "timeLimit": 155,
+    "movement": "center_col",
+    "modifiers": {
+      "barricadeCount": 2,
+      "webCount": 2,
+      "iceCount": 2
+    },
+    "rewards": {
+      "coins": 400,
+      "stars": 3,
+      "unlockCharacterId": "ningyo"
+    }
+  },
+  {
+    "id": "level_08",
+    "levelNumber": 8,
+    "worldId": "yokai",
+    "title": "Màn 8: Phân Ly Dọc (Tứ Trụ Thạch Trận)",
+    "rows": 8,
+    "columns": 10,
+    "characterPool": [
+      "kasa_obake",
+      "nurikabe",
+      "aka_oni",
+      "umibozu",
+      "same_ronin",
+      "suiryu",
+      "jorogumo",
+      "yuki_onna",
+      "kuchisake_onna",
+      "hanako_san"
+    ],
+    "timeLimit": 175,
+    "movement": "split_vertical",
+    "modifiers": {
+      "stoneCount": 4,
+      "thornCount": 2
+    },
+    "rewards": {
+      "coins": 480,
+      "stars": 3,
+      "unlockCharacterId": "suiryu"
+    }
+  },
+  {
+    "id": "level_09",
+    "levelNumber": 9,
+    "worldId": "yokai",
+    "title": "Màn 9: Phân Ly Ngang (Hàn Băng & Thiết Ngục)",
+    "rows": 8,
+    "columns": 10,
+    "characterPool": [
+      "umibozu",
+      "same_ronin",
+      "ningyo",
+      "suiryu",
+      "jorogumo",
+      "yuki_onna",
+      "tengu_peeker",
+      "karasu_hime",
+      "karasu_purple",
+      "shuten_doji"
+    ],
+    "timeLimit": 185,
+    "movement": "split_horizontal",
+    "modifiers": {
+      "barricadeCount": 2,
+      "thornCount": 2,
+      "iceCount": 4
+    },
+    "rewards": {
+      "coins": 550,
+      "stars": 3,
+      "unlockCharacterId": "jorogumo"
+    }
+  },
+  {
+    "id": "level_10",
+    "levelNumber": 10,
+    "worldId": "yokai",
+    "title": "Màn 10: Trảm Xà Thần Yamata-no-Orochi (八岐大蛇)",
+    "rows": 8,
+    "columns": 10,
+    "characterPool": [
+      "kasa_obake",
+      "nurikabe",
+      "aka_oni",
+      "umibozu",
+      "same_ronin",
+      "suiryu",
+      "jorogumo",
+      "yuki_onna",
+      "tengu_peeker",
+      "kyuubi_kitsune"
+    ],
+    "timeLimit": 210,
+    "movement": "chaos",
+    "modifiers": {
+      "stoneCount": 2,
+      "thornCount": 2,
+      "barricadeCount": 2
+    },
+    "boss": {
+      "id": "orochi_boss",
+      "name": "Yamata-no-Orochi",
+      "japaneseName": "八岐大蛇",
+      "maxHp": 400,
+      "actionIntervalSeconds": 12,
+      "headsOrParts": 8,
+      "skills": [
+        {
+          "type": "ice_curse",
+          "name": "Hơi Thở Băng Giá",
+          "description": "Đóng băng 2 tile ngẫu nhiên"
+        },
+        {
+          "type": "rock_blocker",
+          "name": "Địa Chấn Vụn Đá",
+          "description": "Tạo đá cản đường"
+        },
+        {
+          "type": "tile_swap",
+          "name": "Cuồng Phong Bát Quái",
+          "description": "Đảo vị trí ngẫu nhiên"
+        }
+      ]
+    },
+    "rewards": {
+      "coins": 1000,
+      "stars": 3,
+      "unlockCharacterId": "kyuubi_kitsune"
+    }
+  },
+  {
+    "id": "level_30",
+    "levelNumber": 30,
+    "worldId": "yokai",
+    "title": "Trận Chiến Thần Xà: Yamata-no-Orochi",
+    "rows": 8,
+    "columns": 12,
+    "characterPool": [
+      "kasa_obake",
+      "nurikabe",
+      "aka_oni",
+      "umibozu",
+      "same_ronin",
+      "ningyo",
+      "suiryu",
+      "jorogumo",
+      "yuki_onna",
+      "kuchisake_onna"
+    ],
+    "timeLimit": 220,
+    "movement": "none",
+    "modifiers": {
+      "iceCount": 4
+    },
+    "boss": {
+      "id": "orochi_boss",
+      "name": "Yamata-no-Orochi",
+      "japaneseName": "八岐大蛇",
+      "maxHp": 300,
+      "actionIntervalSeconds": 15,
+      "headsOrParts": 8,
+      "skills": [
+        {
+          "type": "ice_curse",
+          "name": "Hơi Thở Băng Giá",
+          "description": "Đóng băng 2 tile ngẫu nhiên"
+        },
+        {
+          "type": "rock_blocker",
+          "name": "Địa Chấn Vụn Đá",
+          "description": "Tạo đá cản đường"
+        },
+        {
+          "type": "tile_swap",
+          "name": "Cuồng Phong Bát Quái",
+          "description": "Đảo vị trí ngẫu nhiên"
+        }
+      ]
+    },
+    "rewards": {
+      "coins": 1000,
+      "stars": 3,
+      "unlockCharacterId": "suiryu"
+    }
+  }
+]

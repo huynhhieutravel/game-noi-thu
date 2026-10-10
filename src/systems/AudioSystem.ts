@@ -1,0 +1,606 @@
+export class AudioSystem {
+  private static instance: AudioSystem;
+  private ctx: AudioContext | null = null;
+  private isEnabled: boolean = true;
+  private isBgmPlaying: boolean = false;
+  private bgmIntervalId: number | null = null;
+  private bgmMasterGain: GainNode | null = null;
+
+  private constructor() {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('yokai_audio_enabled');
+      if (saved !== null) {
+        this.isEnabled = saved === 'true';
+      }
+    }
+
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const resumeAudio = () => {
+        if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx as any).state === 'interrupted')) {
+          this.ctx.resume().catch(() => {});
+        }
+      };
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          resumeAudio();
+        }
+      });
+      window.addEventListener('pageshow', resumeAudio);
+      window.addEventListener('focus', resumeAudio);
+
+      const unlockAudio = () => {
+        this.initContext();
+        window.removeEventListener('pointerdown', unlockAudio);
+        window.removeEventListener('touchstart', unlockAudio);
+      };
+      window.addEventListener('pointerdown', unlockAudio, { passive: true });
+      window.addEventListener('touchstart', unlockAudio, { passive: true });
+    }
+  }
+
+  public static getInstance(): AudioSystem {
+    if (!AudioSystem.instance) {
+      AudioSystem.instance = new AudioSystem();
+    }
+    return AudioSystem.instance;
+  }
+
+  private initContext(): void {
+    if (!this.ctx && typeof window !== 'undefined') {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        this.ctx = new AudioCtx();
+      }
+    }
+    if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx as any).state === 'interrupted')) {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
+  public setEnabled(enabled: boolean): void {
+    this.isEnabled = enabled;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('yokai_audio_enabled', String(enabled));
+    }
+    if (!enabled) {
+      this.stopBGM();
+    } else {
+      this.startBGM();
+    }
+  }
+
+  public toggle(): boolean {
+    this.setEnabled(!this.isEnabled);
+    return this.isEnabled;
+  }
+
+  public getEnabled(): boolean {
+    return this.isEnabled;
+  }
+
+  /**
+   * Start Ambient Traditional Japanese Koto Background Music (Zen BGM)
+   */
+  public startBGM(): void {
+    if (!this.isEnabled || this.isBgmPlaying) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    this.isBgmPlaying = true;
+
+    // Hirajoshi Pentatonic Scale frequencies (A minor: A, Bb, D, E, F)
+    const hirajoshiScale = [
+      220.00, // A3
+      233.08, // Bb3
+      293.66, // D4
+      329.63, // E4
+      349.23, // F4
+      440.00, // A4
+      466.16, // Bb4
+      587.33, // D5
+      659.25, // E5
+      698.46  // F5
+    ];
+
+    // Traditional melodic motives
+    const melodyPatterns = [
+      [0, 2, 3, 4, 3, 2],
+      [5, 4, 3, 2, 0],
+      [2, 3, 5, 7, 6, 5],
+      [7, 8, 7, 5, 4, 3, 2],
+      [3, 2, 0, 1, 0]
+    ];
+
+    let patternIdx = 0;
+    let noteInPattern = 0;
+
+    const playNextKotoNote = () => {
+      if (!this.isBgmPlaying || !this.ctx || !this.isEnabled) return;
+      if (this.isNightParadeMusicPlaying) {
+        this.bgmIntervalId = window.setTimeout(playNextKotoNote, 600);
+        return;
+      }
+
+      const currentPattern = melodyPatterns[patternIdx];
+      const scaleIdx = currentPattern[noteInPattern];
+      const freq = hirajoshiScale[scaleIdx % hirajoshiScale.length];
+
+      this.playKotoNote(freq);
+
+      noteInPattern++;
+      if (noteInPattern >= currentPattern.length) {
+        noteInPattern = 0;
+        patternIdx = (patternIdx + 1) % melodyPatterns.length;
+        // Pause between phrases (tranquil breathing space)
+        this.bgmIntervalId = window.setTimeout(playNextKotoNote, 1400);
+      } else {
+        // Subtle rhythmic variation (organic timing)
+        const delay = 480 + (noteInPattern % 2 === 0 ? 120 : 0);
+        this.bgmIntervalId = window.setTimeout(playNextKotoNote, delay);
+      }
+    };
+
+    // Kick off first phrase
+    this.bgmIntervalId = window.setTimeout(playNextKotoNote, 600);
+  }
+
+  /**
+   * Stop Ambient BGM
+   */
+  public stopBGM(): void {
+    this.isBgmPlaying = false;
+    this.stopNightParadeMusic();
+    if (this.bgmIntervalId !== null) {
+      clearTimeout(this.bgmIntervalId);
+      this.bgmIntervalId = null;
+    }
+  }
+
+  /**
+   * Synthesize a warm, resonant Japanese Koto string pluck with lowpass body filter
+   */
+  private playKotoNote(freq: number): void {
+    if (!this.ctx || !this.isEnabled) return;
+    const now = this.ctx.currentTime;
+
+    // 1. Dual Oscillators for wooden string resonance
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    osc1.type = 'triangle';
+    osc2.type = 'sine';
+    osc1.frequency.setValueAtTime(freq, now);
+    osc2.frequency.setValueAtTime(freq * 2.01, now); // slight detune harmonic
+
+    // 2. Body Resonant Filter (simulating Koto hollow Paulownia wood)
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(freq * 3.5, now);
+    filter.frequency.exponentialRampToValueAtTime(freq * 0.8, now + 1.2);
+    filter.Q.setValueAtTime(2.2, now);
+
+    // 3. String pluck envelope (sharp attack, exponential release)
+    const gain = this.ctx.createGain();
+    const baseVolume = 0.055; // gentle ambient background level
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(baseVolume, now + 0.006);
+    gain.gain.exponentialRampToValueAtTime(baseVolume * 0.35, now + 0.35);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 1.8);
+    osc2.stop(now + 1.8);
+  }
+
+  /**
+   * Crisp bamboo / wooden tap when selecting a tile
+   */
+  public playSelect(): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(420, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.08);
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.08);
+  }
+
+  /**
+   * Sparkling pop chime with ascending pitch according to combo count
+   */
+  public playMatch(combo: number = 1): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    // Japanese pentatonic scale base frequencies
+    const pentatonicScale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51];
+    const noteIdx = Math.min(combo - 1, pentatonicScale.length - 1);
+    const baseFreq = pentatonicScale[Math.max(0, noteIdx)];
+
+    const now = this.ctx.currentTime;
+
+    // Primary bell tone
+    const osc1 = this.ctx.createOscillator();
+    const gain1 = this.ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(baseFreq, now);
+    osc1.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.15);
+
+    gain1.gain.setValueAtTime(0.22, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    osc1.connect(gain1);
+    gain1.connect(this.ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.22);
+
+    // Harmonic sparkle
+    const osc2 = this.ctx.createOscillator();
+    const gain2 = this.ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(baseFreq * 2, now + 0.04);
+    osc2.frequency.exponentialRampToValueAtTime(baseFreq * 2.5, now + 0.2);
+
+    gain2.gain.setValueAtTime(0.12, now + 0.04);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+    osc2.connect(gain2);
+    gain2.connect(this.ctx.destination);
+    osc2.start(now + 0.04);
+    osc2.stop(now + 0.25);
+  }
+
+  /**
+   * Error shake sound (dull wooden clack)
+   */
+  public playError(): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.linearRampToValueAtTime(80, now + 0.12);
+
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.12);
+  }
+
+  /**
+   * Energetic FEVER mode fanfare arpeggio
+   */
+  public playFever(): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const notes = [659.25, 783.99, 880.0, 1046.5, 1318.51];
+    notes.forEach((freq, idx) => {
+      if (!this.ctx) return;
+      const startTime = this.ctx.currentTime + idx * 0.06;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(0.2, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.35);
+    });
+  }
+
+  /**
+   * Deep Taiko Drum resonant impact for Boss attack/hit
+   */
+  public playBossHit(): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+
+    // Sub-bass Taiko thump
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(35, now + 0.4);
+
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.4);
+
+    // Metallic slash accent
+    const slash = this.ctx.createOscillator();
+    const slashGain = this.ctx.createGain();
+    slash.type = 'sawtooth';
+    slash.frequency.setValueAtTime(800, now);
+    slash.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+
+    slashGain.gain.setValueAtTime(0.18, now);
+    slashGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    slash.connect(slashGain);
+    slashGain.connect(this.ctx.destination);
+    slash.start(now);
+    slash.stop(now + 0.15);
+  }
+
+  /**
+   * Booster / Shuffle swoosh
+   */
+  public playShuffle(): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, now);
+    osc.frequency.exponentialRampToValueAtTime(900, now + 0.2);
+
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
+  }
+
+  /**
+   * Victory grand Shinto chime
+   */
+  public playVictory(): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const chords = [
+      [523.25, 659.25, 783.99],
+      [587.33, 739.99, 880.00],
+      [659.25, 830.61, 987.77],
+      [1046.50, 1318.51, 1567.98]
+    ];
+
+    chords.forEach((chord, step) => {
+      if (!this.ctx) return;
+      const startTime = this.ctx.currentTime + step * 0.22;
+      chord.forEach((freq) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0.15, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.7);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + 0.7);
+      });
+    });
+  }
+
+  /**
+   * Retro 8-bit electric zap / laser sound for authentic Pikachu matching
+   */
+  public playLaserZap(): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.exponentialRampToValueAtTime(110, now + 0.16);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.16);
+  }
+
+  /**
+   * ⛩️ Mystical Torii Portal wormhole warp sound
+   */
+  public playPortalWarp(): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(840, now + 0.12);
+    osc.frequency.exponentialRampToValueAtTime(440, now + 0.28);
+
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.22, now + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.28);
+  }
+
+  /**
+   * Clock ticking alert when time is low (< 20s)
+   */
+  public playTick(): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.04);
+
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.04);
+  }
+
+  private taikoIntervalId: number | null = null;
+  private isNightParadeMusicPlaying: boolean = false;
+
+  /**
+   * Deep Japanese Taiko drum strike (Don / Ka)
+   */
+  public playTaikoHit(isRim: boolean = false, accent: boolean = false): void {
+    if (!this.isEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+
+    if (isRim) {
+      // Wood rim strike (Kawa / Ka)
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(860, now);
+      osc.frequency.exponentialRampToValueAtTime(320, now + 0.05);
+
+      gain.gain.setValueAtTime(accent ? 0.22 : 0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.05);
+      return;
+    }
+
+    // Deep resonant drum body (Don / Do)
+    const baseFreq = accent ? 105 : 82;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(42, now + 0.24);
+
+    const volume = accent ? 0.38 : 0.24;
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.004);
+    gain.gain.exponentialRampToValueAtTime(volume * 0.45, now + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+
+    // Membrane punchiness filter
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(260, now);
+    filter.frequency.exponentialRampToValueAtTime(75, now + 0.25);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }
+
+  /**
+   * 🌙 Start fast-paced Taiko festival drums during Night Parade Rush (150 BPM)
+   */
+  public startNightParadeMusic(): void {
+    if (!this.isEnabled) return;
+    this.stopNightParadeMusic();
+    this.initContext();
+
+    this.isNightParadeMusicPlaying = true;
+
+    // Traditional Taiko rhythm: DON (accent) - DON - DOKO - DON - KA - DON!
+    const pattern = [
+      { rim: false, accent: true },
+      { rim: false, accent: false },
+      { rim: false, accent: false },
+      { rim: true,  accent: false },
+      { rim: false, accent: true },
+      { rim: false, accent: false },
+      { rim: true,  accent: true },
+      { rim: false, accent: true }
+    ];
+
+    let step = 0;
+    this.playTaikoHit(false, true);
+
+    this.taikoIntervalId = window.setInterval(() => {
+      if (!this.isNightParadeMusicPlaying) return;
+      const hit = pattern[step % pattern.length];
+      this.playTaikoHit(hit.rim, hit.accent);
+      step++;
+    }, 190);
+  }
+
+  /**
+   * Stop Taiko festival drums and restore normal ambient BGM
+   */
+  public stopNightParadeMusic(): void {
+    this.isNightParadeMusicPlaying = false;
+    if (this.taikoIntervalId !== null) {
+      clearInterval(this.taikoIntervalId);
+      this.taikoIntervalId = null;
+    }
+  }
+}

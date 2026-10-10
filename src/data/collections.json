@@ -1,0 +1,162 @@
+[
+  {
+    "id": "yokai",
+    "name": "Bách Quỷ Dạ Hành",
+    "japaneseTitle": "百鬼夜行",
+    "themeFolder": "yokai",
+    "description": "Bộ sưu tập 108 linh hồn, yêu quái và thần thoại dân gian xứ Phù Tang.",
+    "totalCharacters": 108,
+    "totalChapters": 12,
+    "rewardLegendaryId": "orochi"
+  },
+  {
+    "id": "egypt",
+    "name": "Thần Thoại Ai Cập",
+    "japaneseTitle": "エジプト神話",
+    "themeFolder": "egypt",
+    "description": "Bộ sưu tập các vị thần tối cao, linh thú kim tự tháp và quái xà sông Nile cổ đại.",
+    "totalCharacters": 45,
+    "totalChapters": 5,
+    "rewardLegendaryId": "ra_horakhty"
+  },
+  {
+    "id": "greece",
+    "name": "Thần Thoại Hy Lạp",
+    "japaneseTitle": "ギリシャ神話",
+    "themeFolder": "greece",
+    "description": "Bộ sưu tập các vị thần đỉnh Olympus, anh hùng sử thi và quái thú thần thoại Hy Lạp cổ đại.",
+    "totalCharacters": 45,
+    "totalChapters": 5,
+    "rewardLegendaryId": "kronos"
+  },
+  {
+    "id": "wuxia",
+    "name": "Võ Hiệp & Tiên Cảnh",
+    "japaneseTitle": "仙侠・武侠",
+    "themeFolder": "wuxia",
+    "description": "Bộ sưu tập pháp bảo thần thoại, linh thú tiên gia và kiếm khách giang hồ Trung Hoa.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "wuxia_swordsman"
+  },
+  {
+    "id": "korea",
+    "name": "Thần Thoại Hàn Quốc",
+    "japaneseTitle": "한국 설화・신화",
+    "themeFolder": "korea",
+    "description": "Bộ sưu tập 18 linh hồn dân gian, thần thú hộ vệ và truyền thuyết kỳ ảo xứ sở Kim Chi.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "gumiho"
+  },
+  {
+    "id": "india",
+    "name": "Thần Thoại & Lễ Hội Ấn Độ",
+    "japaneseTitle": "インド神話・祭典",
+    "themeFolder": "india",
+    "description": "Bộ sưu tập 18 vị đại thần, linh thú Vahana và pháp bảo lễ hội rực rỡ sắc màu Ấn Độ.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "lord_ganesha"
+  },
+  {
+    "id": "sea",
+    "name": "Huyền Thoại Đông Nam Á",
+    "japaneseTitle": "東南アジア神話",
+    "themeFolder": "sea",
+    "description": "Bộ sưu tập 18 linh thú rừng nhiệt đới, thần xà Naga và di tích đền đài cổ kính Đông Nam Á.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "phaya_naga"
+  },
+  {
+    "id": "pirate",
+    "name": "Hải Tặc & Đại Dương",
+    "japaneseTitle": "海賊と大洋",
+    "themeFolder": "pirate",
+    "description": "Bộ sưu tập 18 nhân vật hải tặc tinh nghịch, nàng tiên cá, rương kho báu và hạm đội bóng ma biển sâu.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "captain_paws"
+  },
+  {
+    "id": "underwater",
+    "name": "Thủy Cung Huyền Bí",
+    "japaneseTitle": "海底王国",
+    "themeFolder": "underwater",
+    "description": "Vương quốc Atlantis huyền bí trọn vẹn 6 chương với 54 thần thú, hoàng tộc biển xanh, kỳ quan phát quang và đế vương vực thẳm.",
+    "totalCharacters": 54,
+    "totalChapters": 6,
+    "rewardLegendaryId": "dolphin_prince"
+  },
+  {
+    "id": "dinosaur",
+    "name": "Thế Giới Khủng Long",
+    "japaneseTitle": "恐竜ワールド",
+    "themeFolder": "dinosaur",
+    "description": "Bộ sưu tập 18 loài khủng long tiền sử từ thung lũng Kỷ Jura rợp bóng cây đến hỏa sơn nham thạch và kỷ băng hà.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "baby_trex"
+  },
+  {
+    "id": "monster",
+    "name": "Quái Thú Đáng Yêu",
+    "japaneseTitle": "可愛いモンスター",
+    "themeFolder": "monster",
+    "description": "Bộ sưu tập 18 quái thú hầm ngục ngộ nghĩnh: Slime xanh, Rồng lửa nhí, Yêu tinh Goblin và Nhãn quỷ thâm uyên.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "baby_red_dragon"
+  },
+  {
+    "id": "fantasy",
+    "name": "Thế Giới Fantasy",
+    "japaneseTitle": "クラシックファンタジー",
+    "themeFolder": "fantasy",
+    "description": "Kỷ nguyên thần thoại hiệp sĩ, pháp sư hoàng gia, rồng hộ mệnh và những sinh vật huyền thoại cổ đại.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "lion_paladin"
+  },
+  {
+    "id": "space",
+    "name": "Thiên Hà Vũ Trụ",
+    "japaneseTitle": "スペース・ギャラクシー",
+    "themeFolder": "space",
+    "description": "Bộ sưu tập 18 nhân vật & sinh vật vũ trụ: Phi hành gia nhí, Alien Zog, Hồ ly sao trời Astra và Cá voi thiên hà Levi.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "starlight_kitsune"
+  },
+  {
+    "id": "robot",
+    "name": "Xưởng Robot",
+    "japaneseTitle": "ロボット工場",
+    "themeFolder": "robot",
+    "description": "Bộ sưu tập 18 nhân vật & cỗ máy công xưởng tương lai: Thợ máy Rusty, Thỏ pin Volt, Nhện cơ khí Arachno và Cự nhân Titan.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "battery_bunny_bot"
+  },
+  {
+    "id": "animal",
+    "name": "Thế Giới Động Vật",
+    "japaneseTitle": "動物王国 • かわいい動物たち",
+    "themeFolder": "animal",
+    "description": "Siêu bộ sưu tập 45 loài động vật đáng yêu khắp 5 châu lục: Thú cưng, Thảo nguyên Châu Phi, Nông trại, Rừng Amazon và Miền tuyết Bắc Cực.",
+    "totalCharacters": 45,
+    "totalChapters": 5,
+    "rewardLegendaryId": "shiba_inu"
+  },
+  {
+    "id": "plant",
+    "name": "Vương Quốc Thực Vật",
+    "japaneseTitle": "植物王国 • かわいい花と木",
+    "themeFolder": "plant",
+    "description": "Bộ sưu tập 18 loài hoa thơm, quả ngọt & thần thảo kỳ diệu: Hướng dương Sunny, Hoa hồng Rosie, Cây bắt mồi Chomper và Hỏa liên Pyra.",
+    "totalCharacters": 18,
+    "totalChapters": 2,
+    "rewardLegendaryId": "celestial_flame_lotus"
+  }
+]
