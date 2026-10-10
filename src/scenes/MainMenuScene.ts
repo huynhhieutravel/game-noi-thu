@@ -6,6 +6,7 @@ import { SaveSystem } from '../systems/SaveSystem';
 import { CompanionManager } from '../game/CompanionManager';
 import { CompanionModal } from '../game/CompanionModal';
 import { TextureGenerator } from '../game/TextureGenerator';
+import bossesData from '../data/bosses.json';
 
 export class MainMenuScene extends Phaser.Scene {
   private saveSystem!: SaveSystem;
@@ -14,6 +15,7 @@ export class MainMenuScene extends Phaser.Scene {
   private stageModalContainer: Phaser.GameObjects.Container | null = null;
   private rulesModalContainer: Phaser.GameObjects.Container | null = null;
   private themeModalContainer: Phaser.GameObjects.Container | null = null;
+  private bossModalContainer: Phaser.GameObjects.Container | null = null;
 
   public static readonly THEMES = [
     { id: 'yokai', label: 'Bách Quỷ', icon: '⛩️', tag: 'Thần Thoại Nhật', color: 0xd90429, hex: '#d90429' },
@@ -1037,22 +1039,22 @@ export class MainMenuScene extends Phaser.Scene {
       }
     });
 
-    // Mode 4: Boss Puzzle Orochi
+    // Mode 4: Đấu Trường 16 Boss Thế Giới (World Boss Arena)
     this.createModeCard({
       x: col2X,
       y: row2Y,
       width: cardW,
       height: cardH,
-      icon: '🐉',
-      title: 'BOSS: OROCHI',
-      sub: 'Bát Xà 8 Đầu • Phá vỡ giáp',
-      badge: 'Màn 30 • Thần Xà Cổ Đại',
-      actionTxt: 'CHIẾN ĐẤU ➔',
-      primaryColor: 0x1f0d2b,
-      accentColor: 0x9d4edd,
+      icon: '👑',
+      title: 'ĐẤU TRƯỜNG 16 BOSS',
+      sub: '16 Đại Trùm Cổ Đại • 16 Chủ Đề',
+      badge: 'Thần Xà • Hải Tặc • Cự Long • Cơ Giáp',
+      actionTxt: 'THÁCH ĐẤU ➔',
+      primaryColor: 0x240046,
+      accentColor: 0xff4d6d,
       onClick: () => {
         this.audio.playBossHit();
-        this.scene.start('GameScene', { levelId: 'level_30', lives: 5 });
+        this.openBossArenaModal();
       }
     });
 
@@ -1654,6 +1656,245 @@ export class MainMenuScene extends Phaser.Scene {
       this.audio.playSelect();
       modal.destroy();
       this.stageModalContainer = null;
+    });
+    modal.add(closeBtn);
+  }
+
+  /**
+   * World Boss Arena Modal (16 World Bosses)
+   */
+  private openBossArenaModal(): void {
+    if (this.bossModalContainer) return;
+
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+    const modal = this.add.container(width / 2, height / 2).setDepth(200);
+    this.bossModalContainer = modal;
+
+    const { width: screenW } = getScreenDimensions();
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.88);
+    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
+    modal.add(overlay);
+
+    const card = this.add.graphics();
+    card.fillStyle(0x130d20, 0.98);
+    card.fillRoundedRect(-460, -250, 920, 500, 22);
+    card.lineStyle(2, 0xff4d6d, 0.9);
+    card.strokeRoundedRect(-460, -250, 920, 500, 22);
+    modal.add(card);
+
+    const title = this.add.text(0, -215, '👑 ĐẤU TRƯỜNG 16 ĐẠI BOSS THẾ GIỚI', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '22px',
+      fontStyle: '900',
+      color: '#ffd166'
+    }).setOrigin(0.5);
+    modal.add(title);
+
+    const sub = this.add.text(0, -188, '16 Đại Trùm Thần Thoại Cực Đại • Chém Rơi Đầu, Phá Hủy Bộ Phận & Săn Thưởng', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      color: '#adb5bd'
+    }).setOrigin(0.5);
+    modal.add(sub);
+
+    const allBosses = bossesData as any[];
+    let currentPage = 0; // 0: Boss 1-8, 1: Boss 9-16
+    const cardsContainer = this.add.container(0, 0);
+    modal.add(cardsContainer);
+
+    // Tab buttons for Page 1 / Page 2
+    const tabContainer = this.add.container(0, -154);
+    modal.add(tabContainer);
+
+    const renderTabs = () => {
+      tabContainer.removeAll(true);
+      const tabs = [
+        { label: '🐉 ĐỢT 1: CỔ ĐẠI & THẦN THOẠI (8)', page: 0 },
+        { label: '🌌 ĐỢT 2: HƯ KHÔNG & QUÁI THÚ (8)', page: 1 }
+      ];
+
+      tabs.forEach((t, idx) => {
+        const tabX = (idx === 0 ? -185 : 185);
+        const isActive = currentPage === t.page;
+        const tBg = this.add.graphics();
+        tBg.fillStyle(isActive ? 0xff4d6d : 0x1d1430, 0.95);
+        tBg.fillRoundedRect(tabX - 170, -16, 340, 32, 16);
+        tBg.lineStyle(1.5, isActive ? 0xffd166 : 0x3d2960, 0.9);
+        tBg.strokeRoundedRect(tabX - 170, -16, 340, 32, 16);
+
+        const tTxt = this.add.text(tabX, 0, t.label, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '11px',
+          fontStyle: 'bold',
+          color: isActive ? '#ffffff' : '#adb5bd'
+        }).setOrigin(0.5);
+
+        const tHit = this.add.zone(tabX, 0, 340, 32).setInteractive({ useHandCursor: true });
+        tHit.on('pointerdown', () => {
+          if (currentPage !== t.page) {
+            currentPage = t.page;
+            this.audio.playSelect();
+            this.haptic.light();
+            renderTabs();
+            renderBossCards();
+          }
+        });
+
+        tabContainer.add([tBg, tTxt, tHit]);
+      });
+    };
+
+    const renderBossCards = () => {
+      cardsContainer.removeAll(true);
+      const startIdx = currentPage * 8;
+      const pageBosses = allBosses.slice(startIdx, startIdx + 8);
+
+      const cardW = 212;
+      const cardH = 125;
+      const colSpacing = 224;
+      const rowY1 = -70;
+      const rowY2 = 65;
+
+      pageBosses.forEach((b, i) => {
+        const isSecondRow = i >= 4;
+        const colIndex = i % 4;
+        const posX = -1.5 * colSpacing + colIndex * colSpacing;
+        const posY = isSecondRow ? rowY2 : rowY1;
+
+        const bCard = this.add.container(posX, posY);
+
+        const bg = this.add.graphics();
+        bg.fillStyle(0x19102b, 0.95);
+        bg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 16);
+
+        let elemCol = 0xffd166;
+        if (b.element === 'fire') elemCol = 0xff4d6d;
+        else if (b.element === 'water') elemCol = 0x00b4d8;
+        else if (b.element === 'dark') elemCol = 0x9d4edd;
+        else if (b.element === 'lightning') elemCol = 0x3a86ff;
+        else if (b.element === 'nature') elemCol = 0x52b788;
+
+        bg.lineStyle(1.5, elemCol, 0.7);
+        bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 16);
+
+        // Thumbnail Sprite
+        let bossTex = b.id;
+        if (!this.textures.exists(bossTex)) {
+          if (this.textures.exists(`boss_${b.id}`)) bossTex = `boss_${b.id}`;
+          else if (this.textures.exists(b.id.replace('boss_', '') + '_boss')) bossTex = b.id.replace('boss_', '') + '_boss';
+        }
+
+        const thumbX = -cardW / 2 + 38;
+        const thumbY = -cardH / 2 + 42;
+
+        const thumbBg = this.add.graphics();
+        thumbBg.fillStyle(0x0e0817, 1);
+        thumbBg.fillCircle(thumbX, thumbY, 28);
+        thumbBg.lineStyle(1.5, elemCol, 0.9);
+        thumbBg.strokeCircle(thumbX, thumbY, 28);
+
+        let thumbSprite: Phaser.GameObjects.GameObject;
+        if (this.textures.exists(bossTex)) {
+          const img = this.add.image(thumbX, thumbY, bossTex);
+          img.setDisplaySize(50, 50);
+          thumbSprite = img;
+        } else {
+          thumbSprite = this.add.text(thumbX, thumbY, b.symbol || '👑', { fontSize: '24px' }).setOrigin(0.5);
+        }
+
+        // Info right
+        const infoX = thumbX + 38;
+        const bName = this.add.text(infoX, -cardH / 2 + 20, b.name, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '11.5px',
+          fontStyle: '800',
+          color: '#ffffff',
+          maxLines: 1
+        });
+
+        const bTitle = this.add.text(infoX, -cardH / 2 + 38, b.title || b.theme, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '9.5px',
+          color: '#adb5bd',
+          maxLines: 1
+        });
+
+        const bHp = this.add.text(infoX, -cardH / 2 + 54, `${b.symbol || '⚔️'} ${b.max_hp} HP • ${b.parts || 8} Bộ phận`, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '9.5px',
+          fontStyle: 'bold',
+          color: '#ffd166'
+        });
+
+        // Play Button Pill
+        const btnY = cardH / 2 - 22;
+        const pBtnBg = this.add.graphics();
+        pBtnBg.fillStyle(0xd90429, 1);
+        pBtnBg.fillRoundedRect(-cardW / 2 + 12, btnY - 12, cardW - 24, 25, 12);
+        pBtnBg.lineStyle(1, 0xff758f, 0.8);
+        pBtnBg.strokeRoundedRect(-cardW / 2 + 12, btnY - 12, cardW - 24, 25, 12);
+
+        const pBtnTxt = this.add.text(0, btnY, '⚔️ KHIÊU CHIẾN', {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '11px',
+          fontStyle: 'bold',
+          color: '#ffffff'
+        }).setOrigin(0.5);
+
+        bCard.add([bg, thumbBg, thumbSprite, bName, bTitle, bHp, pBtnBg, pBtnTxt]);
+        bCard.setSize(cardW, cardH).setInteractive({ useHandCursor: true });
+
+        bCard.on('pointerdown', () => {
+          this.audio.playBossHit();
+          this.haptic.heavy();
+          modal.destroy();
+          this.bossModalContainer = null;
+          this.scene.start('GameScene', { bossId: b.id, lives: 5 });
+        });
+
+        bCard.on('pointerover', () => {
+          this.tweens.add({ targets: bCard, scale: 1.03, duration: 80 });
+          bg.lineStyle(2, 0xffffff, 1);
+          bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 16);
+        });
+
+        bCard.on('pointerout', () => {
+          this.tweens.add({ targets: bCard, scale: 1.0, duration: 80 });
+          bg.lineStyle(1.5, elemCol, 0.7);
+          bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 16);
+        });
+
+        cardsContainer.add(bCard);
+      });
+    };
+
+    renderTabs();
+    renderBossCards();
+
+    // Close button
+    const closeBtn = this.add.container(0, 205);
+    const cBg = this.add.graphics();
+    cBg.fillStyle(0x3a0ca3, 0.95);
+    cBg.fillRoundedRect(-100, -18, 200, 36, 12);
+    cBg.lineStyle(1.5, 0x4cc9f0, 0.9);
+    cBg.strokeRoundedRect(-100, -18, 200, 36, 12);
+
+    const cTxt = this.add.text(0, 0, 'ĐÓNG ĐẤU TRƯỜNG', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+
+    closeBtn.add([cBg, cTxt]);
+    closeBtn.setSize(200, 36).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => {
+      this.audio.playSelect();
+      modal.destroy();
+      this.bossModalContainer = null;
     });
     modal.add(closeBtn);
   }

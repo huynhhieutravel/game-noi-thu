@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, getScreenDimensions, setupRetinaCamera } from '../constants';
 import levelsData from '../data/levels.json';
+import bossesData from '../data/bosses.json';
 import { BoardManager } from '../game/Board';
 import { BoardGenerator } from '../game/BoardGenerator';
 import { BossManager } from '../game/BossManager';
@@ -11,7 +12,7 @@ import { HapticSystem } from '../systems/HapticSystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { CompanionManager } from '../game/CompanionManager';
 import { CompanionModal } from '../game/CompanionModal';
-import { CompanionConfig, GridPoint, LevelConfig, TileState } from '../types';
+import { BossConfig, CompanionConfig, GridPoint, LevelConfig, TileState } from '../types';
 import { TextureGenerator } from '../game/TextureGenerator';
 
 export class GameScene extends Phaser.Scene {
@@ -69,6 +70,8 @@ export class GameScene extends Phaser.Scene {
   private bossHpText!: Phaser.GameObjects.Text;
   private bossHeadsContainer!: Phaser.GameObjects.Container;
   private bossWarningText!: Phaser.GameObjects.Text;
+  private bossSprite: Phaser.GameObjects.Image | null = null;
+  private bossContainer: Phaser.GameObjects.Container | null = null;
 
   // Booster UI Texts
   private hintCountText!: Phaser.GameObjects.Text;
@@ -103,7 +106,7 @@ export class GameScene extends Phaser.Scene {
     super('GameScene');
   }
 
-  public init(data: { levelId?: string; lives?: number; isZenMode?: boolean; isSurvivalMode?: boolean }): void {
+  public init(data: { levelId?: string; lives?: number; isZenMode?: boolean; isSurvivalMode?: boolean; bossId?: string }): void {
     this.isZenMode = !!data.isZenMode;
     this.isSurvivalMode = !!data.isSurvivalMode;
     const levelId = data.levelId || 'level_01';
@@ -115,7 +118,55 @@ export class GameScene extends Phaser.Scene {
     const currentTheme = save.getSelectedTheme();
     const themeChars = CharacterRegistry.getByCollection(currentTheme);
 
-    if (this.isSurvivalMode) {
+    if (data.bossId) {
+      // 👑 Khiêu Chiến Boss Trực Tiếp từ Đấu Trường 16 Boss Thế Giới
+      const bList = bossesData as any[];
+      const bData = bList.find((b: any) => b.id === data.bossId || b.id === 'boss_' + data.bossId || b.id.replace('boss_', '') === data.bossId) || bList[0];
+      const bossConfig: BossConfig = {
+        id: bData.id,
+        name: bData.name,
+        japaneseName: bData.native_name || bData.title,
+        native_name: bData.native_name,
+        title: bData.title,
+        element: bData.element,
+        symbol: bData.symbol,
+        theme: bData.theme,
+        image: bData.id,
+        maxHp: bData.max_hp || 560,
+        actionIntervalSeconds: bData.action_interval || 7,
+        headsOrParts: bData.parts || 8,
+        parts: bData.parts || 8,
+        part_name: bData.part_name || 'Bộ Phận',
+        skills: bData.skills || [],
+        desc: bData.desc
+      };
+
+      const bThemeChars = CharacterRegistry.getByCollection(bData.theme || currentTheme);
+      this.levelConfig = {
+        id: `boss_${bData.id}`,
+        levelNumber: 30,
+        worldId: bData.theme || 'yokai',
+        title: `👑 ĐẠI CHIẾN: ${bData.name} (${bData.title})`,
+        rows: 8,
+        columns: 12,
+        timeLimit: 150,
+        movement: 'chaos',
+        modifiers: {
+          iceCount: 5,
+          stoneCount: 3,
+          thornCount: 2,
+          barricadeCount: 2
+        },
+        characterPool: (bThemeChars.length >= 10 ? bThemeChars : themeChars).map(c => c.id).slice(0, 24),
+        boss: bossConfig,
+        rewards: {
+          coins: 1500,
+          stars: 3
+        }
+      };
+      this.lives = data.lives !== undefined ? data.lives : 5;
+      this.timeRemaining = this.levelConfig.timeLimit;
+    } else if (this.isSurvivalMode) {
       // 5. ❄️ Chế Độ Sinh Tồn Dâng Trào (Survival Blizzard Mode)
       // 8 hàng x 10 cột, khởi đầu 4 hàng dưới, mỗi 10s dâng 1 hàng lên
       this.levelConfig = {
@@ -153,6 +204,13 @@ export class GameScene extends Phaser.Scene {
       this.timeRemaining = 999999;
     } else {
       if (found.boss) {
+        if (!found.boss.id.startsWith('boss_')) {
+          found.boss.id = 'boss_orochi';
+          found.boss.symbol = '🐉';
+          found.boss.element = 'water';
+          found.boss.native_name = '八岐大蛇';
+          found.boss.title = 'Bát Kỳ Thần Xà Cổ Đại';
+        }
         this.levelConfig = found;
       } else if (themeChars.length >= 6) {
         this.levelConfig = {
@@ -255,16 +313,21 @@ export class GameScene extends Phaser.Scene {
         onDamaged: (currentHp, maxHp, damage) => {
           this.updateBossHpVisual(currentHp, maxHp);
           this.showDamagePopup(damage);
+          this.triggerBossHitReaction(damage);
         },
         onHeadSevered: (headsLeft, total) => {
           this.updateBossHeadsVisual(headsLeft, total);
-          this.showNotice(`💥 ĐÃ CHÉM RƠI 1 ĐẦU! (Còn ${headsLeft}/${total}) Thưởng +5s!`, 0xff595e);
+          this.triggerBossPartSeveredVisual();
+          const bossCfg = this.bossManager?.getBossConfig();
+          const partTitle = bossCfg?.part_name || 'BỘ PHẬN';
+          this.showNotice(`💥 ĐÃ PHÁ HỦY 1 ${partTitle.toUpperCase()}! (Còn ${headsLeft}/${total}) Thưởng +5s!`, 0xff595e);
           this.timeRemaining = Math.min(this.levelConfig.timeLimit + 30, this.timeRemaining + 5);
           this.showBonusTimePopup(5);
           this.audio.playBossHit();
           this.haptic.heavy();
         },
         onBossSkillTriggered: (skillName, desc, skillType) => {
+          this.triggerBossSkillCastVisual();
           if (skillType === 'time_drain') {
             this.timeRemaining = Math.max(1, this.timeRemaining - 5);
             this.showNotice(`⏳ ${skillName}: BỊ HÚT MẤT 5 GIÂY!`, 0xff3366);
@@ -755,38 +818,117 @@ export class GameScene extends Phaser.Scene {
 
   private buildBossHeader(width: number): void {
     const boss = this.bossManager!.getBossConfig();
-    const bossContainer = this.add.container(width / 2, 80).setDepth(20);
+    const bossContainer = this.add.container(width / 2, 70).setDepth(20);
+    this.bossContainer = bossContainer;
 
-    // Boss Name Plate
-    const nameText = this.add.text(0, -16, `👑 TRÙM CUỐI: ${boss.name} (${boss.japaneseName})`, {
+    // 1. Resolve Boss Texture Key
+    let bossTexture = boss.id;
+    if (!this.textures.exists(bossTexture)) {
+      if (this.textures.exists(`boss_${boss.id}`)) {
+        bossTexture = `boss_${boss.id}`;
+      } else if (this.textures.exists(boss.id.replace('boss_', '') + '_boss')) {
+        bossTexture = boss.id.replace('boss_', '') + '_boss';
+      } else if (this.textures.exists('boss_orochi')) {
+        bossTexture = 'boss_orochi';
+      }
+    }
+
+    // 2. Boss Avatar Frame (Left of HP Bar)
+    const avatarX = -215;
+    const avatarY = 12;
+    const avatarRadius = 40;
+
+    // Element color scheme
+    let elementColor = 0xffd166;
+    if (boss.element === 'fire') elementColor = 0xff4d6d;
+    else if (boss.element === 'water') elementColor = 0x00b4d8;
+    else if (boss.element === 'dark') elementColor = 0x9d4edd;
+    else if (boss.element === 'lightning') elementColor = 0x3a86ff;
+    else if (boss.element === 'nature') elementColor = 0x52b788;
+
+    // Glowing Aura Ring behind Avatar
+    const auraGlow = this.add.graphics();
+    auraGlow.fillStyle(elementColor, 0.22);
+    auraGlow.fillCircle(avatarX, avatarY, avatarRadius + 6);
+    auraGlow.lineStyle(2, elementColor, 0.85);
+    auraGlow.strokeCircle(avatarX, avatarY, avatarRadius + 3);
+    bossContainer.add(auraGlow);
+
+    // Dark Plate backing
+    const avatarBg = this.add.graphics();
+    avatarBg.fillStyle(0x0e0717, 0.95);
+    avatarBg.fillCircle(avatarX, avatarY, avatarRadius);
+    bossContainer.add(avatarBg);
+
+    // Boss Sprite Graphic
+    if (this.textures.exists(bossTexture)) {
+      const bossSprite = this.add.image(avatarX, avatarY, bossTexture);
+      bossSprite.setDisplaySize(76, 76);
+      this.bossSprite = bossSprite;
+      bossContainer.add(bossSprite);
+
+      // Idle Breathing / Floating Animation
+      this.tweens.add({
+        targets: bossSprite,
+        y: avatarY - 4,
+        scaleX: bossSprite.scaleX * 1.05,
+        scaleY: bossSprite.scaleY * 1.05,
+        duration: 1200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    // Ornate Golden Border around Avatar
+    const avatarFrame = this.add.graphics();
+    avatarFrame.lineStyle(2.5, 0xffd700, 0.95);
+    avatarFrame.strokeCircle(avatarX, avatarY, avatarRadius);
+    bossContainer.add(avatarFrame);
+
+    // Element / Symbol Badge at bottom of Avatar
+    const badgeBg = this.add.graphics();
+    badgeBg.fillStyle(0x160c24, 0.95);
+    badgeBg.fillCircle(avatarX, avatarY + avatarRadius - 4, 11);
+    badgeBg.lineStyle(1.5, elementColor, 1);
+    badgeBg.strokeCircle(avatarX, avatarY + avatarRadius - 4, 11);
+    const badgeTxt = this.add.text(avatarX, avatarY + avatarRadius - 4, boss.symbol || '👑', {
+      fontSize: '11px'
+    }).setOrigin(0.5);
+    bossContainer.add([badgeBg, badgeTxt]);
+
+    // 3. Boss Information & Name Plate (Right of Avatar)
+    const contentX = 35;
+    const nameStr = `👑 TRÙM: ${boss.name} ${boss.native_name || boss.japaneseName ? `(${boss.native_name || boss.japaneseName})` : ''}`;
+    const nameText = this.add.text(contentX, -16, nameStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '13px',
       fontStyle: '800',
-      color: '#ff4d6d'
+      color: '#ffd166'
     }).setOrigin(0.5);
 
     // Boss HP bar background
     const hpBg = this.add.graphics();
     hpBg.fillStyle(0x1a0509, 0.9);
-    hpBg.fillRoundedRect(-180, -6, 360, 14, 7);
+    hpBg.fillRoundedRect(contentX - 170, -6, 340, 14, 7);
     hpBg.lineStyle(1.5, 0xff4d6d, 0.7);
-    hpBg.strokeRoundedRect(-180, -6, 360, 14, 7);
+    hpBg.strokeRoundedRect(contentX - 170, -6, 340, 14, 7);
 
     this.bossHpBar = this.add.graphics();
     this.updateBossHpVisual(this.bossManager!.getHp(), this.bossManager!.getMaxHp());
 
-    this.bossHpText = this.add.text(0, 1, `${this.bossManager!.getHp()} / ${this.bossManager!.getMaxHp()} HP`, {
+    this.bossHpText = this.add.text(contentX, 1, `${this.bossManager!.getHp()} / ${this.bossManager!.getMaxHp()} HP`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '10px',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    // 8 Heads display icons
-    this.bossHeadsContainer = this.add.container(0, 20);
+    // Parts / Heads display icons
+    this.bossHeadsContainer = this.add.container(contentX, 20);
     this.updateBossHeadsVisual(this.bossManager!.getHeadsRemaining(), this.bossManager!.getTotalHeads());
 
-    this.bossWarningText = this.add.text(0, 36, '', {
+    this.bossWarningText = this.add.text(contentX, 36, '', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '11px',
       fontStyle: 'bold',
@@ -800,10 +942,11 @@ export class GameScene extends Phaser.Scene {
     if (!this.bossHpBar) return;
     this.bossHpBar.clear();
     const pct = Math.max(0, currentHp / maxHp);
-    const barWidth = 356 * pct;
+    const contentX = 35;
+    const barWidth = 336 * pct;
 
     this.bossHpBar.fillStyle(0xd90429, 1);
-    this.bossHpBar.fillRoundedRect(-178, -4, barWidth, 10, 5);
+    this.bossHpBar.fillRoundedRect(contentX - 168, -4, barWidth, 10, 5);
 
     if (this.bossHpText) {
       this.bossHpText.setText(`${Math.max(0, Math.ceil(currentHp))} / ${maxHp} HP`);
@@ -813,12 +956,14 @@ export class GameScene extends Phaser.Scene {
   private updateBossHeadsVisual(headsLeft: number, total: number): void {
     if (!this.bossHeadsContainer) return;
     this.bossHeadsContainer.removeAll(true);
+    const boss = this.bossManager?.getBossConfig();
+    const symbol = boss?.symbol || '🐉';
 
-    const startX = -((total - 1) * 22) / 2;
+    const startX = -((total - 1) * 20) / 2;
     for (let i = 0; i < total; i++) {
       const isAlive = i < headsLeft;
-      const headIcon = this.add.text(startX + i * 22, 0, '🐉', {
-        fontSize: '14px'
+      const headIcon = this.add.text(startX + i * 20, 0, symbol, {
+        fontSize: '13px'
       }).setOrigin(0.5);
 
       if (!isAlive) {
@@ -826,6 +971,50 @@ export class GameScene extends Phaser.Scene {
       }
       this.bossHeadsContainer.add(headIcon);
     }
+  }
+
+  private triggerBossHitReaction(dmg: number): void {
+    if (!this.bossSprite) return;
+    this.bossSprite.setTint(0xff3333);
+    const originX = this.bossSprite.x;
+    this.tweens.add({
+      targets: this.bossSprite,
+      x: originX + 7,
+      yoyo: true,
+      duration: 45,
+      repeat: 3,
+      onComplete: () => {
+        if (this.bossSprite) {
+          this.bossSprite.x = originX;
+          this.bossSprite.clearTint();
+        }
+      }
+    });
+  }
+
+  private triggerBossPartSeveredVisual(): void {
+    if (!this.bossSprite) return;
+    this.bossSprite.setTint(0xffffff);
+    this.cameras.main.shake(280, 0.015);
+    this.time.delayedCall(160, () => {
+      if (this.bossSprite) this.bossSprite.clearTint();
+    });
+  }
+
+  private triggerBossSkillCastVisual(): void {
+    if (!this.bossSprite) return;
+    this.bossSprite.setTint(0xff99c8);
+    this.cameras.main.shake(200, 0.008);
+    this.tweens.add({
+      targets: this.bossSprite,
+      scaleX: this.bossSprite.scaleX * 1.25,
+      scaleY: this.bossSprite.scaleY * 1.25,
+      duration: 180,
+      yoyo: true,
+      onComplete: () => {
+        if (this.bossSprite) this.bossSprite.clearTint();
+      }
+    });
   }
 
   private buildBoosterTray(width: number, height: number): void {
@@ -1899,22 +2088,25 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showDamagePopup(dmg: number): void {
-    const dmgText = this.add.text(GAME_WIDTH / 2, 135, `-${Math.round(dmg)} DMG`, {
+    const popX = this.bossSprite ? (GAME_WIDTH / 2 - 215) : (GAME_WIDTH / 2 + 35);
+    const popY = this.bossSprite ? 55 : 135;
+    const dmgText = this.add.text(popX, popY, `-${Math.round(dmg)} HP`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16px',
+      fontSize: '18px',
       fontStyle: '900',
       color: '#ffd700',
-      stroke: '#ff0054',
-      strokeThickness: 3
+      stroke: '#d90429',
+      strokeThickness: 3.5
     }).setOrigin(0.5).setDepth(60);
 
     this.tweens.add({
       targets: dmgText,
-      y: 115,
+      y: popY - 24,
       alpha: 0,
-      scaleX: 1.25,
-      scaleY: 1.25,
-      duration: 600,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 650,
+      ease: 'Back.easeOut',
       onComplete: () => dmgText.destroy()
     });
   }

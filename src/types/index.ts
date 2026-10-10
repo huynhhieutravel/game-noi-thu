@@ -96,11 +96,20 @@ export interface BossSkill {
 export interface BossConfig {
   id: string;
   name: string;
-  japaneseName: string;
+  japaneseName?: string;
+  native_name?: string;
+  title?: string;
+  element?: string;
+  symbol?: string;
+  theme?: string;
+  image?: string;
   maxHp: number;
   actionIntervalSeconds: number;
   headsOrParts?: number;
+  parts?: number;
+  part_name?: string;
   skills: BossSkill[];
+  desc?: string;
 }
 
 export interface LevelConfig {

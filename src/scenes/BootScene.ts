@@ -76,7 +76,10 @@ export class BootScene extends Phaser.Scene {
 
     // Preload all 16 World Bosses (single instance)
     for (const boss of (bossesData as any[])) {
-      this.load.image(`boss_${boss.id}`, resolveAsset(`/assets/bosses/${boss.id}.png`));
+      const bossUrl = resolveAsset(`/assets/bosses/${boss.id}.png`);
+      this.load.image(boss.id, bossUrl);
+      this.load.image(`boss_${boss.id}`, bossUrl);
+      this.load.image(boss.id.replace('boss_', '') + '_boss', bossUrl);
     }
 
     // Preload all 16 Core Obstacle Sprites (Phase 1)
