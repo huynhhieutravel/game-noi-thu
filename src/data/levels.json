@@ -14,7 +14,7 @@
       "azuki_arai",
       "konaki_jiji"
     ],
-    "timeLimit": 90,
+    "timeLimit": 65,
     "movement": "none",
     "modifiers": {},
     "rewards": {
@@ -27,7 +27,7 @@
     "id": "level_02",
     "levelNumber": 2,
     "worldId": "yokai",
-    "title": "Màn 2: Trọng Lực Đáy (Mạng Nhện Sơ Khai)",
+    "title": "Màn 2: Trọng Lực Đáy (Dồn Xuống)",
     "rows": 6,
     "columns": 8,
     "characterPool": [
@@ -38,9 +38,13 @@
       "sunakake_baba",
       "zashiki_warashi",
       "keukegen",
-      "umibozu"
+      "umibozu",
+      "samebito",
+      "kawauso",
+      "komainu",
+      "kamaitachi"
     ],
-    "timeLimit": 120,
+    "timeLimit": 85,
     "movement": "down",
     "modifiers": {
       "webCount": 2
@@ -55,7 +59,7 @@
     "id": "level_03",
     "levelNumber": 3,
     "worldId": "yokai",
-    "title": "Màn 3: Khinh Khí Đỉnh (Thạch Trận Ngăn Lối)",
+    "title": "Màn 3: Khinh Khí Đỉnh (Trôi Lên)",
     "rows": 6,
     "columns": 8,
     "characterPool": [
@@ -66,9 +70,13 @@
       "keukegen",
       "umibozu",
       "funayurei",
-      "samebito"
+      "samebito",
+      "kawauso",
+      "komainu",
+      "chouchin_obake",
+      "bakezori"
     ],
-    "timeLimit": 125,
+    "timeLimit": 85,
     "movement": "up",
     "modifiers": {
       "stoneCount": 2
@@ -83,7 +91,7 @@
     "id": "level_04",
     "levelNumber": 4,
     "worldId": "yokai",
-    "title": "Màn 4: Thủy Triều Trái (Bụi Gai Cổ Thụ)",
+    "title": "Màn 4: Thủy Triều Trái (Dồn Sang Trái)",
     "rows": 6,
     "columns": 8,
     "characterPool": [
@@ -94,9 +102,13 @@
       "same_ronin",
       "ningyo",
       "sazae_oni",
-      "suiryu"
+      "suiryu",
+      "namazu",
+      "tako_hachimaki",
+      "samebito",
+      "funayurei"
     ],
-    "timeLimit": 135,
+    "timeLimit": 90,
     "movement": "left",
     "modifiers": {
       "thornCount": 2,
@@ -112,7 +124,7 @@
     "id": "level_05",
     "levelNumber": 5,
     "worldId": "yokai",
-    "title": "Màn 5: Phong Vân Phải (Song Sắt Thiết Ngục)",
+    "title": "Màn 5: Phong Vân Phải (Dồn Sang Phải)",
     "rows": 6,
     "columns": 8,
     "characterPool": [
@@ -123,9 +135,13 @@
       "ningyo",
       "tako_hachimaki",
       "suiryu",
-      "namazu"
+      "namazu",
+      "sazae_oni",
+      "samebito",
+      "chouchin_obake",
+      "bakezori"
     ],
-    "timeLimit": 135,
+    "timeLimit": 90,
     "movement": "right",
     "modifiers": {
       "barricadeCount": 2,
@@ -141,7 +157,7 @@
     "id": "level_06",
     "levelNumber": 6,
     "worldId": "yokai",
-    "title": "Màn 6: Hợp Tung Ngang (Hỗn Chiến Gai & Nhện)",
+    "title": "Màn 6: Hợp Tung Ngang (Hút Vào Giữa Hàng)",
     "rows": 6,
     "columns": 10,
     "characterPool": [
@@ -154,9 +170,14 @@
       "suiryu",
       "namazu",
       "jorogumo",
-      "tsuchigumo"
+      "tsuchigumo",
+      "kuchisake_onna",
+      "hanako_san",
+      "yuki_onna",
+      "shuten_doji",
+      "tengu_peeker"
     ],
-    "timeLimit": 150,
+    "timeLimit": 105,
     "movement": "center_row",
     "modifiers": {
       "thornCount": 2,
@@ -173,7 +194,7 @@
     "id": "level_07",
     "levelNumber": 7,
     "worldId": "yokai",
-    "title": "Màn 7: Quy Tụ Dọc (Thiết Ngục & Mạng Nhện)",
+    "title": "Màn 7: Quy Tụ Dọc (Hút Vào Giữa Cột)",
     "rows": 6,
     "columns": 10,
     "characterPool": [
@@ -186,14 +207,19 @@
       "jorogumo",
       "yuki_onna",
       "ungaikyo",
-      "bakezori"
+      "bakezori",
+      "karasu_hime",
+      "karasu_purple",
+      "tengu_peeker",
+      "shuten_doji",
+      "kyuubi_kitsune"
     ],
-    "timeLimit": 155,
+    "timeLimit": 105,
     "movement": "center_col",
     "modifiers": {
       "barricadeCount": 2,
       "webCount": 2,
-      "iceCount": 2
+      "iceCount": 3
     },
     "rewards": {
       "coins": 400,
@@ -205,7 +231,7 @@
     "id": "level_08",
     "levelNumber": 8,
     "worldId": "yokai",
-    "title": "Màn 8: Phân Ly Dọc (Tứ Trụ Thạch Trận)",
+    "title": "Màn 8: Phân Ly Dọc (Tách Sang 2 Biên Đứng)",
     "rows": 8,
     "columns": 10,
     "characterPool": [
@@ -218,13 +244,24 @@
       "jorogumo",
       "yuki_onna",
       "kuchisake_onna",
-      "hanako_san"
+      "hanako_san",
+      "teke_teke",
+      "tsuchigumo",
+      "ungaikyo",
+      "wanyuudo",
+      "rokurokubi",
+      "chouchin_obake",
+      "komainu",
+      "kamaitachi",
+      "inari_kitsune",
+      "kyuubi_kitsune"
     ],
-    "timeLimit": 175,
+    "timeLimit": 120,
     "movement": "split_vertical",
     "modifiers": {
       "stoneCount": 4,
-      "thornCount": 2
+      "thornCount": 2,
+      "iceCount": 2
     },
     "rewards": {
       "coins": 480,
@@ -236,7 +273,7 @@
     "id": "level_09",
     "levelNumber": 9,
     "worldId": "yokai",
-    "title": "Màn 9: Phân Ly Ngang (Hàn Băng & Thiết Ngục)",
+    "title": "Màn 9: Phân Ly Ngang (Tách Sang 2 Biên Ngang)",
     "rows": 8,
     "columns": 10,
     "characterPool": [
@@ -249,12 +286,22 @@
       "tengu_peeker",
       "karasu_hime",
       "karasu_purple",
-      "shuten_doji"
+      "shuten_doji",
+      "daitengu",
+      "raijin_god",
+      "wanyuudo",
+      "rokurokubi",
+      "teke_teke",
+      "hanako_san",
+      "kuchisake_onna",
+      "ungaikyo",
+      "bakezori",
+      "kyuubi_kitsune"
     ],
-    "timeLimit": 185,
+    "timeLimit": 120,
     "movement": "split_horizontal",
     "modifiers": {
-      "barricadeCount": 2,
+      "barricadeCount": 3,
       "thornCount": 2,
       "iceCount": 4
     },
@@ -281,37 +328,53 @@
       "jorogumo",
       "yuki_onna",
       "tengu_peeker",
-      "kyuubi_kitsune"
+      "kyuubi_kitsune",
+      "karasu_hime",
+      "karasu_purple",
+      "shuten_doji",
+      "raijin_god",
+      "wanyuudo",
+      "rokurokubi",
+      "daitengu",
+      "teke_teke",
+      "hanako_san",
+      "kuchisake_onna"
     ],
-    "timeLimit": 210,
+    "timeLimit": 135,
     "movement": "chaos",
     "modifiers": {
-      "stoneCount": 2,
+      "stoneCount": 3,
       "thornCount": 2,
-      "barricadeCount": 2
+      "barricadeCount": 2,
+      "iceCount": 4
     },
     "boss": {
       "id": "orochi_boss",
       "name": "Yamata-no-Orochi",
       "japaneseName": "八岐大蛇",
-      "maxHp": 400,
-      "actionIntervalSeconds": 12,
+      "maxHp": 560,
+      "actionIntervalSeconds": 7,
       "headsOrParts": 8,
       "skills": [
         {
           "type": "ice_curse",
           "name": "Hơi Thở Băng Giá",
-          "description": "Đóng băng 2 tile ngẫu nhiên"
+          "description": "Đóng băng 4 tile ngẫu nhiên"
         },
         {
           "type": "rock_blocker",
           "name": "Địa Chấn Vụn Đá",
-          "description": "Tạo đá cản đường"
+          "description": "Tạo 2 cự thạch cản đường"
         },
         {
           "type": "tile_swap",
           "name": "Cuồng Phong Bát Quái",
-          "description": "Đảo vị trí ngẫu nhiên"
+          "description": "Đảo lộn 3 cặp vị trí"
+        },
+        {
+          "type": "time_drain",
+          "name": "Độc Xà Thôn Tính",
+          "description": "Nuốt chửng 5 giây thời gian!"
         }
       ]
     },
@@ -325,7 +388,7 @@
     "id": "level_30",
     "levelNumber": 30,
     "worldId": "yokai",
-    "title": "Trận Chiến Thần Xà: Yamata-no-Orochi",
+    "title": "Trận Chiến Thần Xà: Yamata-no-Orochi (Boss Thử Thách)",
     "rows": 8,
     "columns": 12,
     "characterPool": [
@@ -338,40 +401,62 @@
       "suiryu",
       "jorogumo",
       "yuki_onna",
-      "kuchisake_onna"
+      "kuchisake_onna",
+      "tengu_peeker",
+      "karasu_hime",
+      "karasu_purple",
+      "shuten_doji",
+      "daitengu",
+      "raijin_god",
+      "wanyuudo",
+      "rokurokubi",
+      "teke_teke",
+      "hanako_san",
+      "ungaikyo",
+      "bakezori",
+      "chouchin_obake",
+      "kyuubi_kitsune"
     ],
-    "timeLimit": 220,
-    "movement": "none",
+    "timeLimit": 140,
+    "movement": "chaos",
     "modifiers": {
-      "iceCount": 4
+      "iceCount": 6,
+      "stoneCount": 3,
+      "thornCount": 2,
+      "barricadeCount": 2
     },
     "boss": {
       "id": "orochi_boss",
       "name": "Yamata-no-Orochi",
       "japaneseName": "八岐大蛇",
-      "maxHp": 300,
-      "actionIntervalSeconds": 15,
+      "maxHp": 640,
+      "actionIntervalSeconds": 7,
       "headsOrParts": 8,
       "skills": [
         {
           "type": "ice_curse",
           "name": "Hơi Thở Băng Giá",
-          "description": "Đóng băng 2 tile ngẫu nhiên"
+          "description": "Đóng băng 4 tile ngẫu nhiên"
         },
         {
           "type": "rock_blocker",
           "name": "Địa Chấn Vụn Đá",
-          "description": "Tạo đá cản đường"
+          "description": "Tạo 2 cự thạch cản đường"
         },
         {
           "type": "tile_swap",
           "name": "Cuồng Phong Bát Quái",
-          "description": "Đảo vị trí ngẫu nhiên"
+          "description": "Đảo lộn 3 cặp vị trí"
+        },
+        {
+          "type": "time_drain",
+          "name": "Độc Xà Thôn Tính",
+          "description": "Nuốt chửng 5 giây thời gian!"
         }
       ]
     },
     "rewards": {
-      "coins": 1000,
+      "coins": 1500,
       "stars": 3,
       "unlockCharacterId": "suiryu"
     }

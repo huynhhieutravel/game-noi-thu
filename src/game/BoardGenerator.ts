@@ -1,4 +1,5 @@
 import { GridPoint, TileModifier, TileState } from '../types';
+import { CharacterRegistry } from './CharacterRegistry';
 import { BoardGrid, PathFinder } from './PathFinder';
 
 export interface BoardConfigOptions {
@@ -39,9 +40,47 @@ export class BoardGenerator {
     const totalPairs = playableSlots / 2;
     const characterList: string[] = [];
 
-    // Distribute characters in pairs
+    // Guarantee diverse character distribution (Classic Onet / Pikachu standard: max 2 pairs = 4 tiles per character)
+    const targetUniqueCount = Math.min(
+      Math.max(characterPool.length, Math.ceil(totalPairs / 2)),
+      totalPairs
+    );
+
+    let expandedPool = [...characterPool];
+    if (expandedPool.length < targetUniqueCount) {
+      // Find theme from first character or fallback to yokai
+      const firstChar = characterPool.length > 0 ? CharacterRegistry.get(characterPool[0]) : undefined;
+      const theme = firstChar?.collection || (firstChar as any)?.theme || 'yokai';
+      const allThemeChars = CharacterRegistry.getByCollection(theme).map(c => c.id);
+      this.shuffleArray(allThemeChars);
+
+      for (const id of allThemeChars) {
+        if (!expandedPool.includes(id)) {
+          expandedPool.push(id);
+          if (expandedPool.length >= targetUniqueCount) break;
+        }
+      }
+
+      // If still not enough, pull from all characters in registry
+      if (expandedPool.length < targetUniqueCount) {
+        const allChars = CharacterRegistry.getAll().map(c => c.id);
+        this.shuffleArray(allChars);
+        for (const id of allChars) {
+          if (!expandedPool.includes(id)) {
+            expandedPool.push(id);
+            if (expandedPool.length >= targetUniqueCount) break;
+          }
+        }
+      }
+    }
+
+    // Pick exactly targetUniqueCount diverse characters
+    this.shuffleArray(expandedPool);
+    const chosenChars = expandedPool.slice(0, targetUniqueCount);
+
+    // Distribute pairs evenly across chosen characters (each gets 1..2 pairs, max 3)
     for (let i = 0; i < totalPairs; i++) {
-      const charId = characterPool[i % characterPool.length];
+      const charId = chosenChars[i % chosenChars.length];
       characterList.push(charId, charId);
     }
 

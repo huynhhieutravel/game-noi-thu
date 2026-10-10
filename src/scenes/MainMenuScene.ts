@@ -1052,7 +1052,7 @@ export class MainMenuScene extends Phaser.Scene {
       accentColor: 0x9d4edd,
       onClick: () => {
         this.audio.playBossHit();
-        this.scene.start('GameScene', { levelId: 'level_30', lives: 10 });
+        this.scene.start('GameScene', { levelId: 'level_30', lives: 5 });
       }
     });
 

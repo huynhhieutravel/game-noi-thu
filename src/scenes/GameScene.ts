@@ -163,7 +163,7 @@ export class GameScene extends Phaser.Scene {
         this.levelConfig = found;
       }
 
-      this.lives = data.lives !== undefined ? data.lives : 10;
+      this.lives = data.lives !== undefined ? data.lives : 5;
       this.timeRemaining = this.levelConfig.timeLimit;
     }
 
@@ -258,12 +258,20 @@ export class GameScene extends Phaser.Scene {
         },
         onHeadSevered: (headsLeft, total) => {
           this.updateBossHeadsVisual(headsLeft, total);
-          this.showNotice(`💥 ĐÃ CHÉM RƠI 1 ĐẦU! (Còn ${headsLeft}/${total})`, 0xff595e);
+          this.showNotice(`💥 ĐÃ CHÉM RƠI 1 ĐẦU! (Còn ${headsLeft}/${total}) Thưởng +5s!`, 0xff595e);
+          this.timeRemaining = Math.min(this.levelConfig.timeLimit + 30, this.timeRemaining + 5);
+          this.showBonusTimePopup(5);
           this.audio.playBossHit();
           this.haptic.heavy();
         },
-        onBossSkillTriggered: (skillName, desc) => {
-          this.showNotice(`⚠️ BOSS: ${skillName}!`, 0xff99c8);
+        onBossSkillTriggered: (skillName, desc, skillType) => {
+          if (skillType === 'time_drain') {
+            this.timeRemaining = Math.max(1, this.timeRemaining - 5);
+            this.showNotice(`⏳ ${skillName}: BỊ HÚT MẤT 5 GIÂY!`, 0xff3366);
+            this.showBonusTimePopup(-5);
+          } else {
+            this.showNotice(`⚠️ BOSS: ${skillName}!`, 0xff99c8);
+          }
           this.audio.playError();
           this.haptic.error();
           if (this.boardManager) {
@@ -291,11 +299,16 @@ export class GameScene extends Phaser.Scene {
         this.audio.playError();
         this.haptic.error();
         if (reason === 'different_char') {
+          // Penalty: deduct 2 seconds in timed modes to prevent blind tapping
+          if (!this.isZenMode) {
+            this.timeRemaining = Math.max(0, this.timeRemaining - 2);
+            this.showBonusTimePopup(-2);
+          }
           const char1 = CharacterRegistry.get(t1.characterId || '');
           const char2 = CharacterRegistry.get(t2.characterId || '');
           const name1 = char1 ? `${char1.name}` : 'Linh thú';
           const name2 = char2 ? `${char2.name}` : 'Linh thú';
-          this.showNotice(`❌ Khác linh thú: ${name1} ≠ ${name2}`, 0xff758f);
+          this.showNotice(`❌ Khác linh thú (-2s): ${name1} ≠ ${name2}`, 0xff758f);
         } else if (reason === 'blocked_path') {
           this.showNotice('🚧 Bị cản đường nối! (Tối đa 2 khúc gấp không bị che)', 0xffd166);
         }
@@ -1628,10 +1641,16 @@ export class GameScene extends Phaser.Scene {
 
     if (this.isZenMode) {
       this.save.saveZenHighScore(this.score);
+    } else if (this.bossManager) {
+      // In Boss mode: only reward time on skillful combos (>= 3)
+      if (comboData.combo >= 3) {
+        this.timeRemaining = Math.min(this.levelConfig.timeLimit + 30, this.timeRemaining + 2);
+        this.showBonusTimePopup(2);
+      }
     } else {
-      // Authentic Pikachu Classic: +2 seconds bonus for each match!
-      this.timeRemaining = Math.min(this.levelConfig.timeLimit, this.timeRemaining + 2);
-      this.showBonusTimePopup();
+      // Standard mode: +1s bonus per match (tight and engaging)
+      this.timeRemaining = Math.min(this.levelConfig.timeLimit, this.timeRemaining + 1);
+      this.showBonusTimePopup(1);
     }
 
     // Play pitch-shifted match & electric laser zap
@@ -1721,12 +1740,15 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private showBonusTimePopup(): void {
-    const popup = this.add.text(GAME_WIDTH / 2 + 250, 18, '+2s', {
+  private showBonusTimePopup(seconds: number = 1): void {
+    const isPositive = seconds > 0;
+    const text = isPositive ? `+${seconds}s` : `${seconds}s`;
+    const color = isPositive ? '#00f5d4' : '#ff3366';
+    const popup = this.add.text(GAME_WIDTH / 2 + 250, 18, text, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '14px',
       fontStyle: '900',
-      color: '#00f5d4',
+      color,
       stroke: '#000000',
       strokeThickness: 3
     }).setOrigin(0.5).setDepth(40);
@@ -1735,7 +1757,8 @@ export class GameScene extends Phaser.Scene {
       targets: popup,
       y: 4,
       alpha: 0,
-      duration: 600,
+      duration: 700,
+      ease: 'Power1',
       onComplete: () => popup.destroy()
     });
   }

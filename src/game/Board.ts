@@ -1054,7 +1054,7 @@ export class BoardManager {
       for (let c = 1; c <= this.cols; c++) {
         const state = this.grid[r][c];
         let view = this.tileViews[r]?.[c];
-        if (!view && !state.isCleared && state.characterId) {
+        if (!view && !state.isCleared && (state.characterId || state.modifier !== 'none')) {
           const worldPos = this.gridToWorld(r, c);
           view = new TileView(this.scene, worldPos.x, worldPos.y, this.tileSize, state);
           view.on('pointerdown', () => this.handleTileClick(r, c));

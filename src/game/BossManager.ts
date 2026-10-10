@@ -3,7 +3,7 @@ import { BossConfig, TileState } from '../types';
 export interface BossEvents {
   onDamaged?: (currentHp: number, maxHp: number, damage: number) => void;
   onHeadSevered?: (headsLeft: number, totalHeads: number) => void;
-  onBossSkillTriggered?: (skillName: string, description: string) => void;
+  onBossSkillTriggered?: (skillName: string, description: string, skillType?: string) => void;
   onDefeated?: () => void;
 }
 
@@ -22,7 +22,7 @@ export class BossManager {
     this.totalHeads = config.headsOrParts || 8;
     this.headsRemaining = this.totalHeads;
     this.events = events;
-    this.actionTimer = config.actionIntervalSeconds;
+    this.actionTimer = config.actionIntervalSeconds || 7;
   }
 
   public applyDamage(damage: number): { defeated: boolean; headCut: boolean } {
@@ -41,6 +41,8 @@ export class BossManager {
     if (newHeads < this.headsRemaining && this.headsRemaining > 0) {
       this.headsRemaining = newHeads;
       headCut = true;
+      // Boss is stunned for 3.5 seconds when a head is severed!
+      this.actionTimer = Math.max(this.actionTimer, 3.5);
       this.events.onHeadSevered?.(this.headsRemaining, this.totalHeads);
     }
 
@@ -59,7 +61,7 @@ export class BossManager {
     this.actionTimer -= deltaSeconds;
     if (this.actionTimer <= 0) {
       this.triggerBossAction(grid, rows, cols);
-      this.actionTimer = this.config.actionIntervalSeconds;
+      this.actionTimer = this.config.actionIntervalSeconds || 7;
     }
   }
 
@@ -70,7 +72,7 @@ export class BossManager {
 
     switch (skill.type) {
       case 'ice_curse': {
-        // Freeze up to 2 active non-ice tiles
+        // Freeze up to 4 active non-ice tiles (2 pairs)
         const candidates: TileState[] = [];
         for (let r = 1; r <= rows; r++) {
           for (let c = 1; c <= cols; c++) {
@@ -80,7 +82,7 @@ export class BossManager {
             }
           }
         }
-        for (let i = 0; i < Math.min(2, candidates.length); i++) {
+        for (let i = 0; i < Math.min(4, candidates.length); i++) {
           const randIdx = Math.floor(Math.random() * candidates.length);
           const t = candidates.splice(randIdx, 1)[0];
           t.modifier = 'ice';
@@ -90,7 +92,7 @@ export class BossManager {
       }
 
       case 'rock_blocker': {
-        // Spawn 1 stone obstacle in an already cleared slot to block paths
+        // Spawn up to 2 stone obstacles in already cleared slots to block connecting paths
         const clearedSlots: TileState[] = [];
         for (let r = 1; r <= rows; r++) {
           for (let c = 1; c <= cols; c++) {
@@ -100,8 +102,9 @@ export class BossManager {
             }
           }
         }
-        if (clearedSlots.length > 0) {
-          const randSlot = clearedSlots[Math.floor(Math.random() * clearedSlots.length)];
+        for (let i = 0; i < Math.min(2, clearedSlots.length); i++) {
+          const randIdx = Math.floor(Math.random() * clearedSlots.length);
+          const randSlot = clearedSlots.splice(randIdx, 1)[0];
           randSlot.modifier = 'stone';
           randSlot.modifierLevel = 3;
           randSlot.isCleared = false;
@@ -111,7 +114,7 @@ export class BossManager {
       }
 
       case 'tile_swap': {
-        // Swap 2 random pairs of active tiles
+        // Swap up to 3 random pairs of active tiles to disrupt memorized lines
         const activeTiles: TileState[] = [];
         for (let r = 1; r <= rows; r++) {
           for (let c = 1; c <= cols; c++) {
@@ -121,21 +124,28 @@ export class BossManager {
             }
           }
         }
-        if (activeTiles.length >= 2) {
-          const idx1 = Math.floor(Math.random() * activeTiles.length);
-          let idx2 = Math.floor(Math.random() * activeTiles.length);
-          while (idx2 === idx1 && activeTiles.length > 1) {
-            idx2 = Math.floor(Math.random() * activeTiles.length);
+        for (let i = 0; i < 3; i++) {
+          if (activeTiles.length >= 2) {
+            const idx1 = Math.floor(Math.random() * activeTiles.length);
+            let idx2 = Math.floor(Math.random() * activeTiles.length);
+            while (idx2 === idx1 && activeTiles.length > 1) {
+              idx2 = Math.floor(Math.random() * activeTiles.length);
+            }
+            const tmp = activeTiles[idx1].characterId;
+            activeTiles[idx1].characterId = activeTiles[idx2].characterId;
+            activeTiles[idx2].characterId = tmp;
           }
-          const tmp = activeTiles[idx1].characterId;
-          activeTiles[idx1].characterId = activeTiles[idx2].characterId;
-          activeTiles[idx2].characterId = tmp;
         }
+        break;
+      }
+
+      case 'time_drain': {
+        // Drain 5 seconds of player's precious time
         break;
       }
     }
 
-    this.events.onBossSkillTriggered?.(skill.name, skill.description);
+    this.events.onBossSkillTriggered?.(skill.name, skill.description, skill.type);
   }
 
   public getHp(): number {
