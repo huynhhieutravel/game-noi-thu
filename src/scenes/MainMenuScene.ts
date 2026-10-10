@@ -103,8 +103,8 @@ export class MainMenuScene extends Phaser.Scene {
     // 6. Footer Signature
     this.add.text(width / 2, height - 16, '⛩️ Onet Linh Thú • Cơ Chế Nối Thú 2003 Cổ Điển • Âm Thanh & Haptic Chuẩn Mobile Native', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
-      color: '#adb5bd'
+      fontSize: '12.5px',
+      color: '#ced4da'
     }).setOrigin(0.5);
   }
 
@@ -127,32 +127,10 @@ export class MainMenuScene extends Phaser.Scene {
     aura.fillStyle(0xd90429, 0.06);
     aura.fillCircle(centerX, centerY + 25, 150);
 
-    // High-resolution Torii Gate Sprite with transparent cutout
+    // High-resolution Torii Gate Sprite with transparent cutout (static, fixed positioning to guarantee 60 FPS)
     const torii = this.add.image(centerX, centerY, 'torii_gate');
     torii.setDisplaySize(410, 390);
     torii.setAlpha(0.96);
-
-    // Ethereal floating breath animation
-    this.tweens.add({
-      targets: torii,
-      y: centerY - 5,
-      duration: 2600,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
-
-    // Subtle pulsing spiritual glow
-    this.tweens.add({
-      targets: aura,
-      alpha: { from: 0.6, to: 1.0 },
-      scaleX: { from: 0.95, to: 1.05 },
-      scaleY: { from: 0.95, to: 1.05 },
-      duration: 2200,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
   }
 
   /**
@@ -203,9 +181,9 @@ export class MainMenuScene extends Phaser.Scene {
       }
     }
 
-    const compText = this.add.text(compX + 44, topY + 10, `${companion.name} ⚙`, {
+    const compText = this.add.text(compX + 44, topY + 9, `${companion.name} ⚙`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14.5px',
       fontStyle: '800',
       color: '#ffffff'
     });
@@ -219,7 +197,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const changeTag = this.add.text(compX + compW - 31, topY + 19, 'ĐỔI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontStyle: '800',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -239,7 +217,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // --- Left: Coins Pill with "+" Button ---
-    const coinW = 110;
+    const coinW = 114;
     const coinX = compX + compW + 10;
 
     const coinsBg = this.add.graphics();
@@ -249,10 +227,10 @@ export class MainMenuScene extends Phaser.Scene {
     coinsBg.strokeRoundedRect(coinX, topY, coinW, compH, 19);
 
     const coinIcon = this.add.text(coinX + 13, topY + 9, '💰', { fontSize: '16px' });
-    const coinText = this.add.text(coinX + 38, topY + 10, `${save.coins}`, {
+    const coinText = this.add.text(coinX + 38, topY + 9, `${save.coins}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
-      fontStyle: 'bold',
+      fontSize: '15px',
+      fontStyle: '900',
       color: '#ffd700'
     });
 
@@ -265,7 +243,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const plusTxt = this.add.text(coinX + coinW - 17, topY + compH / 2 - 1, '+', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13px',
       fontStyle: 'bold',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -298,7 +276,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // --- Right: Rulebook Guide Button ---
-    const ruleW = 124;
+    const ruleW = 128;
     const ruleX = audioX - 10 - ruleW;
 
     const ruleBg = this.add.graphics();
@@ -309,7 +287,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const ruleTxt = this.add.text(ruleX + ruleW / 2, topY + compH / 2, '📖 LUẬT CHƠI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13px',
       fontStyle: '800',
       color: '#00f5d4'
     }).setOrigin(0.5);
@@ -325,7 +303,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // --- Right: Stars Pill ---
-    const starW = 95;
+    const starW = 98;
     const starX = ruleX - 10 - starW;
 
     const starsBg = this.add.graphics();
@@ -335,9 +313,9 @@ export class MainMenuScene extends Phaser.Scene {
     starsBg.strokeRoundedRect(starX, topY, starW, compH, 19);
 
     const starIcon = this.add.text(starX + 14, topY + 9, '⭐', { fontSize: '15px' });
-    const starText = this.add.text(starX + 40, topY + 10, `${save.stars}/30`, {
+    const starText = this.add.text(starX + 40, topY + 9, `${save.stars}/30`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: 'bold',
       color: '#ffffff'
     });
@@ -473,7 +451,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Theme Name
     const labelTxt = this.add.text(-pillW / 2 + 42, 0, curr.label, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14.5px',
       fontStyle: '800',
       color: '#ffffff'
     }).setOrigin(0, 0.5);
@@ -481,15 +459,15 @@ export class MainMenuScene extends Phaser.Scene {
     // Counter Badge (e.g. 8/16)
     const countTxt = this.add.text(pillW / 2 - 32, 0, `${currIdx + 1}/16`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontStyle: 'bold',
-      color: '#8d99ae'
+      color: '#adb5bd'
     }).setOrigin(1, 0.5);
 
     // Dropdown arrow
     const downArrow = this.add.text(pillW / 2 - 16, 0, '▾', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '15px',
       fontStyle: 'bold',
       color: '#ffd166'
     }).setOrigin(0.5);
@@ -665,18 +643,20 @@ export class MainMenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Subtitle Badge
+    const badgeW = 380;
+    const badgeH = 28;
     const badgeBg = this.add.graphics();
     badgeBg.fillStyle(0x120f24, 0.92);
-    badgeBg.fillRoundedRect(leftCenterX - 180, 172, 360, 26, 13);
+    badgeBg.fillRoundedRect(leftCenterX - badgeW / 2, 171, badgeW, badgeH, 14);
     badgeBg.lineStyle(1.5, 0xffb703, 0.85);
-    badgeBg.strokeRoundedRect(leftCenterX - 180, 172, 360, 26, 13);
+    badgeBg.strokeRoundedRect(leftCenterX - badgeW / 2, 171, badgeW, badgeH, 14);
 
     const badgeTxtObj = this.add.text(leftCenterX, 185, badgeText, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '12px',
       fontStyle: '800',
       color: '#ffd700',
-      letterSpacing: 0.5
+      letterSpacing: 0.3
     }).setOrigin(0.5);
 
     // Idle title float tween
@@ -704,7 +684,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Rotating rune effect on dais
     const runeText = this.add.text(leftCenterX, daisY + 65, '✦  ⛩️  ✦  ⛩️  ✦', {
       fontFamily: 'Zen Maru Gothic, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       color: '#ffd166'
     }).setOrigin(0.5).setAlpha(0.7);
 
@@ -756,21 +736,21 @@ export class MainMenuScene extends Phaser.Scene {
     const compId = this.saveSystem.getSelectedCompanion();
     const companion = CompanionManager.get(compId);
     const buffBg = this.add.graphics();
-    buffBg.fillStyle(0x111024, 0.88);
-    buffBg.fillRoundedRect(leftCenterX - 180, daisY + 95, 360, 36, 12);
+    buffBg.fillStyle(0x111024, 0.92);
+    buffBg.fillRoundedRect(leftCenterX - 185, daisY + 93, 370, 38, 14);
     buffBg.lineStyle(1.5, companion.themeColor, 0.85);
-    buffBg.strokeRoundedRect(leftCenterX - 180, daisY + 95, 360, 36, 12);
+    buffBg.strokeRoundedRect(leftCenterX - 185, daisY + 93, 370, 38, 14);
 
-    const buffTxt = this.add.text(leftCenterX - 10, daisY + 113, `${companion.icon} ${companion.name}: ${companion.skillName} (Buff)`, {
+    const buffTxt = this.add.text(leftCenterX - 8, daisY + 112, `${companion.icon} ${companion.name}: ${companion.skillName} (Buff)`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13px',
       fontStyle: '800',
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    const buffArrow = this.add.text(leftCenterX + 162, daisY + 113, '›', {
+    const buffArrow = this.add.text(leftCenterX + 165, daisY + 112, '›', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '18px',
+      fontSize: '19px',
       fontStyle: '900',
       color: `#${companion.themeColor.toString(16).padStart(6, '0')}`
     }).setOrigin(0.5);
@@ -810,14 +790,14 @@ export class MainMenuScene extends Phaser.Scene {
 
     const aTitle = this.add.text(contentLeft, -36, 'BỘ SƯU TẬP LINH THÚ', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#00f5d4'
     });
 
     const aDesc = this.add.text(contentLeft, -14, `Đã mở: ${discoveredCount}/198 Linh thú • 3 Thần thoại`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       color: '#ced4da'
     });
 
@@ -836,13 +816,13 @@ export class MainMenuScene extends Phaser.Scene {
 
     const aRuleMini = this.add.text(contentLeft, 26, '⚡ Pikachu 2003: 10 Mạng ❤️ • +2s/cặp', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10.5px',
+      fontSize: '12px',
       fontStyle: 'bold',
       color: '#ffd166'
     });
 
     // Right Action Column: Dedicated Docked Button (Zero Overlap)
-    const btnW = 84;
+    const btnW = 88;
     const btnH = 40;
     const btnX = albumCardW / 2 - 54; // Center X
     const btnY = 0;   // Center Y
@@ -855,7 +835,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const aBtnTxt = this.add.text(btnX, btnY, 'XEM ➔', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#052c24'
     }).setOrigin(0.5);
@@ -922,27 +902,27 @@ export class MainMenuScene extends Phaser.Scene {
 
     const heroTitle = this.add.text(-hubW / 2 + 86, -13, `CHƠI TIẾP • MÀN ${currentLvl}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '18px',
+      fontSize: '20px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0, 0.5);
 
-    const heroSub = this.add.text(-hubW / 2 + 86, 14, `Khám phá hướng dồn trọng lực • 10 Mạng ❤️ • Săn 3 Sao ⭐`, {
+    const heroSub = this.add.text(-hubW / 2 + 86, 14, `Khám phá hướng dồn • 10 Mạng ❤️ • Săn 3 Sao ⭐`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       color: '#ffe5ec'
     }).setOrigin(0, 0.5);
 
     // Right Gold Pill Button: [ VÀO TRẬN ➔ ]
     const goBadgeBg = this.add.graphics();
     goBadgeBg.fillStyle(0xffbe0b, 1);
-    goBadgeBg.fillRoundedRect(hubW / 2 - 122, -18, 106, 36, 18);
+    goBadgeBg.fillRoundedRect(hubW / 2 - 128, -19, 114, 38, 19);
     goBadgeBg.lineStyle(1.5, 0xffe6a7, 0.9);
-    goBadgeBg.strokeRoundedRect(hubW / 2 - 122, -18, 106, 36, 18);
+    goBadgeBg.strokeRoundedRect(hubW / 2 - 128, -19, 114, 38, 19);
 
-    const goBadgeTxt = this.add.text(hubW / 2 - 69, 0, 'VÀO TRẬN ➔', {
+    const goBadgeTxt = this.add.text(hubW / 2 - 71, 0, 'VÀO TRẬN ➔', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#161426'
     }).setOrigin(0.5);
@@ -1048,7 +1028,7 @@ export class MainMenuScene extends Phaser.Scene {
       icon: '👑',
       title: 'ĐẤU TRƯỜNG 16 BOSS',
       sub: '16 Đại Trùm Cổ Đại • 16 Chủ Đề',
-      badge: 'Thần Xà • Hải Tặc • Cự Long • Cơ Giáp',
+      badge: 'Thần Xà • Cự Long • 16 Trùm',
       actionTxt: 'THÁCH ĐẤU ➔',
       primaryColor: 0x240046,
       accentColor: 0xff4d6d,
@@ -1071,21 +1051,21 @@ export class MainMenuScene extends Phaser.Scene {
 
     const sTitle = this.add.text(0, -17, '🏆 THÀNH TÍCH NGƯỜI CHƠI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       fontStyle: '800',
       color: '#ffd700'
     }).setOrigin(0.5);
 
     const sLine1 = this.add.text(0, 4, `📊 Màn cao: Màn ${save.highestLevel}/10   ⭐ ${save.stars} Sao   💰 ${save.coins} Xu`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#f8f9fa'
     }).setOrigin(0.5);
 
     const sLine2 = this.add.text(0, 23, `❄️ Sinh Tồn: ${survivalRecord.maxWaves} Đợt (${survivalRecord.highScore} PTS)   🌸 Zen: ${save.zenHighScore || 0} PTS`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       fontStyle: 'bold',
       color: '#00f5d4'
     }).setOrigin(0.5);
@@ -1129,40 +1109,40 @@ export class MainMenuScene extends Phaser.Scene {
 
     const title = this.add.text(-opts.width / 2 + 48, -opts.height / 2 + 28, opts.title, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0, 0.5);
 
     const sub = this.add.text(-opts.width / 2 + 18, 0, opts.sub, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       color: '#ced4da'
     }).setOrigin(0, 0.5);
 
     // Bottom Badge text (Left) - Compact to avoid any overlap
     const badgeTxt = this.add.text(-opts.width / 2 + 18, opts.height / 2 - 20, opts.badge, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '9.5px',
+      fontSize: '11.5px',
       fontStyle: 'bold',
       color: `#${opts.accentColor.toString(16).padStart(6, '0')}`
     }).setOrigin(0, 0.5);
 
     // Right Action Pill Button (Glass capsule with neon stroke)
-    const btnW = 88;
-    const btnH = 26;
+    const btnW = 92;
+    const btnH = 28;
     const btnX = opts.width / 2 - 16 - btnW / 2;
     const btnY = opts.height / 2 - 20;
 
     const btnBg = this.add.graphics();
     btnBg.fillStyle(0x101224, 0.9);
-    btnBg.fillRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 13);
+    btnBg.fillRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 14);
     btnBg.lineStyle(1.5, opts.accentColor, 0.9);
-    btnBg.strokeRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 13);
+    btnBg.strokeRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 14);
 
     const actionPill = this.add.text(btnX, btnY, opts.actionTxt, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10.5px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -1280,16 +1260,16 @@ export class MainMenuScene extends Phaser.Scene {
       rBg.strokeRoundedRect(itemX, itemY, colW, itemH, 14);
 
       const iconObj = this.add.text(itemX + 22, itemY + 22, r.icon, { fontSize: '24px' });
-      const titleObj = this.add.text(itemX + 54, itemY + 20, r.title, {
+      const titleObj = this.add.text(itemX + 54, itemY + 18, r.title, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '14px',
         fontStyle: '900',
         color: r.color
       });
 
-      const descObj = this.add.text(itemX + 22, itemY + 48, r.desc, {
+      const descObj = this.add.text(itemX + 22, itemY + 46, r.desc, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
+        fontSize: '12.5px',
         color: '#ced4da',
         wordWrap: { width: colW - 40 }
       });
@@ -1301,11 +1281,11 @@ export class MainMenuScene extends Phaser.Scene {
     const closeBtn = this.add.container(0, cardH / 2 - 45);
     const cBg = this.add.graphics();
     cBg.fillStyle(0xe63946, 1);
-    cBg.fillRoundedRect(-110, -20, 220, 40, 12);
+    cBg.fillRoundedRect(-120, -22, 240, 44, 14);
 
     const cTxt = this.add.text(0, 0, 'ĐÃ HIỂU & QUAY LẠI ➔', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '14px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -1414,22 +1394,22 @@ export class MainMenuScene extends Phaser.Scene {
       // Name
       const nameTxt = this.add.text(-itemW / 2 + 42, -22, th.label, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
+        fontSize: '14.5px',
         fontStyle: '800',
         color: isAct ? '#ffffff' : '#e0e1dd'
       }).setOrigin(0, 0);
 
       // Tag
-      const tagTxt = this.add.text(-itemW / 2 + 42, -3, th.tag, {
+      const tagTxt = this.add.text(-itemW / 2 + 42, -2, th.tag, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '10px',
+        fontSize: '11.5px',
         color: '#8d99ae'
       }).setOrigin(0, 0);
 
       // Status Pill
       const statusPill = this.add.text(-itemW / 2 + 42, 17, isAct ? '✓ ĐANG CHỌN' : 'CHỌN ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '9.5px',
+        fontSize: '11.5px',
         fontStyle: '900',
         color: isAct ? th.hex : '#4cc9f0'
       }).setOrigin(0, 0);
@@ -1472,13 +1452,13 @@ export class MainMenuScene extends Phaser.Scene {
     const closeBtn = this.add.container(0, cardH / 2 - 38);
     const cBg = this.add.graphics();
     cBg.fillStyle(0x2a2845, 1);
-    cBg.fillRoundedRect(-100, -18, 200, 36, 12);
+    cBg.fillRoundedRect(-110, -20, 220, 40, 14);
     cBg.lineStyle(1.5, 0x5a557d, 0.8);
-    cBg.strokeRoundedRect(-100, -18, 200, 36, 12);
+    cBg.strokeRoundedRect(-110, -20, 220, 40, 14);
 
     const cTxt = this.add.text(0, 0, 'ĐÓNG [ ✕ ]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -1533,7 +1513,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const title = this.add.text(0, -200, '🗺️ CHỌN MÀN CHƠI (1 - 10)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '22px',
+      fontSize: '24px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -1541,8 +1521,8 @@ export class MainMenuScene extends Phaser.Scene {
 
     const sub = this.add.text(0, -172, '10 Màn Thử Thách Cân Bằng • Băng • Khóa • Đá • Trùm Thần Xà 🐉', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      color: '#adb5bd'
+      fontSize: '14px',
+      color: '#ced4da'
     }).setOrigin(0.5);
     modal.add(sub);
 
@@ -1595,14 +1575,14 @@ export class MainMenuScene extends Phaser.Scene {
 
       const numBadge = this.add.text(0, -34, stg.boss ? '👑 TRÙM CUỐI' : `MÀN ${stg.num}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
+        fontSize: '12px',
         fontStyle: '900',
         color: stg.boss ? '#ff595e' : (isPerfect ? '#ffd700' : '#00f5d4')
       }).setOrigin(0.5);
 
       const stgName = this.add.text(0, -16, stg.name.split(':')[1]?.trim() || stg.name, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: stg.boss ? '11px' : '12px',
+        fontSize: stg.boss ? '12px' : '13px',
         fontStyle: '800',
         color: stg.boss ? '#ffd166' : '#ffffff',
         align: 'center'
@@ -1610,18 +1590,18 @@ export class MainMenuScene extends Phaser.Scene {
 
       const stgSub = this.add.text(0, 3, stg.sub, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '9.5px',
-        color: stg.boss ? '#fca311' : '#adb5bd',
+        fontSize: '11px',
+        color: stg.boss ? '#fca311' : '#ced4da',
         align: 'center'
       }).setOrigin(0.5);
 
       const starsTxt = this.add.text(0, 21, starStr, {
-        fontSize: '13px'
+        fontSize: '14px'
       }).setOrigin(0.5);
 
       const playTxt = this.add.text(0, 38, isPerfect ? 'CHƠI LẠI ➔' : (stars > 0 ? 'SĂN 3 SAO ➔' : (stg.boss ? 'KHIÊU CHIẾN ⚔️' : 'CHƠI ➔')), {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '10px',
+        fontSize: '11.5px',
         fontStyle: 'bold',
         color: isPerfect ? '#ffd700' : (stg.boss ? '#ff595e' : '#ff758f')
       }).setOrigin(0.5);
@@ -1643,10 +1623,10 @@ export class MainMenuScene extends Phaser.Scene {
     const closeBtn = this.add.container(0, 185);
     const cBg = this.add.graphics();
     cBg.fillStyle(0xe63946, 1);
-    cBg.fillRoundedRect(-90, -18, 180, 36, 10);
+    cBg.fillRoundedRect(-100, -20, 200, 40, 12);
     const cTxt = this.add.text(0, 0, 'ĐÓNG BẢNG', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14px',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -1687,7 +1667,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const title = this.add.text(0, -215, '👑 ĐẤU TRƯỜNG 16 ĐẠI BOSS THẾ GIỚI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '22px',
+      fontSize: '24px',
       fontStyle: '900',
       color: '#ffd166'
     }).setOrigin(0.5);
@@ -1695,8 +1675,8 @@ export class MainMenuScene extends Phaser.Scene {
 
     const sub = this.add.text(0, -188, '16 Đại Trùm Thần Thoại Cực Đại • Chém Rơi Đầu, Phá Hủy Bộ Phận & Săn Thưởng', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      color: '#adb5bd'
+      fontSize: '13.5px',
+      color: '#ced4da'
     }).setOrigin(0.5);
     modal.add(sub);
 
@@ -1721,18 +1701,18 @@ export class MainMenuScene extends Phaser.Scene {
         const isActive = currentPage === t.page;
         const tBg = this.add.graphics();
         tBg.fillStyle(isActive ? 0xff4d6d : 0x1d1430, 0.95);
-        tBg.fillRoundedRect(tabX - 170, -16, 340, 32, 16);
+        tBg.fillRoundedRect(tabX - 170, -17, 340, 34, 17);
         tBg.lineStyle(1.5, isActive ? 0xffd166 : 0x3d2960, 0.9);
-        tBg.strokeRoundedRect(tabX - 170, -16, 340, 32, 16);
+        tBg.strokeRoundedRect(tabX - 170, -17, 340, 34, 17);
 
         const tTxt = this.add.text(tabX, 0, t.label, {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '11px',
+          fontSize: '12.5px',
           fontStyle: 'bold',
           color: isActive ? '#ffffff' : '#adb5bd'
         }).setOrigin(0.5);
 
-        const tHit = this.add.zone(tabX, 0, 340, 32).setInteractive({ useHandCursor: true });
+        const tHit = this.add.zone(tabX, 0, 340, 34).setInteractive({ useHandCursor: true });
         tHit.on('pointerdown', () => {
           if (currentPage !== t.page) {
             currentPage = t.page;
@@ -1807,9 +1787,9 @@ export class MainMenuScene extends Phaser.Scene {
 
         // Info right
         const infoX = thumbX + 38;
-        const bName = this.add.text(infoX, -cardH / 2 + 20, b.name, {
+        const bName = this.add.text(infoX, -cardH / 2 + 18, b.name, {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '11.5px',
+          fontSize: '13.5px',
           fontStyle: '800',
           color: '#ffffff',
           maxLines: 1
@@ -1817,29 +1797,29 @@ export class MainMenuScene extends Phaser.Scene {
 
         const bTitle = this.add.text(infoX, -cardH / 2 + 38, b.title || b.theme, {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '9.5px',
-          color: '#adb5bd',
+          fontSize: '11.5px',
+          color: '#ced4da',
           maxLines: 1
         });
 
-        const bHp = this.add.text(infoX, -cardH / 2 + 54, `${b.symbol || '⚔️'} ${b.max_hp} HP • ${b.parts || 8} Bộ phận`, {
+        const bHp = this.add.text(infoX, -cardH / 2 + 56, `${b.symbol || '⚔️'} ${b.max_hp} HP • ${b.parts || 8} Bộ phận`, {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '9.5px',
+          fontSize: '11.5px',
           fontStyle: 'bold',
           color: '#ffd166'
         });
 
         // Play Button Pill
-        const btnY = cardH / 2 - 22;
+        const btnY = cardH / 2 - 20;
         const pBtnBg = this.add.graphics();
         pBtnBg.fillStyle(0xd90429, 1);
-        pBtnBg.fillRoundedRect(-cardW / 2 + 12, btnY - 12, cardW - 24, 25, 12);
+        pBtnBg.fillRoundedRect(-cardW / 2 + 12, btnY - 13, cardW - 24, 26, 13);
         pBtnBg.lineStyle(1, 0xff758f, 0.8);
-        pBtnBg.strokeRoundedRect(-cardW / 2 + 12, btnY - 12, cardW - 24, 25, 12);
+        pBtnBg.strokeRoundedRect(-cardW / 2 + 12, btnY - 13, cardW - 24, 26, 13);
 
         const pBtnTxt = this.add.text(0, btnY, '⚔️ KHIÊU CHIẾN', {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '11px',
+          fontSize: '12.5px',
           fontStyle: 'bold',
           color: '#ffffff'
         }).setOrigin(0.5);
@@ -1878,19 +1858,19 @@ export class MainMenuScene extends Phaser.Scene {
     const closeBtn = this.add.container(0, 205);
     const cBg = this.add.graphics();
     cBg.fillStyle(0x3a0ca3, 0.95);
-    cBg.fillRoundedRect(-100, -18, 200, 36, 12);
+    cBg.fillRoundedRect(-110, -20, 220, 40, 14);
     cBg.lineStyle(1.5, 0x4cc9f0, 0.9);
-    cBg.strokeRoundedRect(-100, -18, 200, 36, 12);
+    cBg.strokeRoundedRect(-110, -20, 220, 40, 14);
 
     const cTxt = this.add.text(0, 0, 'ĐÓNG ĐẤU TRƯỜNG', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5);
 
     closeBtn.add([cBg, cTxt]);
-    closeBtn.setSize(200, 36).setInteractive({ useHandCursor: true });
+    closeBtn.setSize(220, 40).setInteractive({ useHandCursor: true });
     closeBtn.on('pointerdown', () => {
       this.audio.playSelect();
       modal.destroy();
@@ -1900,29 +1880,29 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   /**
-   * Ambient Falling Sakura Petals
+   * Ambient Falling Sakura Petals (Optimized to 8 lightweight particles for silky 60 FPS)
    */
   private createAmbientSakura(): void {
     const width = GAME_WIDTH;
     const height = GAME_HEIGHT;
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 8; i++) {
       const petal = this.add.image(
         Phaser.Math.Between(0, width),
         Phaser.Math.Between(-50, height),
         'particle_sakura'
       );
-      petal.setScale(Phaser.Math.FloatBetween(0.4, 0.85));
-      petal.setAlpha(Phaser.Math.FloatBetween(0.2, 0.65));
+      petal.setScale(Phaser.Math.FloatBetween(0.4, 0.75));
+      petal.setAlpha(Phaser.Math.FloatBetween(0.2, 0.55));
 
       this.tweens.add({
         targets: petal,
         y: height + 60,
-        x: `+=${Phaser.Math.Between(40, 100)}`,
+        x: `+=${Phaser.Math.Between(40, 80)}`,
         angle: 360,
-        duration: Phaser.Math.Between(6000, 12000),
+        duration: Phaser.Math.Between(7000, 13000),
         repeat: -1,
-        delay: Phaser.Math.Between(0, 5000),
+        delay: Phaser.Math.Between(0, 4000),
         onRepeat: () => {
           petal.x = Phaser.Math.Between(0, width);
           petal.y = -40;

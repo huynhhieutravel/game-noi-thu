@@ -256,21 +256,10 @@ export class BoardManager {
   private createPortalGate(x: number, y: number, label: string, color: number, gateW: number, gateH: number): Phaser.GameObjects.Container {
     const cont = this.scene.add.container(x, y).setDepth(1);
 
-    // 1. Soft pulsing outer ambient elemental aura
+    // 1. Soft static elemental aura (no scaling tween to guarantee 60 FPS)
     const glow = this.scene.add.graphics();
-    glow.fillStyle(color, 0.28);
+    glow.fillStyle(color, 0.22);
     glow.fillCircle(0, 0, Math.round(gateW * 0.44));
-
-    this.scene.tweens.add({
-      targets: glow,
-      alpha: { from: 0.35, to: 0.85 },
-      scaleX: { from: 0.95, to: 1.08 },
-      scaleY: { from: 0.95, to: 1.08 },
-      duration: 1300,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    });
 
     // 2. High-res Torii Gate image (portal_torii_a for A, portal_torii_b for B)
     const texKey = label === 'A' ? 'portal_torii_a' : 'portal_torii_b';
@@ -291,40 +280,10 @@ export class BoardManager {
     cont.setSize(gateW, gateH);
     cont.setInteractive({ useHandCursor: true });
 
-    cont.on('pointerover', () => {
-      this.scene.tweens.add({
-        targets: cont,
-        scaleX: 1.05,
-        scaleY: 1.05,
-        duration: 160,
-        ease: 'Back.easeOut'
-      });
-    });
-
-    cont.on('pointerout', () => {
-      this.scene.tweens.add({
-        targets: cont,
-        scaleX: 1.0,
-        scaleY: 1.0,
-        duration: 160,
-        ease: 'Sine.easeOut'
-      });
-    });
-
     cont.on('pointerdown', () => {
       (this.scene as any).audio?.playPortalWarp?.();
       this.playWormholePulseDemo();
       this.showPortalExplanationModal(label);
-    });
-
-    // Gentle ambient levitation float
-    this.scene.tweens.add({
-      targets: cont,
-      y: y - 5,
-      duration: 1600,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
     });
 
     return cont;

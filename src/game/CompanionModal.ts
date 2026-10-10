@@ -42,7 +42,7 @@ export class CompanionModal {
     // 3. Header
     const title = scene.add.text(0, -frameH / 2 + 36, '🦊 LINH THÚ ĐỒNG HÀNH & TUYỆT CHIÊU', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '20px',
+      fontSize: '23px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -53,15 +53,15 @@ export class CompanionModal {
       'Ăn các cặp ô & duy trì Combo để sạc Thanh Nộ. Khi đầy 100%, chạm Linh Thú để tung Tuyệt Chiêu!',
       {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
-        color: '#adb5bd'
+        fontSize: '13.5px',
+        color: '#ced4da'
       }
     ).setOrigin(0.5);
 
     // Coins Badge (Top-Right)
     const coinsBadge = scene.add.text(frameW / 2 - 100, -frameH / 2 + 34, `💰 ${save.getCoins()} XU`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '15.5px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -69,7 +69,7 @@ export class CompanionModal {
     // Close button (✖)
     const closeBtn = scene.add.text(frameW / 2 - 36, -frameH / 2 + 32, '✖', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '20px',
+      fontSize: '22px',
       color: '#adb5bd'
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
@@ -121,14 +121,14 @@ export class CompanionModal {
       // Name & Title
       const nameText = scene.add.text(0, -22, `${comp.icon} ${comp.name}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '17px',
+        fontSize: '18px',
         fontStyle: '900',
         color: isUnlocked ? '#ffffff' : '#94a3b8'
       }).setOrigin(0.5);
 
-      const titleText = scene.add.text(0, 0, `[ ${comp.title} ]`, {
+      const titleText = scene.add.text(0, 1, `[ ${comp.title} ]`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
+        fontSize: '12.5px',
         fontStyle: 'bold',
         color: `#${comp.themeColor.toString(16).padStart(6, '0')}`
       }).setOrigin(0.5);
@@ -142,14 +142,14 @@ export class CompanionModal {
 
       const skillName = scene.add.text(0, 36, `⚡ ${comp.skillName}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '13.5px',
         fontStyle: '800',
         color: '#ffd700'
       }).setOrigin(0.5);
 
       const skillDesc = scene.add.text(0, 68, comp.skillDesc, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
+        fontSize: '12px',
         color: '#ced4da',
         wordWrap: { width: cardW - 40 },
         align: 'center',
@@ -159,7 +159,7 @@ export class CompanionModal {
       // Action Button (Select / Equipped / Unlock)
       const btnY = 138;
       const btnW = cardW - 36;
-      const btnH = 36;
+      const btnH = 38;
       const btnBg = scene.add.graphics();
       let btnLabel = 'CHỌN LINH THÚ';
       let btnTextColor = '#000000';
@@ -177,11 +177,11 @@ export class CompanionModal {
         btnLabel = `🔒 MỞ KHÓA (${comp.cost} XU)`;
         btnTextColor = '#000000';
       }
-      btnBg.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 10);
+      btnBg.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 12);
 
       const btnText = scene.add.text(0, btnY, btnLabel, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
+        fontSize: '13px',
         fontStyle: '800',
         color: btnTextColor
       }).setOrigin(0.5);

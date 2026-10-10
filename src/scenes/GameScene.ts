@@ -474,18 +474,18 @@ export class GameScene extends Phaser.Scene {
     const backBtnContainer = this.add.container(68, 25);
     const backBg = this.add.graphics();
     backBg.fillStyle(0x191829, 0.92);
-    backBg.fillRoundedRect(-42, -15, 84, 30, 15);
+    backBg.fillRoundedRect(-44, -16, 88, 32, 16);
     backBg.lineStyle(1.2, 0x5a547a, 0.85);
-    backBg.strokeRoundedRect(-42, -15, 84, 30, 15);
+    backBg.strokeRoundedRect(-44, -16, 88, 32, 16);
 
     const backTxt = this.add.text(0, 0, `${menuIcon} MENU`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#e2e8f0'
     }).setOrigin(0.5);
 
-    const backHit = this.add.zone(0, 0, 84, 30).setInteractive({ useHandCursor: true });
+    const backHit = this.add.zone(0, 0, 88, 32).setInteractive({ useHandCursor: true });
     backHit.on('pointerover', () => backBtnContainer.setScale(1.05));
     backHit.on('pointerout', () => backBtnContainer.setScale(1.0));
     backHit.on('pointerdown', () => {
@@ -498,7 +498,7 @@ export class GameScene extends Phaser.Scene {
     // Lives next to Menu button (In Zen mode: 🌸 Vô Tận)
     this.livesText = this.add.text(142, 25, this.isSurvivalMode ? `❤️ x${this.lives}` : (this.isZenMode ? '🌸 Vô Tận' : `❤️ x${this.lives}`), {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '16px',
       fontStyle: '900',
       color: this.isZenMode ? '#ff758f' : (this.isSurvivalMode ? '#00f5d4' : '#ff4d6d')
     }).setOrigin(0, 0.5);
@@ -513,7 +513,7 @@ export class GameScene extends Phaser.Scene {
 
     const titleText = this.add.text(width / 2, 17, cleanTitle, {
       fontFamily: 'Zen Maru Gothic, Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: '900',
       color: this.isSurvivalMode ? '#90e0ef' : '#ffd700',
       stroke: '#0e0b17',
@@ -521,15 +521,15 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.levelTitleText = titleText;
 
-    const plaqueW = Math.max(260, Math.min(380, titleText.width + 54));
-    const plaqueH = 22;
+    const plaqueW = Math.max(280, Math.min(400, titleText.width + 60));
+    const plaqueH = 26;
     const plaqueX = width / 2;
     const plaqueY = 17;
 
     const titlePillBg = this.add.graphics();
     // 1. Dark lacquer base
     titlePillBg.fillStyle(0x0c0b17, 0.96);
-    titlePillBg.fillRoundedRect(plaqueX - plaqueW / 2, plaqueY - plaqueH / 2, plaqueW, plaqueH, 6);
+    titlePillBg.fillRoundedRect(plaqueX - plaqueW / 2, plaqueY - plaqueH / 2, plaqueW, plaqueH, 8);
 
     // 2. Stepped pagoda top beam accent
     titlePillBg.lineStyle(2, 0xd4af37, 1);
@@ -601,15 +601,15 @@ export class GameScene extends Phaser.Scene {
     // Time Label (placed right next to the timer bar)
     this.timeText = this.add.text(timerBarX + timerBarW + 14, capY, this.isZenMode ? '∞' : `⏳ ${Math.ceil(this.timeRemaining)}s`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(0, 0.5);
 
     // Audio toggle circle button (🔊 / 🔇)
-    const audioBtnX = width - 145;
+    const audioBtnX = width - 150;
     const audioBtnY = 25;
-    const audioBtnSize = 32;
+    const audioBtnSize = 34;
 
     const audioBg = this.add.graphics();
     audioBg.fillStyle(0x131728, 0.92);
@@ -618,7 +618,7 @@ export class GameScene extends Phaser.Scene {
     audioBg.strokeCircle(audioBtnX, audioBtnY, audioBtnSize / 2);
 
     this.audioToggleIcon = this.add.text(audioBtnX, audioBtnY, this.audio.getEnabled() ? '🔊' : '🔇', {
-      fontSize: '14px'
+      fontSize: '16px'
     }).setOrigin(0.5);
 
     const audioHit = this.add.zone(audioBtnX, audioBtnY, audioBtnSize, audioBtnSize)
@@ -634,24 +634,24 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Score capsule (top right) matching mockup [ 💮 0 PTS ]
-    const scoreCapW = 96;
-    const scoreCapH = 28;
-    const scoreCapX = width - 60;
+    const scoreCapW = 108;
+    const scoreCapH = 30;
+    const scoreCapX = width - 64;
     const scoreCapY = 25;
 
     const scoreCapBg = this.add.graphics();
     scoreCapBg.fillStyle(0x131728, 0.92);
-    scoreCapBg.fillRoundedRect(scoreCapX - scoreCapW / 2, scoreCapY - scoreCapH / 2, scoreCapW, scoreCapH, 14);
+    scoreCapBg.fillRoundedRect(scoreCapX - scoreCapW / 2, scoreCapY - scoreCapH / 2, scoreCapW, scoreCapH, 15);
     scoreCapBg.lineStyle(1.2, 0x4a4768, 0.85);
-    scoreCapBg.strokeRoundedRect(scoreCapX - scoreCapW / 2, scoreCapY - scoreCapH / 2, scoreCapW, scoreCapH, 14);
+    scoreCapBg.strokeRoundedRect(scoreCapX - scoreCapW / 2, scoreCapY - scoreCapH / 2, scoreCapW, scoreCapH, 15);
 
-    const scoreEmblem = this.add.text(scoreCapX - scoreCapW / 2 + 15, scoreCapY, '💮', {
-      fontSize: '13px'
+    const scoreEmblem = this.add.text(scoreCapX - scoreCapW / 2 + 16, scoreCapY, '💮', {
+      fontSize: '15px'
     }).setOrigin(0.5);
 
-    this.scoreText = this.add.text(scoreCapX + 8, scoreCapY, `${this.score} PTS`, {
+    this.scoreText = this.add.text(scoreCapX + 10, scoreCapY, `${this.score} PTS`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '14px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -659,7 +659,7 @@ export class GameScene extends Phaser.Scene {
     // Floating Combo popup text
     this.comboText = this.add.text(width / 2, 58, '', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '18px',
+      fontSize: '20px',
       fontStyle: '900',
       color: '#ff758f',
       stroke: '#3b0918',
@@ -670,13 +670,13 @@ export class GameScene extends Phaser.Scene {
     this.feverBanner = this.add.container(width / 2, 58).setDepth(25).setVisible(false);
     const fvBg = this.add.graphics();
     fvBg.fillStyle(0xd90429, 0.95);
-    fvBg.fillRoundedRect(-120, -14, 240, 28, 14);
+    fvBg.fillRoundedRect(-135, -16, 270, 32, 16);
     fvBg.lineStyle(2, 0xffd700, 1);
-    fvBg.strokeRoundedRect(-120, -14, 240, 28, 14);
+    fvBg.strokeRoundedRect(-135, -16, 270, 32, 16);
 
     const fvText = this.add.text(0, 0, '⚡ FEVER MODE x3.5! ⚡', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14.5px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -687,13 +687,13 @@ export class GameScene extends Phaser.Scene {
     this.ceilingWarningBanner = this.add.container(width / 2, 54).setDepth(30).setVisible(false);
     const wBg = this.add.graphics();
     wBg.fillStyle(0x3d0c11, 0.95);
-    wBg.fillRoundedRect(-170, -13, 340, 26, 13);
+    wBg.fillRoundedRect(-185, -15, 370, 30, 15);
     wBg.lineStyle(1.8, 0xff595e, 1);
-    wBg.strokeRoundedRect(-170, -13, 340, 26, 13);
+    wBg.strokeRoundedRect(-185, -15, 370, 30, 15);
 
     const wTxt = this.add.text(0, 0, '⚠️ CẢNH BÁO: BĂNG DÂNG GẦN NÓC TRÊN! ⚠️', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       fontStyle: '900',
       color: '#ff595e'
     }).setOrigin(0.5);
@@ -726,22 +726,22 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildQuestTrackerHeaderPill(): Phaser.GameObjects.Container {
-    const pillX = 245;
+    const pillX = 248;
     const pillY = 25;
-    const pillW = 108;
-    const pillH = 28;
+    const pillW = 120;
+    const pillH = 30;
 
     const questContainer = this.add.container(pillX, pillY);
 
     const qBg = this.add.graphics();
     qBg.fillStyle(0x191628, 0.92);
-    qBg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 14);
+    qBg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 15);
     qBg.lineStyle(1.5, 0xffd700, 0.85);
-    qBg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 14);
+    qBg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 15);
 
     this.questTrackerStarsText = this.add.text(0, 0, '⭐ THỬ THÁCH', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       fontStyle: '800',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -764,41 +764,41 @@ export class GameScene extends Phaser.Scene {
 
     const bg = this.add.graphics();
     bg.fillStyle(0x19142b, 0.98);
-    bg.fillRoundedRect(-140, -65, 280, 130, 12);
+    bg.fillRoundedRect(-155, -72, 310, 144, 14);
     bg.lineStyle(1.5, 0xffd700, 0.85);
-    bg.strokeRoundedRect(-140, -65, 280, 130, 12);
+    bg.strokeRoundedRect(-155, -72, 310, 144, 14);
 
-    const title = this.add.text(0, -48, '⭐ THỬ THÁCH 3 SAO', {
+    const title = this.add.text(0, -52, '⭐ THỬ THÁCH 3 SAO', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '14px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
-    const q1 = this.add.text(-125, -28, '⭐ 1. Dọn sạch trước khi hết giờ (Đang chơi)', {
+    const q1 = this.add.text(-138, -30, '⭐ 1. Dọn sạch trước khi hết giờ (Đang chơi)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '11.5px',
       color: '#00f5d4'
     });
 
     const isComboDone = this.maxComboAchieved >= 5;
-    const q2 = this.add.text(-125, -10, `⭐ 2. Combo x5 (Đạt: x${this.maxComboAchieved}/5) ${isComboDone ? '✓' : ''}`, {
+    const q2 = this.add.text(-138, -10, `⭐ 2. Combo x5 (Đạt: x${this.maxComboAchieved}/5) ${isComboDone ? '✓' : ''}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '11.5px',
       color: isComboDone ? '#00f5d4' : '#ffd166'
     });
 
     const isBoosterOk = this.playerUsedBoosterCount === 0 || this.timeRemaining > 40;
-    const q3 = this.add.text(-125, 8, `⭐ 3. Không trợ giúp (Dùng: ${this.playerUsedBoosterCount}) / >40s`, {
+    const q3 = this.add.text(-138, 10, `⭐ 3. Không trợ giúp (Dùng: ${this.playerUsedBoosterCount}) / >40s`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '11.5px',
       color: isBoosterOk ? '#00f5d4' : '#ff758f'
     });
 
-    const closeTxt = this.add.text(0, 38, '(Chạm để đóng)', {
+    const closeTxt = this.add.text(0, 42, '(Chạm để đóng)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '9px',
-      color: '#6c757d'
+      fontSize: '11px',
+      color: '#adb5bd'
     }).setOrigin(0.5);
 
     tooltip.add([bg, title, q1, q2, q3, closeTxt]);
@@ -889,20 +889,20 @@ export class GameScene extends Phaser.Scene {
     // Element / Symbol Badge at bottom of Avatar
     const badgeBg = this.add.graphics();
     badgeBg.fillStyle(0x160c24, 0.95);
-    badgeBg.fillCircle(avatarX, avatarY + avatarRadius - 4, 11);
+    badgeBg.fillCircle(avatarX, avatarY + avatarRadius - 4, 13);
     badgeBg.lineStyle(1.5, elementColor, 1);
-    badgeBg.strokeCircle(avatarX, avatarY + avatarRadius - 4, 11);
+    badgeBg.strokeCircle(avatarX, avatarY + avatarRadius - 4, 13);
     const badgeTxt = this.add.text(avatarX, avatarY + avatarRadius - 4, boss.symbol || '👑', {
-      fontSize: '11px'
+      fontSize: '13px'
     }).setOrigin(0.5);
     bossContainer.add([badgeBg, badgeTxt]);
 
     // 3. Boss Information & Name Plate (Right of Avatar)
     const contentX = 35;
     const nameStr = `👑 TRÙM: ${boss.name} ${boss.native_name || boss.japaneseName ? `(${boss.native_name || boss.japaneseName})` : ''}`;
-    const nameText = this.add.text(contentX, -16, nameStr, {
+    const nameText = this.add.text(contentX, -17, nameStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: '800',
       color: '#ffd166'
     }).setOrigin(0.5);
@@ -910,27 +910,27 @@ export class GameScene extends Phaser.Scene {
     // Boss HP bar background
     const hpBg = this.add.graphics();
     hpBg.fillStyle(0x1a0509, 0.9);
-    hpBg.fillRoundedRect(contentX - 170, -6, 340, 14, 7);
+    hpBg.fillRoundedRect(contentX - 170, -6, 340, 16, 8);
     hpBg.lineStyle(1.5, 0xff4d6d, 0.7);
-    hpBg.strokeRoundedRect(contentX - 170, -6, 340, 14, 7);
+    hpBg.strokeRoundedRect(contentX - 170, -6, 340, 16, 8);
 
     this.bossHpBar = this.add.graphics();
     this.updateBossHpVisual(this.bossManager!.getHp(), this.bossManager!.getMaxHp());
 
-    this.bossHpText = this.add.text(contentX, 1, `${this.bossManager!.getHp()} / ${this.bossManager!.getMaxHp()} HP`, {
+    this.bossHpText = this.add.text(contentX, 2, `${this.bossManager!.getHp()} / ${this.bossManager!.getMaxHp()} HP`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '12px',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5);
 
     // Parts / Heads display icons
-    this.bossHeadsContainer = this.add.container(contentX, 20);
+    this.bossHeadsContainer = this.add.container(contentX, 22);
     this.updateBossHeadsVisual(this.bossManager!.getHeadsRemaining(), this.bossManager!.getTotalHeads());
 
-    this.bossWarningText = this.add.text(contentX, 36, '', {
+    this.bossWarningText = this.add.text(contentX, 39, '', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       fontStyle: 'bold',
       color: '#ffd166'
     }).setOrigin(0.5);
@@ -946,7 +946,7 @@ export class GameScene extends Phaser.Scene {
     const barWidth = 336 * pct;
 
     this.bossHpBar.fillStyle(0xd90429, 1);
-    this.bossHpBar.fillRoundedRect(contentX - 168, -4, barWidth, 10, 5);
+    this.bossHpBar.fillRoundedRect(contentX - 168, -5, barWidth, 14, 7);
 
     if (this.bossHpText) {
       this.bossHpText.setText(`${Math.max(0, Math.ceil(currentHp))} / ${maxHp} HP`);
@@ -959,11 +959,11 @@ export class GameScene extends Phaser.Scene {
     const boss = this.bossManager?.getBossConfig();
     const symbol = boss?.symbol || '🐉';
 
-    const startX = -((total - 1) * 20) / 2;
+    const startX = -((total - 1) * 22) / 2;
     for (let i = 0; i < total; i++) {
       const isAlive = i < headsLeft;
-      const headIcon = this.add.text(startX + i * 20, 0, symbol, {
-        fontSize: '13px'
+      const headIcon = this.add.text(startX + i * 22, 0, symbol, {
+        fontSize: '15px'
       }).setOrigin(0.5);
 
       if (!isAlive) {
@@ -1107,7 +1107,7 @@ export class GameScene extends Phaser.Scene {
     // Companion Name
     this.companionNameText = this.add.text(-38, -14, `⛩️ ${this.companionConfig.name}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#ffffff'
     });
@@ -1115,9 +1115,9 @@ export class GameScene extends Phaser.Scene {
     // Energy Bar Background
     const barBg = this.add.graphics();
     barBg.fillStyle(0x0e0e18, 0.95);
-    barBg.fillRoundedRect(-38, 2, 134, 14, 7);
+    barBg.fillRoundedRect(-38, 2, 134, 15, 7.5);
     barBg.lineStyle(1, 0x5a2d48, 0.85);
-    barBg.strokeRoundedRect(-38, 2, 134, 14, 7);
+    barBg.strokeRoundedRect(-38, 2, 134, 15, 7.5);
 
     // Dynamic Energy Fill
     this.companionEnergyGraphics = this.add.graphics();
@@ -1125,15 +1125,15 @@ export class GameScene extends Phaser.Scene {
     // Energy Text
     this.companionEnergyText = this.add.text(29, 9, '0% NỘ', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '11.5px',
       fontStyle: '900',
-      color: '#adb5bd'
+      color: '#ced4da'
     }).setOrigin(0.5);
 
     // Ready Badge Text (hidden by default)
     this.companionReadyBadge = this.add.text(29, 9, '⚡ BẤM DÙNG!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '11.5px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5).setVisible(false);
@@ -1475,7 +1475,7 @@ export class GameScene extends Phaser.Scene {
 
       const count = this.add.text(badgeX, badgeY, countStr, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '13.5px',
         fontStyle: '900',
         color: '#ffd700',
         stroke: '#0d0d14',
@@ -1537,12 +1537,12 @@ export class GameScene extends Phaser.Scene {
 
     // 4. Icon & Label
     const iconTxt = this.add.text(-btnWidth / 2 + 22, 0, icon, {
-      fontSize: '18px'
+      fontSize: '20px'
     }).setOrigin(0.5);
 
     const txt = this.add.text(8, 0, label, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14px',
       fontStyle: '900',
       color: '#f8f9fa'
     }).setOrigin(0.5);
@@ -1553,13 +1553,13 @@ export class GameScene extends Phaser.Scene {
 
     const badgeBg = this.add.graphics();
     badgeBg.fillStyle(0xffd700, 1);
-    badgeBg.fillCircle(badgeX, badgeY, 11);
+    badgeBg.fillCircle(badgeX, badgeY, 13);
     badgeBg.lineStyle(1.5, 0x111111, 0.9);
-    badgeBg.strokeCircle(badgeX, badgeY, 11);
+    badgeBg.strokeCircle(badgeX, badgeY, 13);
 
     const count = this.add.text(badgeX, badgeY, countStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#111111'
     }).setOrigin(0.5);
@@ -2062,11 +2062,11 @@ export class GameScene extends Phaser.Scene {
 
     const notice = this.add.text(GAME_WIDTH / 2, startY, text, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14.5px',
       fontStyle: '800',
       color: `#${color.toString(16).padStart(6, '0')}`,
       backgroundColor: 'rgba(15, 17, 26, 0.94)',
-      padding: { left: 16, right: 16, top: 6, bottom: 6 }
+      padding: { left: 20, right: 20, top: 8, bottom: 8 }
     }).setOrigin(0.5).setDepth(150);
 
     this.currentNotice = notice;
@@ -2441,16 +2441,16 @@ export class GameScene extends Phaser.Scene {
     // Title
     const title = this.add.text(0, -240, '✨ CHIẾN THẮNG! ✨', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '22px',
+      fontSize: '25px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
     modal.add(title);
 
     // Level subtitle
-    const subTitle = this.add.text(0, -216, this.levelConfig.title, {
+    const subTitle = this.add.text(0, -214, this.levelConfig.title, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#adb5bd'
     }).setOrigin(0.5);
@@ -2462,7 +2462,7 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < 3; i++) {
       const isEarned = i < stars;
       const starIcon = this.add.text(starOffsets[i], starsY, isEarned ? '⭐' : '☆', {
-        fontSize: '36px',
+        fontSize: '38px',
         color: isEarned ? '#ffd700' : '#495057'
       }).setOrigin(0.5);
 
@@ -2498,15 +2498,15 @@ export class GameScene extends Phaser.Scene {
 
     const ratingBadge = this.add.text(0, -128, ratingBadgeStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '14px',
       fontStyle: '900',
       color: ratingColor
     }).setOrigin(0.5);
     modal.add(ratingBadge);
 
     // 📋 Star Quests Checklist Panel
-    const qPanelW = 400;
-    const qPanelH = 158;
+    const qPanelW = 420;
+    const qPanelH = 162;
     const qPanelY = -30;
     const panelBg = this.add.graphics();
     panelBg.fillStyle(0x1d1830, 0.95);
@@ -2517,22 +2517,22 @@ export class GameScene extends Phaser.Scene {
 
     const panelTitle = this.add.text(0, qPanelY - 60, '⭐ NHIỆM VỤ 3 SAO (STAR QUESTS)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       fontStyle: '900',
       color: '#c77dff'
     }).setOrigin(0.5);
     modal.add(panelTitle);
 
     // Quest 1
-    const q1Txt = this.add.text(-185, qPanelY - 36, '⭐ 1. Dọn sạch bàn cờ trước khi hết giờ', {
+    const q1Txt = this.add.text(-195, qPanelY - 36, '⭐ 1. Dọn sạch bàn cờ trước khi hết giờ', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontStyle: 'bold',
       color: '#f8f9fa'
     });
-    const q1Badge = this.add.text(185, qPanelY - 36, '[✓ ĐẠT]', {
+    const q1Badge = this.add.text(195, qPanelY - 36, '[✓ ĐẠT]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(1, 0);
@@ -2541,15 +2541,15 @@ export class GameScene extends Phaser.Scene {
     // Quest 2
     const q2Ok = questStats?.quest2 ?? (stars >= 2);
     const maxC = questStats?.maxCombo ?? this.maxComboAchieved;
-    const q2Txt = this.add.text(-185, qPanelY - 10, `⭐ 2. Đạt Combo x5 (Đạt tối đa: x${maxC})`, {
+    const q2Txt = this.add.text(-195, qPanelY - 10, `⭐ 2. Đạt Combo x5 (Đạt tối đa: x${maxC})`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontStyle: 'bold',
       color: q2Ok ? '#f8f9fa' : '#adb5bd'
     });
-    const q2Badge = this.add.text(185, qPanelY - 10, q2Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
+    const q2Badge = this.add.text(195, qPanelY - 10, q2Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontStyle: '900',
       color: q2Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
@@ -2559,24 +2559,24 @@ export class GameScene extends Phaser.Scene {
     const q3Ok = questStats?.quest3 ?? (stars === 3);
     const bUsed = questStats?.boostersUsed ?? this.playerUsedBoosterCount;
     const remSec = Math.max(0, Math.floor(questStats?.timeRemaining ?? this.timeRemaining));
-    const q3Txt = this.add.text(-185, qPanelY + 16, `⭐ 3. Không trợ giúp (Dùng: ${bUsed}) / Còn >40s (${remSec}s)`, {
+    const q3Txt = this.add.text(-195, qPanelY + 16, `⭐ 3. Không trợ giúp (Dùng: ${bUsed}) / Còn >40s (${remSec}s)`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontStyle: 'bold',
       color: q3Ok ? '#f8f9fa' : '#adb5bd'
     });
-    const q3Badge = this.add.text(185, qPanelY + 16, q3Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
+    const q3Badge = this.add.text(195, qPanelY + 16, q3Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontStyle: '900',
       color: q3Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
     modal.add([q3Txt, q3Badge]);
 
     // Quest Tip / Note
-    const qNoteTxt = this.add.text(0, qPanelY + 48, isPerfect ? '✨ Xuất sắc! Bạn đã thu phục trọn vẹn điểm màn này! ✨' : '💡 Mẹo: Bấm chơi lại để đạt điểm tuyệt đối 3 sao!', {
+    const qNoteTxt = this.add.text(0, qPanelY + 50, isPerfect ? '✨ Xuất sắc! Bạn đã thu phục trọn vẹn điểm màn này! ✨' : '💡 Mẹo: Bấm chơi lại để đạt điểm tuyệt đối 3 sao!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '11.5px',
       fontStyle: 'bold',
       color: isPerfect ? '#ffd700' : '#adb5bd'
     }).setOrigin(0.5);
@@ -2585,7 +2585,7 @@ export class GameScene extends Phaser.Scene {
     // Rewards info text
     const rewardsText = this.add.text(0, 72, `+${coins} 💰 Ngân lượng • ⏱️ Thưởng giờ: +${timeBonus} PTS • ❤️ ${this.lives}/10`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -2597,7 +2597,7 @@ export class GameScene extends Phaser.Scene {
       if (char) {
         const charTxt = this.add.text(0, 96, `🎊 THU PHỤC LINH THÚ: ${char.symbol} ${char.name} (${char.japaneseName})`, {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '11px',
+          fontSize: '13px',
           fontStyle: '800',
           color: '#ff758f'
         }).setOrigin(0.5);
@@ -2612,15 +2612,15 @@ export class GameScene extends Phaser.Scene {
       const nextBtn = this.add.container(0, 146);
       const nBg = this.add.graphics();
       nBg.fillStyle(isFinalLevel ? 0xffb703 : 0xe63946, 1);
-      nBg.fillRoundedRect(-125, -20, 250, 40, 12);
+      nBg.fillRoundedRect(-130, -21, 260, 42, 14);
       const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH CHIẾN DỊCH! 👑' : 'TIẾP TỤC HÀNH TRÌNH ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '13.5px',
         fontStyle: '800',
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
       }).setOrigin(0.5);
       nextBtn.add([nBg, nTxt]);
-      nextBtn.setSize(250, 40);
+      nextBtn.setSize(260, 42);
       nextBtn.setInteractive({ useHandCursor: true });
       nextBtn.on('pointerdown', () => {
         this.audio.playSelect();
@@ -2635,18 +2635,18 @@ export class GameScene extends Phaser.Scene {
       modal.add(nextBtn);
 
       // 2. Menu Button
-      const menuBtn = this.add.container(0, 202);
+      const menuBtn = this.add.container(0, 204);
       const mBg = this.add.graphics();
       mBg.fillStyle(0x2b2d42, 1);
-      mBg.fillRoundedRect(-125, -18, 250, 36, 10);
+      mBg.fillRoundedRect(-130, -19, 260, 38, 12);
       const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '13.5px',
         fontStyle: 'bold',
         color: '#adb5bd'
       }).setOrigin(0.5);
       menuBtn.add([mBg, mTxt]);
-      menuBtn.setSize(250, 36);
+      menuBtn.setSize(260, 38);
       menuBtn.setInteractive({ useHandCursor: true });
       menuBtn.on('pointerdown', () => {
         this.audio.playSelect();
@@ -2659,15 +2659,15 @@ export class GameScene extends Phaser.Scene {
       const nextBtn = this.add.container(0, 132);
       const nBg = this.add.graphics();
       nBg.fillStyle(isFinalLevel ? 0xffb703 : 0xe63946, 1);
-      nBg.fillRoundedRect(-125, -18, 250, 36, 10);
+      nBg.fillRoundedRect(-130, -19, 260, 38, 12);
       const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH CHIẾN DỊCH! 👑' : 'TIẾP TỤC HÀNH TRÌNH ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '13.5px',
         fontStyle: '800',
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
       }).setOrigin(0.5);
       nextBtn.add([nBg, nTxt]);
-      nextBtn.setSize(250, 36);
+      nextBtn.setSize(260, 38);
       nextBtn.setInteractive({ useHandCursor: true });
       nextBtn.on('pointerdown', () => {
         this.audio.playSelect();
@@ -2685,17 +2685,17 @@ export class GameScene extends Phaser.Scene {
       const replayBtn = this.add.container(0, 178);
       const rBg = this.add.graphics();
       rBg.fillStyle(0x382c16, 1);
-      rBg.fillRoundedRect(-125, -18, 250, 36, 10);
+      rBg.fillRoundedRect(-130, -19, 260, 38, 12);
       rBg.lineStyle(1.5, 0xffb703, 0.9);
-      rBg.strokeRoundedRect(-125, -18, 250, 36, 10);
+      rBg.strokeRoundedRect(-130, -19, 260, 38, 12);
       const rTxt = this.add.text(0, 0, '🔄 CHƠI LẠI ĐỂ SĂN 3 SAO!', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '13.5px',
         fontStyle: '800',
         color: '#ffd166'
       }).setOrigin(0.5);
       replayBtn.add([rBg, rTxt]);
-      replayBtn.setSize(250, 36);
+      replayBtn.setSize(260, 38);
       replayBtn.setInteractive({ useHandCursor: true });
       replayBtn.on('pointerdown', () => {
         this.audio.playSelect();
@@ -2707,15 +2707,15 @@ export class GameScene extends Phaser.Scene {
       const menuBtn = this.add.container(0, 222);
       const mBg = this.add.graphics();
       mBg.fillStyle(0x232538, 1);
-      mBg.fillRoundedRect(-125, -16, 250, 32, 10);
+      mBg.fillRoundedRect(-130, -18, 260, 36, 10);
       const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
+        fontSize: '13px',
         fontStyle: 'bold',
         color: '#adb5bd'
       }).setOrigin(0.5);
       menuBtn.add([mBg, mTxt]);
-      menuBtn.setSize(250, 32);
+      menuBtn.setSize(260, 36);
       menuBtn.setInteractive({ useHandCursor: true });
       menuBtn.on('pointerdown', () => {
         this.audio.playSelect();
@@ -2761,14 +2761,14 @@ export class GameScene extends Phaser.Scene {
 
     const title = this.add.text(0, -75, 'GAME OVER!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '22px',
+      fontSize: '24px',
       fontStyle: '900',
       color: '#e63946'
     }).setOrigin(0.5);
 
     const reasonText = this.add.text(0, -45, this.gameOverReason, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#ffd166',
       wordWrap: { width: 260 },
@@ -2780,15 +2780,15 @@ export class GameScene extends Phaser.Scene {
     const retryBtn = this.add.container(0, 5);
     const rBg = this.add.graphics();
     rBg.fillStyle(0xe63946, 1);
-    rBg.fillRoundedRect(-100, -20, 200, 40, 10);
+    rBg.fillRoundedRect(-105, -21, 210, 42, 12);
     const rTxt = this.add.text(0, 0, 'THỬ LẠI MÀN NÀY 🔄', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14px',
       fontStyle: '800',
       color: '#ffffff'
     }).setOrigin(0.5);
     retryBtn.add([rBg, rTxt]);
-    retryBtn.setSize(200, 40);
+    retryBtn.setSize(210, 42);
     retryBtn.setInteractive({ useHandCursor: true });
     retryBtn.on('pointerdown', () => {
       this.audio.playSelect();
@@ -2799,15 +2799,15 @@ export class GameScene extends Phaser.Scene {
     const menuBtn = this.add.container(0, 60);
     const mBg = this.add.graphics();
     mBg.fillStyle(0x2b2d42, 1);
-    mBg.fillRoundedRect(-100, -18, 200, 36, 10);
-    const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ', {
+    mBg.fillRoundedRect(-105, -19, 210, 38, 12);
+    const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#adb5bd'
     }).setOrigin(0.5);
     menuBtn.add([mBg, mTxt]);
-    menuBtn.setSize(200, 36);
+    menuBtn.setSize(210, 38);
     menuBtn.setInteractive({ useHandCursor: true });
     menuBtn.on('pointerdown', () => {
       this.audio.playSelect();
@@ -2831,8 +2831,8 @@ export class GameScene extends Phaser.Scene {
     overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
     modal.add(overlay);
 
-    const cardW = 340;
-    const cardH = 350;
+    const cardW = 360;
+    const cardH = 360;
     const card = this.add.graphics();
     card.fillStyle(0x0c192c, 0.98);
     card.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
@@ -2840,19 +2840,19 @@ export class GameScene extends Phaser.Scene {
     card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
     modal.add(card);
 
-    const title = this.add.text(0, -135, '❄️ BÃO TUYẾT DÂNG TRÀO!', {
+    const title = this.add.text(0, -138, '❄️ BÃO TUYẾT DÂNG TRÀO!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '20px',
+      fontSize: '22px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(0.5);
 
-    const reasonText = this.add.text(0, -108, this.gameOverReason, {
+    const reasonText = this.add.text(0, -110, this.gameOverReason, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#ffd166',
-      wordWrap: { width: 300 },
+      wordWrap: { width: 320 },
       align: 'center'
     }).setOrigin(0.5);
 
@@ -2861,35 +2861,35 @@ export class GameScene extends Phaser.Scene {
     // Stats Box
     const statBox = this.add.graphics();
     statBox.fillStyle(0x162a45, 0.9);
-    statBox.fillRoundedRect(-140, -85, 280, 115, 12);
+    statBox.fillRoundedRect(-150, -85, 300, 118, 14);
     statBox.lineStyle(1.5, 0x1f4068, 0.8);
-    statBox.strokeRoundedRect(-140, -85, 280, 115, 12);
+    statBox.strokeRoundedRect(-150, -85, 300, 118, 14);
     modal.add(statBox);
 
     const waveText = this.add.text(0, -62, `SỐNG SÓT: ĐỢT ${this.survivalWave}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16px',
+      fontSize: '18px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(0.5);
 
     const scoreText = this.add.text(0, -38, `Điểm số: ${this.score.toLocaleString()} PTS`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14.5px',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    const recordText = this.add.text(0, -16, `Kỷ lục: ${record.maxWaves} Đợt • ${record.highScore.toLocaleString()} PTS${isNewRecord ? ' 🔥 MỚI!' : ''}`, {
+    const recordText = this.add.text(0, -15, `Kỷ lục: ${record.maxWaves} Đợt • ${record.highScore.toLocaleString()} PTS${isNewRecord ? ' 🔥 MỚI!' : ''}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       fontStyle: '800',
-      color: isNewRecord ? '#ffb703' : '#adb5bd'
+      color: isNewRecord ? '#ffb703' : '#ced4da'
     }).setOrigin(0.5);
 
-    const coinsText = this.add.text(0, 8, `+${earnedCoins} 💰 Ngân lượng nhận được`, {
+    const coinsText = this.add.text(0, 10, `+${earnedCoins} 💰 Ngân lượng nhận được`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -2897,20 +2897,20 @@ export class GameScene extends Phaser.Scene {
     modal.add([waveText, scoreText, recordText, coinsText]);
 
     // Retry Survival Button
-    const retryBtn = this.add.container(0, 68);
+    const retryBtn = this.add.container(0, 72);
     const rBg = this.add.graphics();
     rBg.fillStyle(0x0077b6, 1);
-    rBg.fillRoundedRect(-110, -20, 220, 40, 12);
+    rBg.fillRoundedRect(-120, -21, 240, 42, 14);
     rBg.lineStyle(1.5, 0x00f5d4, 1);
-    rBg.strokeRoundedRect(-110, -20, 220, 40, 12);
+    rBg.strokeRoundedRect(-120, -21, 240, 42, 14);
     const rTxt = this.add.text(0, 0, 'THỬ LẠI SINH TỒN ❄️🔄', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14px',
       fontStyle: '800',
       color: '#ffffff'
     }).setOrigin(0.5);
     retryBtn.add([rBg, rTxt]);
-    retryBtn.setSize(220, 40);
+    retryBtn.setSize(240, 42);
     retryBtn.setInteractive({ useHandCursor: true });
     retryBtn.on('pointerdown', () => {
       this.audio.playSelect();
@@ -2919,18 +2919,18 @@ export class GameScene extends Phaser.Scene {
     modal.add(retryBtn);
 
     // Menu Button
-    const menuBtn = this.add.container(0, 122);
+    const menuBtn = this.add.container(0, 126);
     const mBg = this.add.graphics();
     mBg.fillStyle(0x232538, 1);
-    mBg.fillRoundedRect(-110, -18, 220, 36, 10);
+    mBg.fillRoundedRect(-120, -19, 240, 38, 12);
     const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#adb5bd'
     }).setOrigin(0.5);
     menuBtn.add([mBg, mTxt]);
-    menuBtn.setSize(220, 36);
+    menuBtn.setSize(240, 38);
     menuBtn.setInteractive({ useHandCursor: true });
     menuBtn.on('pointerdown', () => {
       this.audio.playSelect();
