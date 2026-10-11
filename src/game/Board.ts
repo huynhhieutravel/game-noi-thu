@@ -107,8 +107,8 @@ export class BoardManager {
    */
   public tagRelicShardPair(): boolean {
     const charMap = new Map<string, GridPoint[]>();
-    for (let r = 0; r < this.rows; r++) {
-      for (let c = 0; c < this.cols; c++) {
+    for (let r = 1; r <= this.rows; r++) {
+      for (let c = 1; c <= this.cols; c++) {
         const state = this.grid[r]?.[c];
         if (state && !state.isCleared && state.characterId && state.modifier !== 'stone' && state.modifier !== 'thorn' && state.modifier !== 'barricade') {
           if (!charMap.has(state.characterId)) {
@@ -131,6 +131,21 @@ export class BoardManager {
       }
     }
     return false;
+  }
+
+  /**
+   * Clear any remaining relic shard tags from the board
+   */
+  public clearRelicShardTags(): void {
+    for (let r = 1; r <= this.rows; r++) {
+      for (let c = 1; c <= this.cols; c++) {
+        const state = this.grid[r]?.[c];
+        if (state && state.hasRelicShard) {
+          state.hasRelicShard = false;
+          this.tileViews[r]?.[c]?.updateState(state, this.tileSize);
+        }
+      }
+    }
   }
 
   private resetShapeshifterTimer(): void {
@@ -1066,7 +1081,7 @@ export class BoardManager {
       } else {
         tile.modifier = 'none';
         tile.modifierLevel = 0;
-        (this.scene as any).onObstacleDestroyed?.('lock');
+        (this.scene as any).onObstacleDestroyed?.('thorn');
         view.updateState(tile, this.tileSize);
         view.playBounceIn();
         this.spawnObstacleDebris(posX, posY, 'thorn_debris', 10);
@@ -1098,6 +1113,7 @@ export class BoardManager {
       } else {
         tile.modifier = 'none';
         tile.modifierLevel = 0;
+        (this.scene as any).onObstacleDestroyed?.('barricade');
         view.updateState(tile, this.tileSize);
         view.playBounceIn();
         this.spawnObstacleDebris(posX, posY, 'barricade_debris', 12);

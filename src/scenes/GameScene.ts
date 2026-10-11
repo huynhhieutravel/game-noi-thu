@@ -125,6 +125,8 @@ export class GameScene extends Phaser.Scene {
     this.brokenStoneCount = 0;
     this.brokenCagesCount = 0;
     this.playerUsedShuffleCount = 0;
+    this.playerUsedBoosterCount = 0;
+    this.maxComboAchieved = 0;
     const levelId = data.levelId || 'level_01';
     const allLevels = levelsData as LevelConfig[];
     const found = allLevels.find(l => l.id === levelId) || allLevels[0];
@@ -273,7 +275,7 @@ export class GameScene extends Phaser.Scene {
   public onObstacleDestroyed(type: string): void {
     if (type === 'ice') this.brokenIceCount++;
     else if (type === 'stone') this.brokenStoneCount++;
-    else if (type === 'lock' || type === 'barricade') this.brokenCagesCount++;
+    else if (type === 'lock' || type === 'barricade' || type === 'thorn' || type === 'cage') this.brokenCagesCount++;
   }
 
   public create(): void {
@@ -474,6 +476,12 @@ export class GameScene extends Phaser.Scene {
         } else {
           this.showNotice('Đang đảo bài (Reshuffled)...', 0xffd166);
           this.audio.playShuffle();
+        }
+
+        // Re-sync Relic Shard pair after reshuffle if not yet collected
+        if (!this.isRelicShardCollectedThisRun && this.levelConfig.relicReward && !this.save.hasRelic(this.levelConfig.relicReward.id)) {
+          this.boardManager.clearRelicShardTags();
+          this.boardManager.tagRelicShardPair();
         }
       }
     });
@@ -1957,6 +1965,7 @@ export class GameScene extends Phaser.Scene {
     // ✨ Relic Shard Drop: Nối cặp ô phát sáng
     if ((t1.hasRelicShard || t2.hasRelicShard) && !this.isRelicShardCollectedThisRun && this.levelConfig.relicReward) {
       this.isRelicShardCollectedThisRun = true;
+      this.boardManager.clearRelicShardTags();
       this.audio.playVictory();
       this.haptic.combo();
 
