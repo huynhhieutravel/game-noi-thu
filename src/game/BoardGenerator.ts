@@ -306,12 +306,13 @@ export class BoardGenerator {
     if (movableTiles.length <= 1) return false;
 
     // 0. Auto-rescue trapped tiles if fewer than 2 clickable tiles remain (prevents infinite deadlock auto-shuffle loop)
-    const trappedTiles = movableTiles.filter(t => t.modifier === 'thorn' || t.modifier === 'barricade' || t.isLocked);
+    const trappedTiles = movableTiles.filter(t => t.modifier === 'thorn' || t.modifier === 'barricade' || t.modifier === 'ice' || t.modifier === 'web' || t.isLocked);
     let clickableCount = movableTiles.length - trappedTiles.length;
     if (clickableCount < 2 && trappedTiles.length > 0) {
       for (const t of trappedTiles) {
         t.modifier = 'none';
         t.modifierLevel = 0;
+        t.iceLayers = 0;
         t.isLocked = false;
         clickableCount++;
         if (clickableCount >= 2) break;
@@ -340,37 +341,40 @@ export class BoardGenerator {
     const lucky = movableTiles.filter(t => t.isLuckyPot || t.modifier === 'lucky_pot');
     const lightning = movableTiles.filter(t => t.isLightning || t.modifier === 'lightning');
 
-    // 2. Audit character parity in charPool
+    // 2. Audit character parity and build pairChars directly from counts
     const counts: Record<string, number> = {};
     for (const id of charPool) {
       counts[id] = (counts[id] || 0) + 1;
     }
 
-    const hasOddCount = Object.values(counts).some(cnt => cnt % 2 !== 0);
+    let targetCount = movableTiles.length;
+    if (targetCount % 2 !== 0) {
+      const oddTile = movableTiles.pop()!;
+      oddTile.isCleared = true;
+      oddTile.characterId = null;
+      targetCount = movableTiles.length;
+    }
 
-    // If parity is broken (e.g. from lone shapeshifter morphing), HEAL the pool immediately!
-    if (hasOddCount || charPool.length % 2 !== 0) {
-      let targetCount = movableTiles.length;
-      if (targetCount % 2 !== 0) {
-        const oddTile = movableTiles.pop()!;
-        oddTile.isCleared = true;
-        oddTile.characterId = null;
-        targetCount = movableTiles.length;
-      }
+    const targetPairs = targetCount / 2;
+    const pairChars: string[] = [];
 
-      const uniqueChars = Object.keys(counts);
-      const totalPairs = targetCount / 2;
-      charPool = [];
-      for (let p = 0; p < totalPairs; p++) {
-        const charId = uniqueChars[p % uniqueChars.length] || 'kasa_obake';
-        charPool.push(charId, charId);
+    // Extract all whole pairs from current counts
+    for (const [id, cnt] of Object.entries(counts)) {
+      const pairs = Math.floor(cnt / 2);
+      for (let i = 0; i < pairs; i++) {
+        if (pairChars.length < targetPairs) {
+          pairChars.push(id);
+        }
       }
     }
 
-    // Extract unique character pairs from charPool
-    const pairChars: string[] = [];
-    for (let p = 0; p < charPool.length; p += 2) {
-      pairChars.push(charPool[p]);
+    // If any slots remain unfilled (due to odd counts or broken parity), heal with unique chars
+    const uniqueChars = Object.keys(counts);
+    let fillIdx = 0;
+    while (pairChars.length < targetPairs) {
+      const charId = uniqueChars[fillIdx % uniqueChars.length] || 'kasa_obake';
+      pairChars.push(charId);
+      fillIdx++;
     }
 
     // Group non-special tiles
@@ -431,7 +435,7 @@ export class BoardGenerator {
     };
 
     // Find any reachable pair among clickable regular tiles first
-    const clickableTiles = regularTiles.filter(t => t.modifier !== 'thorn' && t.modifier !== 'barricade' && t.modifier !== 'stone');
+    const clickableTiles = regularTiles.filter(t => t.modifier !== 'thorn' && t.modifier !== 'barricade' && t.modifier !== 'stone' && t.modifier !== 'ice' && t.modifier !== 'web');
     const targetPool = clickableTiles.length >= 2 ? clickableTiles : regularTiles.length >= 2 ? regularTiles : movableTiles;
     for (let i = 0; i < targetPool.length; i++) {
       for (let j = i + 1; j < targetPool.length; j++) {
@@ -443,12 +447,14 @@ export class BoardGenerator {
           t1.characterId = matchChar;
           if (t2.characterId !== matchChar) {
             // Find another tile with matchChar and swap with t2 to preserve exact pair parity
-            const otherPartner = regularTiles.find(t => t !== t1 && t.characterId === matchChar);
+            const otherPartner = regularTiles.find(t => t !== t1 && t.characterId === matchChar) ||
+                                 movableTiles.find(t => t !== t1 && t !== t2 && !specialSet.has(t) && t.characterId === matchChar);
             if (otherPartner && otherPartner !== t2) {
               const oldT2Char = t2.characterId;
               t2.characterId = matchChar;
               otherPartner.characterId = oldT2Char;
             } else {
+              // Unify both tiles to matchChar or t2's character to strictly maintain parity
               t2.characterId = matchChar;
             }
           }
@@ -473,7 +479,7 @@ export class BoardGenerator {
     for (let r = 1; r <= rows; r++) {
       for (let c = 1; c <= cols; c++) {
         const tile = grid[r][c];
-        if (!tile.isCleared && tile.characterId && !tile.isLocked && tile.modifier !== 'thorn' && tile.modifier !== 'barricade' && tile.modifier !== 'stone') {
+        if (!tile.isCleared && tile.characterId && !tile.isLocked && tile.modifier !== 'thorn' && tile.modifier !== 'barricade' && tile.modifier !== 'stone' && tile.modifier !== 'ice' && tile.modifier !== 'web') {
           activeTiles.push(tile);
         }
       }

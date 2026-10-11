@@ -702,6 +702,26 @@ export class BoardManager {
       return;
     }
 
+    if (tile.modifier === 'ice') {
+      const lvl = tile.iceLayers || tile.modifierLevel || 1;
+      this.tileViews[r][c]?.playObstacleFeedback(`❄️ BĂNG GIÁ (CÒN ${lvl} HIT)`);
+      const audio = (this.scene as any).audio;
+      audio?.playError();
+      const haptic = (this.scene as any).haptic;
+      haptic?.light();
+      return;
+    }
+
+    if (tile.modifier === 'web') {
+      const lvl = tile.modifierLevel || 1;
+      this.tileViews[r][c]?.playObstacleFeedback(`🕸️ MẠNG NHỆN (CÒN ${lvl} HIT)`);
+      const audio = (this.scene as any).audio;
+      audio?.playError();
+      const haptic = (this.scene as any).haptic;
+      haptic?.light();
+      return;
+    }
+
     if (tile.isCleared || !tile.characterId || tile.isLocked) {
       if (tile.isLocked) {
         this.tileViews[r][c]?.playObstacleFeedback('🔒 ĐANG BỊ KHÓA');
@@ -884,44 +904,35 @@ export class BoardManager {
     const v1 = this.tileViews[t1.r][t1.c];
     const v2 = this.tileViews[t2.r][t2.c];
 
-    // Handle Ice modifier
-    let t1Cleared = true;
-    let t2Cleared = true;
+    const mod1 = t1.modifier;
+    const mod2 = t2.modifier;
+    const isShifter1 = t1.isShapeshifter || mod1 === 'shapeshifter';
+    const isShifter2 = t2.isShapeshifter || mod2 === 'shapeshifter';
 
-    if (t1.modifier === 'ice' && t1.iceLayers > 1) {
-      t1.iceLayers--;
-      t1Cleared = false;
-      v1?.updateState(t1, this.tileSize);
-    } else {
-      if (t1.modifier === 'ice') (this.scene as any).onObstacleDestroyed?.('ice');
-      t1.isCleared = true;
-      t1.characterId = null;
-      v1?.playPopAndClear();
-    }
+    if (mod1 === 'ice') (this.scene as any).onObstacleDestroyed?.('ice');
+    t1.isCleared = true;
+    t1.characterId = null;
+    t1.modifier = 'none';
+    t1.iceLayers = 0;
+    t1.modifierLevel = 0;
+    v1?.playPopAndClear();
 
-    if (t2.modifier === 'ice' && t2.iceLayers > 1) {
-      t2.iceLayers--;
-      t2Cleared = false;
-      v2?.updateState(t2, this.tileSize);
-    } else {
-      if (t2.modifier === 'ice') (this.scene as any).onObstacleDestroyed?.('ice');
-      t2.isCleared = true;
-      t2.characterId = null;
-      v2?.playPopAndClear();
-    }
+    if (mod2 === 'ice') (this.scene as any).onObstacleDestroyed?.('ice');
+    t2.isCleared = true;
+    t2.characterId = null;
+    t2.modifier = 'none';
+    t2.iceLayers = 0;
+    t2.modifierLevel = 0;
+    v2?.playPopAndClear();
 
     // Handle Web modifier directly on matched tiles
-    if (t1.modifier === 'web') {
+    if (mod1 === 'web') {
       this.spawnObstacleDebris(v1?.x || 0, v1?.y || 0, 'web_debris', 8);
-      t1.modifier = 'none';
-      t1.modifierLevel = 0;
       (this.scene as any).showNotice?.('🕸️ GIẬT ĐỨT MẠNG NHỆN! +100 PTS', 0x00f5d4);
       (this.scene as any).addScore?.(100);
     }
-    if (t2.modifier === 'web') {
+    if (mod2 === 'web') {
       this.spawnObstacleDebris(v2?.x || 0, v2?.y || 0, 'web_debris', 8);
-      t2.modifier = 'none';
-      t2.modifierLevel = 0;
       (this.scene as any).showNotice?.('🕸️ GIẬT ĐỨT MẠNG NHỆN! +100 PTS', 0x00f5d4);
       (this.scene as any).addScore?.(100);
     }
@@ -940,7 +951,7 @@ export class BoardManager {
     }
 
     // If a shapeshifter was cleared and only 1 remains, revert it to normal so it doesn't break parity
-    if (t1.isShapeshifter || t2.isShapeshifter || t1.modifier === 'shapeshifter' || t2.modifier === 'shapeshifter') {
+    if (isShifter1 || isShifter2) {
       const remainingShifters: TileState[] = [];
       for (let r = 1; r <= this.rows; r++) {
         for (let c = 1; c <= this.cols; c++) {
@@ -1029,7 +1040,7 @@ export class BoardManager {
       if (!tile || tile.isCleared) continue;
 
       const mod = tile.modifier;
-      if (mod === 'stone' || mod === 'thorn' || mod === 'web' || mod === 'barricade') {
+      if (mod === 'stone' || mod === 'thorn' || mod === 'web' || mod === 'barricade' || mod === 'ice') {
         this.hitObstacle(p.r, p.c);
       }
     }
@@ -1044,10 +1055,10 @@ export class BoardManager {
     if (!tile || !view || tile.isCleared) return;
 
     const mod = tile.modifier;
-    if (mod !== 'stone' && mod !== 'thorn' && mod !== 'web' && mod !== 'barricade') return;
+    if (mod !== 'stone' && mod !== 'thorn' && mod !== 'web' && mod !== 'barricade' && mod !== 'ice') return;
 
     if (!tile.modifierLevel || tile.modifierLevel <= 0) {
-      tile.modifierLevel = mod === 'web' ? 2 : 3;
+      tile.modifierLevel = mod === 'web' ? 2 : mod === 'ice' ? (tile.iceLayers || 2) : 3;
     }
 
     tile.modifierLevel--;
@@ -1121,6 +1132,25 @@ export class BoardManager {
         (this.scene as any).showNotice?.('🛡️ PHÁ LỒNG SẮT! +200 PTS', 0xffbe0b);
         (this.scene as any).addScore?.(200);
       }
+    } else if (mod === 'ice') {
+      tile.iceLayers = newLvl;
+      if (newLvl > 0) {
+        view.updateState(tile, this.tileSize);
+        view.playObstacleFeedback(`❄️ BĂNG CÒN ${newLvl} HIT`);
+        this.spawnObstacleDebris(posX, posY, 'web_debris', 3);
+        (this.scene as any).audio?.playWoodHit?.();
+      } else {
+        tile.modifier = 'none';
+        tile.iceLayers = 0;
+        tile.modifierLevel = 0;
+        (this.scene as any).onObstacleDestroyed?.('ice');
+        view.updateState(tile, this.tileSize);
+        view.playBounceIn();
+        this.spawnObstacleDebris(posX, posY, 'web_debris', 8);
+        (this.scene as any).audio?.playMatchSuccess?.();
+        (this.scene as any).showNotice?.('❄️ TAN CHẢY BĂNG GIÁ! +150 PTS', 0x90e0ef);
+        (this.scene as any).addScore?.(150);
+      }
     }
   }
 
@@ -1132,7 +1162,7 @@ export class BoardManager {
     for (let r = 1; r <= this.rows; r++) {
       for (let c = 1; c <= this.cols; c++) {
         const t = this.grid[r][c];
-        if (t && !t.isCleared && (t.modifier === 'stone' || t.modifier === 'thorn' || t.modifier === 'barricade' || t.modifier === 'web')) {
+        if (t && !t.isCleared && (t.modifier === 'stone' || t.modifier === 'thorn' || t.modifier === 'barricade' || t.modifier === 'web' || t.modifier === 'ice')) {
           obstacleCoords.push({ r, c });
         }
       }
@@ -1200,8 +1230,99 @@ export class BoardManager {
     }
   }
 
+  /**
+   * 🛡️ AUDIT & AUTO-HEAL PARITY
+   * Đảm bảo tuyệt đối không bao giờ tồn tại số lượng lẻ cho bất kỳ linh thú nào trên bàn cờ.
+   * Đặc biệt: Khi bàn cờ còn 2 ô cuối cùng, bắt buộc 100% 2 ô đó phải cùng một linh thú!
+   */
+  public auditAndHealParity(): void {
+    const activeTiles: TileState[] = [];
+    const counts: Record<string, number> = {};
+
+    for (let r = 1; r <= this.rows; r++) {
+      for (let c = 1; c <= this.cols; c++) {
+        const tile = this.grid[r][c];
+        if (tile && !tile.isCleared && tile.characterId && tile.modifier !== 'stone') {
+          activeTiles.push(tile);
+          counts[tile.characterId] = (counts[tile.characterId] || 0) + 1;
+        }
+      }
+    }
+
+    if (activeTiles.length === 0) return;
+
+    // 1. Trường hợp chỉ còn 1 ô duy nhất còn sót lại (quá lẻ loi)
+    if (activeTiles.length === 1) {
+      const solitary = activeTiles[0];
+      solitary.isCleared = true;
+      solitary.characterId = null;
+      solitary.modifier = 'none';
+      const view = this.tileViews[solitary.r]?.[solitary.c];
+      view?.playPopAndClear();
+      (this.scene as any).showNotice?.('✨ TỰ ĐỘNG THU PHỤC LINH THÚ CUỐI CÙNG!', 0xffd166);
+      return;
+    }
+
+    // 2. Trường hợp còn ĐÚNG 2 Ô CUỐI CÙNG trên toàn bộ bàn cờ!
+    if (activeTiles.length === 2) {
+      const [t1, t2] = activeTiles;
+      if (t1.characterId !== t2.characterId) {
+        // Đồng nhất linh thú cho 2 ô cuối cùng để người chơi kết thúc màn trọn vẹn!
+        const unifiedChar = t1.characterId || t2.characterId || 'kasa_obake';
+        t1.characterId = unifiedChar;
+        t2.characterId = unifiedChar;
+
+        const v1 = this.tileViews[t1.r]?.[t1.c];
+        const v2 = this.tileViews[t2.r]?.[t2.c];
+        v1?.updateState(t1, this.tileSize);
+        v2?.updateState(t2, this.tileSize);
+        v2?.playBounceIn();
+        (this.scene as any).showNotice?.('⚡ ĐỒNG BỘ 2 LINH THÚ CUỐI CÙNG!', 0x00f5d4);
+      }
+      return;
+    }
+
+    // 3. Trường hợp còn nhiều hơn 2 ô, nhưng xuất hiện các linh thú bị lẻ số lượng (odd counts)
+    const oddCharacters: string[] = [];
+    for (const [charId, cnt] of Object.entries(counts)) {
+      if (cnt % 2 !== 0) {
+        oddCharacters.push(charId);
+      }
+    }
+
+    if (oddCharacters.length >= 2) {
+      // Ghép đôi các con bị lẻ lại với nhau: biến đổi con lẻ thứ 2 thành con lẻ thứ 1
+      for (let i = 0; i < oddCharacters.length - 1; i += 2) {
+        const charA = oddCharacters[i];
+        const charB = oddCharacters[i + 1];
+
+        const candidate = activeTiles.find(t => t.characterId === charB && !t.isShapeshifter);
+        if (candidate) {
+          candidate.characterId = charA;
+          const view = this.tileViews[candidate.r]?.[candidate.c];
+          view?.updateState(candidate, this.tileSize);
+          view?.playMorph(charA, this.tileSize);
+        }
+      }
+    } else if (oddCharacters.length === 1 && activeTiles.length % 2 !== 0) {
+      // Chỉ có 1 con bị lẻ (tổng số ô active là lẻ): xóa ô đơn lẻ này
+      const oddChar = oddCharacters[0];
+      const solitary = activeTiles.find(t => t.characterId === oddChar);
+      if (solitary) {
+        solitary.isCleared = true;
+        solitary.characterId = null;
+        solitary.modifier = 'none';
+        const view = this.tileViews[solitary.r]?.[solitary.c];
+        view?.playPopAndClear();
+      }
+    }
+  }
+
   public checkBoardStatus(): void {
     this.isProcessingMatch = false;
+
+    // 🛡️ Ironclad Parity Audit & Auto-Heal before status check
+    this.auditAndHealParity();
 
     // Check if all playable tiles cleared
     let remainingPlayable = 0;
@@ -1246,6 +1367,7 @@ export class BoardManager {
 
   public performShuffle(isAuto: boolean = false): void {
     BoardGenerator.reshuffleBoard(this.grid, this.rows, this.cols, this.getPortals());
+    this.auditAndHealParity();
     this.syncViewsAfterMovement();
     this.events.onBoardReshuffled?.(isAuto);
   }
