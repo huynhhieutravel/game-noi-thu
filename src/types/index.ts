@@ -85,6 +85,7 @@ export interface TileState {
   isLuckyPot?: boolean;
   luckyPotTimeLeft?: number;
   isShapeshifter?: boolean;
+  hasRelicShard?: boolean;
 }
 
 export interface BossSkill {
@@ -112,6 +113,41 @@ export interface BossConfig {
   desc?: string;
 }
 
+export type DifficultyLevel = 'easy' | 'medium' | 'hard';
+
+export interface LevelQuest {
+  id: string;
+  type: 'clear' | 'combo' | 'no_booster' | 'time_left' | 'break_ice' | 'break_stone' | 'rescue_cages' | 'no_shuffle';
+  target: number;
+  description: string;
+  icon?: string;
+}
+
+export interface DifficultyConfig {
+  timeLimit: number;
+  characterPoolCount?: number;
+  modifierMultiplier?: number;
+  rewardMultiplier: number;
+}
+
+export interface RelicReward {
+  id: string;
+  name: string;
+  japaneseName?: string;
+  icon: string;
+  description: string;
+  worldId: string;
+  levelId: string;
+}
+
+export interface BadgeReward {
+  id: string;
+  name: string;
+  characterId: string;
+  tier: 1 | 2 | 3; // 1: Easy, 2: Medium, 3: Hard
+  rarity: Rarity;
+}
+
 export interface LevelConfig {
   id: string;
   levelNumber: number;
@@ -137,6 +173,15 @@ export interface LevelConfig {
     coins: number;
     stars: number;
     unlockCharacterId?: string;
+  };
+  // Extended Progression
+  quests?: LevelQuest[];
+  relicReward?: RelicReward;
+  badgeRewards?: BadgeReward[];
+  difficulties?: {
+    easy: DifficultyConfig;
+    medium: DifficultyConfig;
+    hard: DifficultyConfig;
   };
 }
 
@@ -176,4 +221,10 @@ export interface UserSaveData {
     music: boolean;
     vibration: boolean;
   };
+  // New Relic, Badge, and World Multi-verse Progression
+  relicsCollected?: Record<string, boolean>;
+  badgesCollected?: Record<string, boolean>;
+  completedDifficulties?: Record<string, { easy?: boolean; medium?: boolean; hard?: boolean }>;
+  unlockedRealms?: string[];
+  activeRealm?: string;
 }

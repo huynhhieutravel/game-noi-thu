@@ -172,7 +172,12 @@ const DEFAULT_SAVE: UserSaveData = {
     sound: true,
     music: true,
     vibration: true
-  }
+  },
+  relicsCollected: {},
+  badgesCollected: {},
+  completedDifficulties: {},
+  unlockedRealms: ['yokai'],
+  activeRealm: 'yokai'
 };
 
 export class SaveSystem {
@@ -212,8 +217,12 @@ export class SaveSystem {
           ...parsed,
           selectedTheme: (parsed.selectedTheme && parsed.selectedTheme !== 'pikachu') ? parsed.selectedTheme : 'yokai',
           boosters: { ...DEFAULT_SAVE.boosters, ...(parsed.boosters || {}) },
-          settings: { ...DEFAULT_SAVE.settings, ...(parsed.settings || {}) },
-          discoveredCharacters: { ...DEFAULT_SAVE.discoveredCharacters, ...(parsed.discoveredCharacters || {}) }
+          discoveredCharacters: { ...DEFAULT_SAVE.discoveredCharacters, ...(parsed.discoveredCharacters || {}) },
+          relicsCollected: { ...(DEFAULT_SAVE.relicsCollected || {}), ...(parsed.relicsCollected || {}) },
+          badgesCollected: { ...(DEFAULT_SAVE.badgesCollected || {}), ...(parsed.badgesCollected || {}) },
+          completedDifficulties: { ...(DEFAULT_SAVE.completedDifficulties || {}), ...(parsed.completedDifficulties || {}) },
+          unlockedRealms: (Array.isArray(parsed.unlockedRealms) && parsed.unlockedRealms.length > 0) ? parsed.unlockedRealms : ['yokai'],
+          activeRealm: parsed.activeRealm || 'yokai'
         };
       }
     } catch (e) {
@@ -355,5 +364,87 @@ export class SaveSystem {
       this.data.unlockedCompanions = list;
       this.save();
     }
+  }
+
+  // --- Relics & Badges Progression ---
+  public collectRelic(relicId: string): boolean {
+    if (!this.data.relicsCollected) this.data.relicsCollected = {};
+    const isNew = !this.data.relicsCollected[relicId];
+    this.data.relicsCollected[relicId] = true;
+    this.save();
+    return isNew;
+  }
+
+  public hasRelic(relicId: string): boolean {
+    return !!(this.data.relicsCollected && this.data.relicsCollected[relicId]);
+  }
+
+  public getCollectedRelicsCount(worldId?: string): number {
+    if (!this.data.relicsCollected) return 0;
+    let count = 0;
+    for (const [key, val] of Object.entries(this.data.relicsCollected)) {
+      if (val && (!worldId || key.startsWith(worldId))) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  public isWorldRelicComplete(worldId: string): boolean {
+    return this.getCollectedRelicsCount(worldId) >= 10;
+  }
+
+  public collectBadge(badgeId: string): boolean {
+    if (!this.data.badgesCollected) this.data.badgesCollected = {};
+    const isNew = !this.data.badgesCollected[badgeId];
+    this.data.badgesCollected[badgeId] = true;
+    this.save();
+    return isNew;
+  }
+
+  public hasBadge(badgeId: string): boolean {
+    return !!(this.data.badgesCollected && this.data.badgesCollected[badgeId]);
+  }
+
+  public getCollectedBadgesCount(): number {
+    if (!this.data.badgesCollected) return 0;
+    return Object.values(this.data.badgesCollected).filter(Boolean).length;
+  }
+
+  public recordDifficultyCompleted(levelId: string, diff: 'easy' | 'medium' | 'hard'): void {
+    if (!this.data.completedDifficulties) this.data.completedDifficulties = {};
+    if (!this.data.completedDifficulties[levelId]) {
+      this.data.completedDifficulties[levelId] = {};
+    }
+    this.data.completedDifficulties[levelId][diff] = true;
+    this.save();
+  }
+
+  public isDifficultyCompleted(levelId: string, diff: 'easy' | 'medium' | 'hard'): boolean {
+    return !!(this.data.completedDifficulties?.[levelId]?.[diff]);
+  }
+
+  public unlockRealm(realmId: string): boolean {
+    if (!this.data.unlockedRealms) this.data.unlockedRealms = ['yokai'];
+    if (!this.data.unlockedRealms.includes(realmId)) {
+      this.data.unlockedRealms.push(realmId);
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public isRealmUnlocked(realmId: string): boolean {
+    if (realmId === 'yokai') return true;
+    return !!(this.data.unlockedRealms && this.data.unlockedRealms.includes(realmId));
+  }
+
+  public setActiveRealm(realmId: string): void {
+    this.data.activeRealm = realmId;
+    this.save();
+  }
+
+  public getActiveRealm(): string {
+    return this.data.activeRealm || 'yokai';
   }
 }

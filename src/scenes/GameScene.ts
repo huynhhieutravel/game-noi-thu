@@ -12,7 +12,7 @@ import { HapticSystem } from '../systems/HapticSystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { CompanionManager } from '../game/CompanionManager';
 import { CompanionModal } from '../game/CompanionModal';
-import { BossConfig, CompanionConfig, GridPoint, LevelConfig, TileState } from '../types';
+import { BossConfig, CompanionConfig, DifficultyLevel, GridPoint, LevelConfig, TileState } from '../types';
 import { TextureGenerator } from '../game/TextureGenerator';
 
 export class GameScene extends Phaser.Scene {
@@ -85,6 +85,14 @@ export class GameScene extends Phaser.Scene {
   private hasNotifiedComboQuest: boolean = false;
   private questTrackerStarsText: Phaser.GameObjects.Text | null = null;
 
+  // 6. 🏆 Đa Độ Khó (Difficulty) & Mảnh Cổ Vật (Relic Shards) & Thống Kê Nhiệm Vụ
+  private currentDifficulty: DifficultyLevel = 'medium';
+  private isRelicShardCollectedThisRun: boolean = false;
+  private brokenIceCount: number = 0;
+  private brokenStoneCount: number = 0;
+  private brokenCagesCount: number = 0;
+  private playerUsedShuffleCount: number = 0;
+
   // 5. ❄️ Chế Độ Sinh Tồn Dâng Trào (Survival Blizzard Mode)
   private isSurvivalMode: boolean = false;
   private survivalWave: number = 1;
@@ -107,10 +115,16 @@ export class GameScene extends Phaser.Scene {
     super('GameScene');
   }
 
-  public init(data: { levelId?: string; lives?: number; isZenMode?: boolean; isSurvivalMode?: boolean; bossId?: string }): void {
+  public init(data: { levelId?: string; lives?: number; isZenMode?: boolean; isSurvivalMode?: boolean; bossId?: string; difficulty?: DifficultyLevel }): void {
     this.isZenMode = !!data.isZenMode;
     this.isSurvivalMode = !!data.isSurvivalMode;
     this.isBossDefeatedSequence = false;
+    this.currentDifficulty = data.difficulty || 'medium';
+    this.isRelicShardCollectedThisRun = false;
+    this.brokenIceCount = 0;
+    this.brokenStoneCount = 0;
+    this.brokenCagesCount = 0;
+    this.playerUsedShuffleCount = 0;
     const levelId = data.levelId || 'level_01';
     const allLevels = levelsData as LevelConfig[];
     const found = allLevels.find(l => l.id === levelId) || allLevels[0];
@@ -241,13 +255,25 @@ export class GameScene extends Phaser.Scene {
       }
 
       this.lives = data.lives !== undefined ? data.lives : 5;
-      this.timeRemaining = this.levelConfig.timeLimit;
+      if (this.levelConfig.difficulties && this.levelConfig.difficulties[this.currentDifficulty]) {
+        const dCfg = this.levelConfig.difficulties[this.currentDifficulty];
+        this.timeRemaining = dCfg.timeLimit;
+        this.levelConfig.timeLimit = dCfg.timeLimit;
+      } else {
+        this.timeRemaining = this.levelConfig.timeLimit;
+      }
     }
 
     this.score = 0;
     this.lastTickSecond = -1;
     this.isGameOver = false;
     this.isVictory = false;
+  }
+
+  public onObstacleDestroyed(type: string): void {
+    if (type === 'ice') this.brokenIceCount++;
+    else if (type === 'stone') this.brokenStoneCount++;
+    else if (type === 'lock' || type === 'barricade') this.brokenCagesCount++;
   }
 
   public create(): void {
@@ -451,6 +477,11 @@ export class GameScene extends Phaser.Scene {
         }
       }
     });
+
+    // Tag Relic Shard pair if level has one and player has not collected it yet
+    if (this.levelConfig.relicReward && !this.save.hasRelic(this.levelConfig.relicReward.id)) {
+      this.boardManager.tagRelicShardPair();
+    }
 
     // 6. Build Top HUD & Header
     this.buildHeader(width);
@@ -783,50 +814,76 @@ export class GameScene extends Phaser.Scene {
 
   private showQuestInfoTooltip(): void {
     if (this.isGameOver || this.isVictory) return;
-    const tooltip = this.add.container(236, 120).setDepth(180);
+    const tooltip = this.add.container(236, 125).setDepth(180);
 
     const bg = this.add.graphics();
     bg.fillStyle(0x19142b, 0.98);
-    bg.fillRoundedRect(-155, -72, 310, 144, 14);
+    bg.fillRoundedRect(-160, -78, 320, 156, 14);
     bg.lineStyle(1.5, 0xffd700, 0.85);
-    bg.strokeRoundedRect(-155, -72, 310, 144, 14);
+    bg.strokeRoundedRect(-160, -78, 320, 156, 14);
 
-    const title = this.add.text(0, -52, '⭐ THỬ THÁCH 3 SAO', {
+    const diffName = this.currentDifficulty === 'easy' ? 'DỄ' : this.currentDifficulty === 'medium' ? 'VỪA' : 'KHÓ';
+    const title = this.add.text(0, -56, `⭐ THỬ THÁCH 3 SAO (${diffName})`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
-    const q1 = this.add.text(-138, -30, '⭐ 1. Dọn sạch trước khi hết giờ (Đang chơi)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
-      color: '#00f5d4'
+    const quests = this.levelConfig.quests || [
+      { id: 'q1', type: 'clear', target: 1, description: 'Dọn sạch trước khi hết giờ', icon: '🎯' },
+      { id: 'q2', type: 'combo', target: 5, description: 'Đạt chuỗi Combo liên tiếp x5', icon: '⚡' },
+      { id: 'q3', type: 'no_booster', target: 0, description: 'Không dùng trợ giúp', icon: '✨' }
+    ];
+
+    const questTexts: Phaser.GameObjects.Text[] = [];
+    quests.slice(0, 3).forEach((q: any, idx) => {
+      let isDone = false;
+      let statusStr = '';
+      if (q.type === 'clear') {
+        isDone = false;
+        statusStr = '(Đang chơi)';
+      } else if (q.type === 'combo') {
+        isDone = this.maxComboAchieved >= q.target;
+        statusStr = `(x${this.maxComboAchieved}/${q.target})`;
+      } else if (q.type === 'no_booster') {
+        isDone = this.playerUsedBoosterCount === 0;
+        statusStr = `(Dùng: ${this.playerUsedBoosterCount})`;
+      } else if (q.type === 'no_shuffle') {
+        isDone = this.playerUsedShuffleCount === 0;
+        statusStr = `(Đổi: ${this.playerUsedShuffleCount})`;
+      } else if (q.type === 'time_left') {
+        isDone = this.timeRemaining >= q.target;
+        statusStr = `(Còn: ${Math.floor(this.timeRemaining)}s/${q.target}s)`;
+      } else if (q.type === 'break_ice') {
+        isDone = this.brokenIceCount >= q.target;
+        statusStr = `(${this.brokenIceCount}/${q.target})`;
+      } else if (q.type === 'break_stone') {
+        isDone = this.brokenStoneCount >= q.target;
+        statusStr = `(${this.brokenStoneCount}/${q.target})`;
+      } else if (q.type === 'rescue_cages') {
+        isDone = this.brokenCagesCount >= q.target;
+        statusStr = `(${this.brokenCagesCount}/${q.target})`;
+      }
+
+      const qTxt = this.add.text(-145, -32 + idx * 24, `⭐ ${idx + 1}. ${q.description} ${statusStr} ${isDone ? '✓' : ''}`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '11px',
+        color: isDone ? '#00f5d4' : '#ffd166',
+        wordWrap: { width: 285 }
+      });
+      questTexts.push(qTxt);
     });
 
-    const isComboDone = this.maxComboAchieved >= 5;
-    const q2 = this.add.text(-138, -10, `⭐ 2. Combo x5 (Đạt: x${this.maxComboAchieved}/5) ${isComboDone ? '✓' : ''}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
-      color: isComboDone ? '#00f5d4' : '#ffd166'
-    });
-
-    const isBoosterOk = this.playerUsedBoosterCount === 0 || this.timeRemaining > 40;
-    const q3 = this.add.text(-138, 10, `⭐ 3. Không trợ giúp (Dùng: ${this.playerUsedBoosterCount}) / >40s`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
-      color: isBoosterOk ? '#00f5d4' : '#ff758f'
-    });
-
-    const closeTxt = this.add.text(0, 42, '(Chạm để đóng)', {
+    const closeTxt = this.add.text(0, 48, '(Chạm để đóng)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '11px',
       color: '#adb5bd'
     }).setOrigin(0.5);
 
-    tooltip.add([bg, title, q1, q2, q3, closeTxt]);
+    tooltip.add([bg, title, ...questTexts, closeTxt]);
 
-    const hit = this.add.zone(0, 0, 280, 130).setInteractive({ useHandCursor: true });
+    const hit = this.add.zone(0, 0, 310, 150).setInteractive({ useHandCursor: true });
     hit.on('pointerdown', () => {
       tooltip.destroy();
     });
@@ -1067,6 +1124,7 @@ export class GameScene extends Phaser.Scene {
       if (this.isGameOver || this.isVictory) return;
       if (this.save.useBooster('shuffle')) {
         this.playerUsedBoosterCount++;
+        this.playerUsedShuffleCount++;
         this.boardManager.performShuffle();
         this.audio.playShuffle();
         this.updateBoosterCounts();
@@ -1896,6 +1954,35 @@ export class GameScene extends Phaser.Scene {
       this.showRushPointsPopup(midX, midY, earnedPts);
     }
 
+    // ✨ Relic Shard Drop: Nối cặp ô phát sáng
+    if ((t1.hasRelicShard || t2.hasRelicShard) && !this.isRelicShardCollectedThisRun && this.levelConfig.relicReward) {
+      this.isRelicShardCollectedThisRun = true;
+      this.audio.playVictory();
+      this.haptic.combo();
+
+      this.showNotice(`✨ ĐÃ TÌM THẤY: ${this.levelConfig.relicReward.name}!`, 0xffd700);
+
+      const relicIcon = this.add.text(midX, midY, this.levelConfig.relicReward.icon || '🏺', {
+        fontSize: '32px'
+      }).setOrigin(0.5).setDepth(200);
+
+      this.tweens.add({
+        targets: relicIcon,
+        x: 236,
+        y: 28,
+        scale: { from: 1.6, to: 0.8 },
+        alpha: { from: 1.0, to: 0.3 },
+        duration: 900,
+        ease: 'Cubic.easeOut',
+        onComplete: () => {
+          relicIcon.destroy();
+          if (this.questTrackerStarsText) {
+            this.questTrackerStarsText.setText('✨ ĐÃ NHẶT CỔ VẬT');
+          }
+        }
+      });
+    }
+
     // Record discovered character
     if (t1.characterId) {
       this.save.discoverCharacter(t1.characterId);
@@ -2452,26 +2539,54 @@ export class GameScene extends Phaser.Scene {
     this.score += timeBonus;
     this.scoreText.setText(`${this.score} PTS`);
 
-    // 4. ⭐ Star Quests Evaluation
-    // ⭐ 1 Sao: Dọn sạch bàn cờ trước khi hết giờ (Always true upon victory)
-    const quest1Achieved = true;
+    // 4. ⭐ Dynamic Star Quests Evaluation
+    const quests = this.levelConfig.quests || [
+      { id: 'q1', type: 'clear', target: 1, description: 'Dọn sạch bàn cờ trước khi hết giờ' },
+      { id: 'q2', type: 'combo', target: 5, description: 'Đạt chuỗi Combo liên tiếp x5' },
+      { id: 'q3', type: 'no_booster', target: 0, description: 'Không dùng trợ giúp' }
+    ];
 
-    // ⭐⭐ 2 Sao: Đạt ít nhất 1 lần Combo x5 (yêu cầu nối tay nhanh)
-    const quest2Achieved = this.maxComboAchieved >= 5;
+    const evaluateQuest = (q: any) => {
+      if (q.type === 'clear') return true;
+      if (q.type === 'combo') return this.maxComboAchieved >= q.target;
+      if (q.type === 'no_booster') return this.playerUsedBoosterCount === 0;
+      if (q.type === 'no_shuffle') return this.playerUsedShuffleCount === 0;
+      if (q.type === 'time_left') return !this.isZenMode && this.timeRemaining >= q.target;
+      if (q.type === 'break_ice') return this.brokenIceCount >= q.target;
+      if (q.type === 'break_stone') return this.brokenStoneCount >= q.target;
+      if (q.type === 'rescue_cages') return this.brokenCagesCount >= q.target;
+      return true;
+    };
 
-    // ⭐⭐⭐ 3 Sao: Hoàn thành màn mà không dùng bất kỳ Gợi ý / Đổi vị trí nào (hoặc còn dư > 40s)
-    const quest3Achieved = (this.playerUsedBoosterCount === 0) || (!this.isZenMode && this.timeRemaining > 40);
+    const quest1Achieved = quests[0] ? evaluateQuest(quests[0]) : true;
+    const quest2Achieved = quests[1] ? evaluateQuest(quests[1]) : (this.maxComboAchieved >= 5);
+    const quest3Achieved = quests[2] ? evaluateQuest(quests[2]) : (this.playerUsedBoosterCount === 0 || this.timeRemaining > 40);
 
     let earnedStars = (quest1Achieved ? 1 : 0) + (quest2Achieved ? 1 : 0) + (quest3Achieved ? 1 : 0);
     earnedStars = Math.max(1, Math.min(3, earnedStars));
 
     const isPerfect = earnedStars === 3;
-    const baseCoins = this.levelConfig.rewards.coins;
+    const diffCfg = this.levelConfig.difficulties?.[this.currentDifficulty];
+    const diffMultiplier = diffCfg?.rewardMultiplier || 1.0;
+    const baseCoins = Math.round(this.levelConfig.rewards.coins * diffMultiplier);
     const perfectBonusCoins = isPerfect ? 50 : 0;
     const earnedCoins = baseCoins + perfectBonusCoins;
 
     this.save.addCoins(earnedCoins);
     this.save.recordLevelCompleted(this.levelConfig.id, this.levelConfig.levelNumber, earnedStars);
+    this.save.recordDifficultyCompleted(this.levelConfig.id, this.currentDifficulty);
+
+    // Save Relic Shard if collected this run
+    if (this.isRelicShardCollectedThisRun && this.levelConfig.relicReward) {
+      this.save.collectRelic(this.levelConfig.relicReward.id);
+    }
+
+    // Award Monster Badge corresponding to current difficulty tier
+    const badgeIdx = this.currentDifficulty === 'easy' ? 0 : this.currentDifficulty === 'medium' ? 1 : 2;
+    const earnedBadge = this.levelConfig.badgeRewards?.[badgeIdx];
+    if (earnedBadge) {
+      this.save.collectBadge(earnedBadge.id);
+    }
 
     // Restore +1 life bonus on level clear (max 10)
     this.lives = Math.min(10, this.lives + 1);
@@ -2492,7 +2607,9 @@ export class GameScene extends Phaser.Scene {
       maxCombo: this.maxComboAchieved,
       boostersUsed: this.playerUsedBoosterCount,
       timeRemaining: this.timeRemaining,
-      isPerfect
+      isPerfect,
+      relicReward: (this.isRelicShardCollectedThisRun && this.levelConfig.relicReward) ? this.levelConfig.relicReward : null,
+      badgeReward: earnedBadge || null
     });
   }
 
@@ -2509,6 +2626,8 @@ export class GameScene extends Phaser.Scene {
       boostersUsed: number;
       timeRemaining: number;
       isPerfect: boolean;
+      relicReward?: any;
+      badgeReward?: any;
     }
   ): void {
     const width = GAME_WIDTH;
@@ -2524,8 +2643,8 @@ export class GameScene extends Phaser.Scene {
     modal.add(overlay);
 
     const isPerfect = questStats?.isPerfect ?? (stars === 3);
-    const cardW = 440;
-    const cardH = 550;
+    const cardW = 450;
+    const cardH = 600;
 
     const card = this.add.graphics();
     card.fillStyle(0x161324, 0.98);
@@ -2535,7 +2654,7 @@ export class GameScene extends Phaser.Scene {
     modal.add(card);
 
     // Title
-    const title = this.add.text(0, -240, '✨ CHIẾN THẮNG! ✨', {
+    const title = this.add.text(0, -255, '✨ CHIẾN THẮNG! ✨', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '25px',
       fontStyle: '900',
@@ -2543,17 +2662,18 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
     modal.add(title);
 
-    // Level subtitle
-    const subTitle = this.add.text(0, -214, this.levelConfig.title, {
+    // Level subtitle with Difficulty badge
+    const diffBadge = this.currentDifficulty === 'easy' ? '🟢 DỄ' : this.currentDifficulty === 'medium' ? '🟡 VỪA' : '🔴 KHÓ';
+    const subTitle = this.add.text(0, -228, `${this.levelConfig.title} • [${diffBadge}]`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '13px',
       fontStyle: 'bold',
       color: '#adb5bd'
     }).setOrigin(0.5);
     modal.add(subTitle);
 
     // 3 Animated Stars Container
-    const starsY = -170;
+    const starsY = -180;
     const starOffsets = [-64, 0, 64];
     for (let i = 0; i < 3; i++) {
       const isEarned = i < stars;
@@ -2592,18 +2712,18 @@ export class GameScene extends Phaser.Scene {
       ratingColor = '#00f5d4';
     }
 
-    const ratingBadge = this.add.text(0, -128, ratingBadgeStr, {
+    const ratingBadge = this.add.text(0, -135, ratingBadgeStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: ratingColor
     }).setOrigin(0.5);
     modal.add(ratingBadge);
 
-    // 📋 Star Quests Checklist Panel
+    // 📋 Dynamic Star Quests Checklist Panel
     const qPanelW = 420;
-    const qPanelH = 162;
-    const qPanelY = -30;
+    const qPanelH = 145;
+    const qPanelY = -42;
     const panelBg = this.add.graphics();
     panelBg.fillStyle(0x1d1830, 0.95);
     panelBg.fillRoundedRect(-qPanelW / 2, qPanelY - qPanelH / 2, qPanelW, qPanelH, 14);
@@ -2611,24 +2731,31 @@ export class GameScene extends Phaser.Scene {
     panelBg.strokeRoundedRect(-qPanelW / 2, qPanelY - qPanelH / 2, qPanelW, qPanelH, 14);
     modal.add(panelBg);
 
-    const panelTitle = this.add.text(0, qPanelY - 60, '⭐ NHIỆM VỤ 3 SAO (STAR QUESTS)', {
+    const panelTitle = this.add.text(0, qPanelY - 54, '⭐ NHIỆM VỤ 3 SAO (STAR QUESTS)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#c77dff'
     }).setOrigin(0.5);
     modal.add(panelTitle);
 
+    const levelQuests = this.levelConfig.quests || [
+      { id: 'q1', type: 'clear' as const, description: 'Dọn sạch bàn cờ trước khi hết giờ', star: 1 },
+      { id: 'q2', type: 'combo' as const, description: 'Đạt chuỗi Combo liên tiếp x5', star: 2 },
+      { id: 'q3', type: 'no_booster' as const, description: 'Không dùng quyền trợ giúp', star: 3 }
+    ];
+
     // Quest 1
-    const q1Txt = this.add.text(-195, qPanelY - 36, '⭐ 1. Dọn sạch bàn cờ trước khi hết giờ', {
+    const q1Desc = levelQuests[0]?.description || 'Dọn sạch bàn cờ trước khi hết giờ';
+    const q1Txt = this.add.text(-195, qPanelY - 34, `⭐ 1. ${q1Desc}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '11.5px',
       fontStyle: 'bold',
       color: '#f8f9fa'
     });
-    const q1Badge = this.add.text(195, qPanelY - 36, '[✓ ĐẠT]', {
+    const q1Badge = this.add.text(195, qPanelY - 34, '[✓ ĐẠT]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '11.5px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(1, 0);
@@ -2636,16 +2763,16 @@ export class GameScene extends Phaser.Scene {
 
     // Quest 2
     const q2Ok = questStats?.quest2 ?? (stars >= 2);
-    const maxC = questStats?.maxCombo ?? this.maxComboAchieved;
-    const q2Txt = this.add.text(-195, qPanelY - 10, `⭐ 2. Đạt Combo x5 (Đạt tối đa: x${maxC})`, {
+    const q2Desc = levelQuests[1]?.description || 'Đạt chuỗi Combo thử thách';
+    const q2Txt = this.add.text(-195, qPanelY - 10, `⭐ 2. ${q2Desc}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '11.5px',
       fontStyle: 'bold',
       color: q2Ok ? '#f8f9fa' : '#adb5bd'
     });
     const q2Badge = this.add.text(195, qPanelY - 10, q2Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '11.5px',
       fontStyle: '900',
       color: q2Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
@@ -2653,47 +2780,88 @@ export class GameScene extends Phaser.Scene {
 
     // Quest 3
     const q3Ok = questStats?.quest3 ?? (stars === 3);
-    const bUsed = questStats?.boostersUsed ?? this.playerUsedBoosterCount;
-    const remSec = Math.max(0, Math.floor(questStats?.timeRemaining ?? this.timeRemaining));
-    const q3Txt = this.add.text(-195, qPanelY + 16, `⭐ 3. Không trợ giúp (Dùng: ${bUsed}) / Còn >40s (${remSec}s)`, {
+    const q3Desc = levelQuests[2]?.description || 'Vượt qua không dùng trợ giúp';
+    const q3Txt = this.add.text(-195, qPanelY + 14, `⭐ 3. ${q3Desc}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '11.5px',
       fontStyle: 'bold',
       color: q3Ok ? '#f8f9fa' : '#adb5bd'
     });
-    const q3Badge = this.add.text(195, qPanelY + 16, q3Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
+    const q3Badge = this.add.text(195, qPanelY + 14, q3Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '11.5px',
       fontStyle: '900',
       color: q3Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
     modal.add([q3Txt, q3Badge]);
 
     // Quest Tip / Note
-    const qNoteTxt = this.add.text(0, qPanelY + 50, isPerfect ? '✨ Xuất sắc! Bạn đã thu phục trọn vẹn điểm màn này! ✨' : '💡 Mẹo: Bấm chơi lại để đạt điểm tuyệt đối 3 sao!', {
+    const qNoteTxt = this.add.text(0, qPanelY + 46, isPerfect ? '✨ Xuất sắc! Bạn đã thu phục trọn vẹn điểm màn này! ✨' : '💡 Mẹo: Bấm chơi lại để đạt điểm tuyệt đối 3 sao!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '11px',
       fontStyle: 'bold',
       color: isPerfect ? '#ffd700' : '#adb5bd'
     }).setOrigin(0.5);
     modal.add(qNoteTxt);
 
     // Rewards info text
-    const rewardsText = this.add.text(0, 72, `+${coins} 💰 Ngân lượng • ⏱️ Thưởng giờ: +${timeBonus} PTS • ❤️ ${this.lives}/10`, {
+    const rewardsText = this.add.text(0, 48, `+${coins} 💰 Ngân lượng • ⏱️ Thưởng: +${timeBonus} PTS • ❤️ ${this.lives}/10`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '13px',
       fontStyle: 'bold',
       color: '#ffd700'
     }).setOrigin(0.5);
     modal.add(rewardsText);
 
+    // Relic Shard Drop Banner (If collected this run)
+    let extraRewardOffset = 76;
+    if (questStats?.relicReward) {
+      const relic = questStats.relicReward;
+      const relicBox = this.add.container(0, extraRewardOffset);
+      const rBg = this.add.graphics();
+      rBg.fillStyle(0x3a2e12, 0.95);
+      rBg.fillRoundedRect(-200, -12, 400, 24, 8);
+      rBg.lineStyle(1.2, 0xffd700, 0.9);
+      rBg.strokeRoundedRect(-200, -12, 400, 24, 8);
+      const rTxt = this.add.text(0, 0, `✨ THU THẬP THẦN KHÍ: ${relic.icon} ${relic.name} (${relic.japaneseName})`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '11.5px',
+        fontStyle: '900',
+        color: '#ffd700'
+      }).setOrigin(0.5);
+      relicBox.add([rBg, rTxt]);
+      modal.add(relicBox);
+      extraRewardOffset += 28;
+    }
+
+    // Monster Badge Tier Banner (If awarded this run)
+    if (questStats?.badgeReward) {
+      const badge = questStats.badgeReward;
+      const tierLabel = this.currentDifficulty === 'easy' ? 'ĐỒNG' : this.currentDifficulty === 'medium' ? 'BẠC' : 'VÀNG';
+      const badgeBox = this.add.container(0, extraRewardOffset);
+      const bBg = this.add.graphics();
+      bBg.fillStyle(0x162a38, 0.95);
+      bBg.fillRoundedRect(-200, -12, 400, 24, 8);
+      bBg.lineStyle(1.2, 0x00f5d4, 0.9);
+      bBg.strokeRoundedRect(-200, -12, 400, 24, 8);
+      const bTxt = this.add.text(0, 0, `🎖️ HUY HIỆU QUÁI: ${badge.name} [TIER ${tierLabel}]`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '11.5px',
+        fontStyle: '900',
+        color: '#00f5d4'
+      }).setOrigin(0.5);
+      badgeBox.add([bBg, bTxt]);
+      modal.add(badgeBox);
+      extraRewardOffset += 28;
+    }
+
     // If new character discovered
     if (newCharId) {
       const char = CharacterRegistry.get(newCharId);
       if (char) {
-        const charTxt = this.add.text(0, 96, `🎊 THU PHỤC LINH THÚ: ${char.symbol} ${char.name} (${char.japaneseName})`, {
+        const charTxt = this.add.text(0, extraRewardOffset, `🎊 THU PHỤC LINH THÚ: ${char.symbol} ${char.name} (${char.japaneseName})`, {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '13px',
+          fontSize: '12px',
           fontStyle: '800',
           color: '#ff758f'
         }).setOrigin(0.5);
@@ -2705,10 +2873,10 @@ export class GameScene extends Phaser.Scene {
     if (isPerfect) {
       const isFinalLevel = this.levelConfig.levelNumber >= 10;
       // 1. Next Level / Campaign Victory Button
-      const nextBtn = this.add.container(0, 146);
+      const nextBtn = this.add.container(0, 182);
       const nBg = this.add.graphics();
       nBg.fillStyle(isFinalLevel ? 0xffb703 : 0xe63946, 1);
-      nBg.fillRoundedRect(-130, -21, 260, 42, 14);
+      nBg.fillRoundedRect(-130, -20, 260, 40, 14);
       const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH CHIẾN DỊCH! 👑' : 'TIẾP TỤC HÀNH TRÌNH ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '13.5px',
@@ -2716,7 +2884,7 @@ export class GameScene extends Phaser.Scene {
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
       }).setOrigin(0.5);
       nextBtn.add([nBg, nTxt]);
-      nextBtn.setSize(260, 42);
+      nextBtn.setSize(260, 40);
       nextBtn.setInteractive({ useHandCursor: true });
       nextBtn.on('pointerdown', () => {
         this.audio.playSelect();
@@ -2725,24 +2893,24 @@ export class GameScene extends Phaser.Scene {
         } else {
           const nextNum = this.levelConfig.levelNumber + 1;
           const nextId = `level_${String(nextNum).padStart(2, '0')}`;
-          this.scene.restart({ levelId: nextId, lives: this.lives });
+          this.scene.restart({ levelId: nextId, lives: this.lives, difficulty: this.currentDifficulty });
         }
       });
       modal.add(nextBtn);
 
       // 2. Menu Button
-      const menuBtn = this.add.container(0, 204);
+      const menuBtn = this.add.container(0, 236);
       const mBg = this.add.graphics();
       mBg.fillStyle(0x2b2d42, 1);
-      mBg.fillRoundedRect(-130, -19, 260, 38, 12);
+      mBg.fillRoundedRect(-130, -18, 260, 36, 12);
       const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13.5px',
+        fontSize: '13px',
         fontStyle: 'bold',
         color: '#adb5bd'
       }).setOrigin(0.5);
       menuBtn.add([mBg, mTxt]);
-      menuBtn.setSize(260, 38);
+      menuBtn.setSize(260, 36);
       menuBtn.setInteractive({ useHandCursor: true });
       menuBtn.on('pointerdown', () => {
         this.audio.playSelect();
@@ -2752,18 +2920,18 @@ export class GameScene extends Phaser.Scene {
     } else {
       const isFinalLevel = this.levelConfig.levelNumber >= 10;
       // 1. Next Level / Campaign Victory Button
-      const nextBtn = this.add.container(0, 132);
+      const nextBtn = this.add.container(0, 172);
       const nBg = this.add.graphics();
       nBg.fillStyle(isFinalLevel ? 0xffb703 : 0xe63946, 1);
-      nBg.fillRoundedRect(-130, -19, 260, 38, 12);
+      nBg.fillRoundedRect(-130, -18, 260, 36, 12);
       const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH CHIẾN DỊCH! 👑' : 'TIẾP TỤC HÀNH TRÌNH ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13.5px',
+        fontSize: '13px',
         fontStyle: '800',
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
       }).setOrigin(0.5);
       nextBtn.add([nBg, nTxt]);
-      nextBtn.setSize(260, 38);
+      nextBtn.setSize(260, 36);
       nextBtn.setInteractive({ useHandCursor: true });
       nextBtn.on('pointerdown', () => {
         this.audio.playSelect();
@@ -2772,46 +2940,46 @@ export class GameScene extends Phaser.Scene {
         } else {
           const nextNum = this.levelConfig.levelNumber + 1;
           const nextId = `level_${String(nextNum).padStart(2, '0')}`;
-          this.scene.restart({ levelId: nextId, lives: this.lives });
+          this.scene.restart({ levelId: nextId, lives: this.lives, difficulty: this.currentDifficulty });
         }
       });
       modal.add(nextBtn);
 
       // 2. Replay to hunt 3 stars button
-      const replayBtn = this.add.container(0, 178);
+      const replayBtn = this.add.container(0, 216);
       const rBg = this.add.graphics();
       rBg.fillStyle(0x382c16, 1);
-      rBg.fillRoundedRect(-130, -19, 260, 38, 12);
+      rBg.fillRoundedRect(-130, -18, 260, 36, 12);
       rBg.lineStyle(1.5, 0xffb703, 0.9);
-      rBg.strokeRoundedRect(-130, -19, 260, 38, 12);
+      rBg.strokeRoundedRect(-130, -18, 260, 36, 12);
       const rTxt = this.add.text(0, 0, '🔄 CHƠI LẠI ĐỂ SĂN 3 SAO!', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13.5px',
+        fontSize: '13px',
         fontStyle: '800',
         color: '#ffd166'
       }).setOrigin(0.5);
       replayBtn.add([rBg, rTxt]);
-      replayBtn.setSize(260, 38);
+      replayBtn.setSize(260, 36);
       replayBtn.setInteractive({ useHandCursor: true });
       replayBtn.on('pointerdown', () => {
         this.audio.playSelect();
-        this.scene.restart({ levelId: this.levelConfig.id, lives: this.lives });
+        this.scene.restart({ levelId: this.levelConfig.id, lives: this.lives, difficulty: this.currentDifficulty });
       });
       modal.add(replayBtn);
 
       // 3. Menu Button
-      const menuBtn = this.add.container(0, 222);
+      const menuBtn = this.add.container(0, 258);
       const mBg = this.add.graphics();
       mBg.fillStyle(0x232538, 1);
-      mBg.fillRoundedRect(-130, -18, 260, 36, 10);
+      mBg.fillRoundedRect(-130, -17, 260, 34, 10);
       const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
+        fontSize: '12.5px',
         fontStyle: 'bold',
         color: '#adb5bd'
       }).setOrigin(0.5);
       menuBtn.add([mBg, mTxt]);
-      menuBtn.setSize(260, 36);
+      menuBtn.setSize(260, 34);
       menuBtn.setInteractive({ useHandCursor: true });
       menuBtn.on('pointerdown', () => {
         this.audio.playSelect();

@@ -7,12 +7,16 @@ import { CompanionManager } from '../game/CompanionManager';
 import { CompanionModal } from '../game/CompanionModal';
 import { TextureGenerator } from '../game/TextureGenerator';
 import bossesData from '../data/bosses.json';
+import levelsData from '../data/levels.json';
+import { LevelConfig, DifficultyLevel } from '../types';
 
 export class MainMenuScene extends Phaser.Scene {
   private saveSystem!: SaveSystem;
   private audio!: AudioSystem;
   private haptic!: HapticSystem;
   private stageModalContainer: Phaser.GameObjects.Container | null = null;
+  private stageDetailModalContainer: Phaser.GameObjects.Container | null = null;
+  private realmModalContainer: Phaser.GameObjects.Container | null = null;
   private rulesModalContainer: Phaser.GameObjects.Container | null = null;
   private themeModalContainer: Phaser.GameObjects.Container | null = null;
   private bossModalContainer: Phaser.GameObjects.Container | null = null;
@@ -1511,20 +1515,47 @@ export class MainMenuScene extends Phaser.Scene {
     card.strokeRoundedRect(-440, -240, 880, 480, 22);
     modal.add(card);
 
-    const title = this.add.text(0, -200, '🗺️ CHỌN MÀN CHƠI (1 - 10)', {
+    const collectedRelics = save.getCollectedRelicsCount('yokai');
+    const isAllRelicsCollected = collectedRelics >= 10;
+
+    const title = this.add.text(0, -202, '⛩️ BÁCH QUỶ ĐỒ THƯ • CHỌN MÀN (1 - 10)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '24px',
+      fontSize: '22px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
     modal.add(title);
 
-    const sub = this.add.text(0, -172, '10 Màn Thử Thách Cân Bằng • Băng • Khóa • Đá • Trùm Thần Xà 🐉', {
+    const sub = this.add.text(0, -174, `🏛️ Thần Khí Nhật Bản: ${collectedRelics}/10 Mảnh ${isAllRelicsCollected ? '✨ (ĐÃ MỞ CỔNG KHÔNG GIAN!)' : '• Nối cặp ô phát sáng để nhặt'}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
-      color: '#ced4da'
+      fontSize: '13px',
+      color: isAllRelicsCollected ? '#00f5d4' : '#ffd166'
     }).setOrigin(0.5);
     modal.add(sub);
+
+    if (isAllRelicsCollected) {
+      const portalBtn = this.add.container(290, -202);
+      const pBg = this.add.graphics();
+      pBg.fillStyle(0x7209b7, 0.95);
+      pBg.fillRoundedRect(-100, -16, 200, 32, 8);
+      pBg.lineStyle(1.5, 0x4cc9f0, 0.9);
+      pBg.strokeRoundedRect(-100, -16, 200, 32, 8);
+      const pTxt = this.add.text(0, 0, '🌌 CỔNG THẾ GIỚI ➔', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '11.5px',
+        fontStyle: '900',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+      portalBtn.add([pBg, pTxt]);
+      portalBtn.setSize(200, 32).setInteractive({ useHandCursor: true });
+      portalBtn.on('pointerdown', () => {
+        this.audio.playSelect();
+        modal.destroy();
+        this.stageModalContainer = null;
+        this.openRealmSelectorModal();
+      });
+      modal.add(portalBtn);
+    }
 
     const STAGES = [
       { id: 'level_01', num: 1, name: 'Màn 1: Tĩnh Lặng', sub: '90s • 4x6 Khởi động', boss: false },
@@ -1560,6 +1591,9 @@ export class MainMenuScene extends Phaser.Scene {
       else if (stars === 2) starStr = '⭐⭐☆';
       else if (stars === 1) starStr = '⭐☆☆';
 
+      const fullLvl = (levelsData as any[]).find((l: any) => l.id === stg.id);
+      const hasRelic = fullLvl?.relicReward ? save.hasRelic(fullLvl.relicReward.id) : false;
+
       const rBg = this.add.graphics();
       if (stg.boss) {
         rBg.fillStyle(isPerfect ? 0x3d1a24 : 0x2a1219, 0.95);
@@ -1580,6 +1614,13 @@ export class MainMenuScene extends Phaser.Scene {
         color: stg.boss ? '#ff595e' : (isPerfect ? '#ffd700' : '#00f5d4')
       }).setOrigin(0.5);
 
+      if (hasRelic && fullLvl?.relicReward) {
+        const relicPill = this.add.text(cardW / 2 - 16, -cardH / 2 + 15, fullLvl.relicReward.icon || '✨', {
+          fontSize: '13px'
+        }).setOrigin(0.5);
+        row.add(relicPill);
+      }
+
       const stgName = this.add.text(0, -16, stg.name.split(':')[1]?.trim() || stg.name, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: stg.boss ? '12px' : '13px',
@@ -1599,7 +1640,7 @@ export class MainMenuScene extends Phaser.Scene {
         fontSize: '14px'
       }).setOrigin(0.5);
 
-      const playTxt = this.add.text(0, 38, isPerfect ? 'CHƠI LẠI ➔' : (stars > 0 ? 'SĂN 3 SAO ➔' : (stg.boss ? 'KHIÊU CHIẾN ⚔️' : 'CHƠI ➔')), {
+      const playTxt = this.add.text(0, 38, isPerfect ? 'CHI TIẾT ➔' : (stars > 0 ? 'SĂN 3 SAO ➔' : (stg.boss ? 'KHIÊU CHIẾN ⚔️' : 'CHỌN ĐỘ KHÓ ➔')), {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '11.5px',
         fontStyle: 'bold',
@@ -1611,9 +1652,8 @@ export class MainMenuScene extends Phaser.Scene {
 
       row.on('pointerdown', () => {
         this.audio.playSelect();
-        modal.destroy();
-        this.stageModalContainer = null;
-        this.scene.start('GameScene', { levelId: stg.id, lives: 10 });
+        const targetLvl = fullLvl || stg;
+        this.openStageDetailModal(targetLvl);
       });
 
       modal.add(row);
@@ -1636,6 +1676,470 @@ export class MainMenuScene extends Phaser.Scene {
       this.audio.playSelect();
       modal.destroy();
       this.stageModalContainer = null;
+    });
+    modal.add(closeBtn);
+  }
+
+  /**
+   * Stage Detail Modal: Pick Difficulty (Easy, Medium, Hard), View 3 Quests, Relic Shard & Badges
+   */
+  private openStageDetailModal(lvlConfig: any): void {
+    if (this.stageDetailModalContainer) {
+      this.stageDetailModalContainer.destroy();
+      this.stageDetailModalContainer = null;
+    }
+
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+    const save = this.saveSystem || SaveSystem.getInstance();
+
+    const modal = this.add.container(width / 2, height / 2).setDepth(250);
+    this.stageDetailModalContainer = modal;
+
+    const { width: screenW } = getScreenDimensions();
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.88);
+    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
+    modal.add(overlay);
+
+    const modalW = 830;
+    const modalH = 480;
+    const card = this.add.graphics();
+    card.fillStyle(0x131424, 0.98);
+    card.fillRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 20);
+    card.lineStyle(2, 0xffd700, 0.95);
+    card.strokeRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 20);
+    modal.add(card);
+
+    // Title & Info
+    const title = this.add.text(0, -modalH / 2 + 30, `⛩️ ${lvlConfig.title || 'MÀN THỬ THÁCH'}`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '22px',
+      fontStyle: '900',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+    modal.add(title);
+
+    const moveTxt = lvlConfig.movement && lvlConfig.movement !== 'none'
+      ? `Trọng lực: ${lvlConfig.movement}`
+      : 'Cổ điển tĩnh lặng';
+    const subInfo = this.add.text(0, -modalH / 2 + 56, `Bàn cờ ${lvlConfig.rows}x${lvlConfig.columns} • ${moveTxt} • 10 Mạng hồi phục`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12.5px',
+      color: '#adb5bd'
+    }).setOrigin(0.5);
+    modal.add(subInfo);
+
+    // --- LEFT COLUMN: Relic Shard & 3 Monster Badges ---
+    const leftX = -205;
+
+    // 1. Relic Shard Card
+    const relic = lvlConfig.relicReward;
+    const hasRelic = relic ? save.hasRelic(relic.id) : false;
+
+    const relicBox = this.add.container(leftX, -60);
+    const rBg = this.add.graphics();
+    rBg.fillStyle(hasRelic ? 0x241d3b : 0x1b1b2f, 0.95);
+    rBg.fillRoundedRect(-185, -48, 370, 96, 12);
+    rBg.lineStyle(1.5, hasRelic ? 0xffd700 : 0x5a507a, 0.85);
+    rBg.strokeRoundedRect(-185, -48, 370, 96, 12);
+    relicBox.add(rBg);
+
+    const rIcon = this.add.text(-145, 0, relic?.icon || '🏺', {
+      fontSize: '34px'
+    }).setOrigin(0.5);
+    relicBox.add(rIcon);
+
+    const rTitle = this.add.text(-110, -32, `${relic?.name || 'Mảnh Cổ Vật'} (${relic?.japaneseName || '神器'})`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13px',
+      fontStyle: '800',
+      color: hasRelic ? '#ffd700' : '#ffffff'
+    });
+    relicBox.add(rTitle);
+
+    const rDesc = this.add.text(-110, -10, relic?.description || 'Nối cặp ô cờ phát sáng trên bàn cờ để thu thập.', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10.5px',
+      color: '#ced4da',
+      wordWrap: { width: 280 }
+    });
+    relicBox.add(rDesc);
+
+    const rStatus = this.add.text(-110, 24, hasRelic ? '✨ ĐÃ THU THẬP (1/1) • Thuộc Thần Khí' : '🔒 CHƯA TÌM THẤY (Sẽ xuất hiện ô phát sáng)', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: hasRelic ? '#00f5d4' : '#ff758f'
+    });
+    relicBox.add(rStatus);
+    modal.add(relicBox);
+
+    // 2. Three Monster Badges
+    const badgeHeader = this.add.text(leftX, 22, '🎖️ 3 HUY HIỆU QUÁI VẬT (Dễ • Vừa • Khó)', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '800',
+      color: '#ffd166'
+    }).setOrigin(0.5);
+    modal.add(badgeHeader);
+
+    const badges = lvlConfig.badgeRewards || [];
+    const badgeW = 116;
+    const badgeH = 82;
+    const bSpacing = 124;
+
+    badges.slice(0, 3).forEach((b: any, bIdx: number) => {
+      const bX = leftX - bSpacing + bIdx * bSpacing;
+      const bY = 78;
+      const bBox = this.add.container(bX, bY);
+      const isOwned = save.hasBadge(b.id);
+
+      const bBg = this.add.graphics();
+      bBg.fillStyle(isOwned ? 0x221f3d : 0x181829, 0.95);
+      bBg.fillRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 10);
+      bBg.lineStyle(1.2, isOwned ? 0x00f5d4 : 0x4a4e69, isOwned ? 0.9 : 0.6);
+      bBg.strokeRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 10);
+      bBox.add(bBg);
+
+      const tierLabels = ['DỄ', 'VỪA', 'KHÓ'];
+      const tierColors = ['#00f5d4', '#ffd166', '#ff595e'];
+      const tTxt = this.add.text(0, -26, `CẤP ${tierLabels[b.tier - 1] || '1'}`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '9.5px',
+        fontStyle: '900',
+        color: tierColors[b.tier - 1] || '#ffffff'
+      }).setOrigin(0.5);
+      bBox.add(tTxt);
+
+      const bName = this.add.text(0, -6, b.name.replace('Huy Hiệu ', ''), {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10px',
+        fontStyle: 'bold',
+        color: isOwned ? '#ffffff' : '#adb5bd',
+        align: 'center',
+        wordWrap: { width: 108 }
+      }).setOrigin(0.5);
+      bBox.add(bName);
+
+      const bStatus = this.add.text(0, 24, isOwned ? '✓ ĐÃ NHẶT' : 'CHƯA MỞ', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '9.5px',
+        fontStyle: '800',
+        color: isOwned ? '#00f5d4' : '#6c757d'
+      }).setOrigin(0.5);
+      bBox.add(bStatus);
+
+      modal.add(bBox);
+    });
+
+    // --- RIGHT COLUMN: Difficulty Selector & 3 Star Quests ---
+    const rightX = 205;
+    let selectedDiff: DifficultyLevel = 'medium';
+
+    // Difficulty Tabs Container
+    const diffTabsContainer = this.add.container(rightX, -95);
+    modal.add(diffTabsContainer);
+
+    const diffs: { key: DifficultyLevel; label: string; color: number; hex: string }[] = [
+      { key: 'easy', label: '🟢 DỄ', color: 0x06d6a0, hex: '#06d6a0' },
+      { key: 'medium', label: '🟡 VỪA', color: 0xffd166, hex: '#ffd166' },
+      { key: 'hard', label: '🔴 KHÓ', color: 0xef476f, hex: '#ef476f' }
+    ];
+
+    const tabW = 110;
+    const tabH = 36;
+    const tabSpacing = 118;
+    const tabGraphics: Phaser.GameObjects.Graphics[] = [];
+    const tabTexts: Phaser.GameObjects.Text[] = [];
+
+    // Info Labels (Time & Multiplier)
+    const diffInfoBox = this.add.container(rightX, -45);
+    modal.add(diffInfoBox);
+    const dInfoBg = this.add.graphics();
+    dInfoBg.fillStyle(0x1a1a2e, 0.9);
+    dInfoBg.fillRoundedRect(-180, -20, 360, 40, 8);
+    diffInfoBox.add(dInfoBg);
+    const dInfoTxt = this.add.text(0, 0, '', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    diffInfoBox.add(dInfoTxt);
+
+    const updateDifficultyUI = () => {
+      diffs.forEach((d, idx) => {
+        const isSel = d.key === selectedDiff;
+        const g = tabGraphics[idx];
+        const t = tabTexts[idx];
+        g.clear();
+        g.fillStyle(isSel ? d.color : 0x22223b, isSel ? 0.95 : 0.7);
+        g.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 8);
+        g.lineStyle(isSel ? 2 : 1, isSel ? 0xffffff : 0x4a4e69, isSel ? 1 : 0.6);
+        g.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 8);
+        t.setColor(isSel ? '#101018' : '#e0e1dd');
+        t.setFontStyle(isSel ? '900' : 'bold');
+      });
+
+      const cfg = lvlConfig.difficulties?.[selectedDiff] || { timeLimit: 90, rewardMultiplier: 1.0 };
+      const timeStr = `${cfg.timeLimit}s`;
+      const multiStr = `x${cfg.rewardMultiplier}`;
+      dInfoTxt.setText(`⏱️ Thời gian: ${timeStr} • Thưởng Vàng & Điểm: ${multiStr}`);
+    };
+
+    diffs.forEach((d, idx) => {
+      const posX = -tabSpacing + idx * tabSpacing;
+      const tabContainer = this.add.container(posX, 0);
+      const tg = this.add.graphics();
+      const tt = this.add.text(0, 0, d.label, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+
+      tabGraphics.push(tg);
+      tabTexts.push(tt);
+      tabContainer.add([tg, tt]);
+      tabContainer.setSize(tabW, tabH).setInteractive({ useHandCursor: true });
+      tabContainer.on('pointerdown', () => {
+        this.audio.playSelect();
+        selectedDiff = d.key;
+        updateDifficultyUI();
+      });
+      diffTabsContainer.add(tabContainer);
+    });
+
+    updateDifficultyUI();
+
+    // 3 Star Quests Box
+    const questBox = this.add.container(rightX, 55);
+    const qBg = this.add.graphics();
+    qBg.fillStyle(0x18182b, 0.95);
+    qBg.fillRoundedRect(-180, -56, 360, 112, 10);
+    qBg.lineStyle(1.2, 0xffd700, 0.8);
+    qBg.strokeRoundedRect(-180, -56, 360, 112, 10);
+    questBox.add(qBg);
+
+    const qHeader = this.add.text(-165, -44, '⭐ NHIỆM VỤ 3 SAO CỦA MÀN:', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11.5px',
+      fontStyle: '900',
+      color: '#ffd700'
+    });
+    questBox.add(qHeader);
+
+    const quests = lvlConfig.quests || [
+      { description: 'Dọn sạch bàn cờ trước khi hết giờ', icon: '🎯' },
+      { description: 'Đạt chuỗi Combo liên tiếp x5', icon: '⚡' },
+      { description: 'Hoàn thành không dùng trợ giúp', icon: '✨' }
+    ];
+
+    quests.slice(0, 3).forEach((q: any, qIdx: number) => {
+      const qTxt = this.add.text(-165, -20 + qIdx * 24, `⭐ ${qIdx + 1}. ${q.icon || '•'} ${q.description}`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '11px',
+        color: '#e0e1dd'
+      });
+      questBox.add(qTxt);
+    });
+    modal.add(questBox);
+
+    // --- BOTTOM BUTTONS ---
+    const btnY = modalH / 2 - 45;
+
+    // Back Button
+    const backBtn = this.add.container(-130, btnY);
+    const backBg = this.add.graphics();
+    backBg.fillStyle(0x3a3a52, 1);
+    backBg.fillRoundedRect(-70, -20, 140, 40, 10);
+    const backTxt = this.add.text(0, 0, '↩️ QUAY LẠI', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13px',
+      fontStyle: 'bold',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    backBtn.add([backBg, backTxt]);
+    backBtn.setSize(140, 40).setInteractive({ useHandCursor: true });
+    backBtn.on('pointerdown', () => {
+      this.audio.playSelect();
+      modal.destroy();
+      this.stageDetailModalContainer = null;
+    });
+    modal.add(backBtn);
+
+    // Start Button
+    const startBtn = this.add.container(130, btnY);
+    const sBg = this.add.graphics();
+    sBg.fillStyle(0x06d6a0, 1);
+    sBg.fillRoundedRect(-120, -20, 240, 40, 10);
+    sBg.lineStyle(1.5, 0xffd700, 0.9);
+    sBg.strokeRoundedRect(-120, -20, 240, 40, 10);
+    const sTxt = this.add.text(0, 0, '⚔️ BẮT ĐẦU CHƠI', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '15px',
+      fontStyle: '900',
+      color: '#101018'
+    }).setOrigin(0.5);
+    startBtn.add([sBg, sTxt]);
+    startBtn.setSize(240, 40).setInteractive({ useHandCursor: true });
+    startBtn.on('pointerdown', () => {
+      this.audio.playSelect();
+      modal.destroy();
+      this.stageDetailModalContainer = null;
+      if (this.stageModalContainer) {
+        this.stageModalContainer.destroy();
+        this.stageModalContainer = null;
+      }
+      this.scene.start('GameScene', {
+        levelId: lvlConfig.id,
+        difficulty: selectedDiff,
+        lives: 10
+      });
+    });
+    modal.add(startBtn);
+  }
+
+  /**
+   * Realm Selector Modal: Multi-verse Portals (Japan, Egypt, Greece, Wuxia, Underwater)
+   */
+  private openRealmSelectorModal(): void {
+    if (this.realmModalContainer) return;
+
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+    const save = this.saveSystem || SaveSystem.getInstance();
+
+    const modal = this.add.container(width / 2, height / 2).setDepth(200);
+    this.realmModalContainer = modal;
+
+    const { width: screenW } = getScreenDimensions();
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.9);
+    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
+    modal.add(overlay);
+
+    const card = this.add.graphics();
+    card.fillStyle(0x101026, 0.98);
+    card.fillRoundedRect(-460, -250, 920, 500, 22);
+    card.lineStyle(2, 0x4cc9f0, 0.95);
+    card.strokeRoundedRect(-460, -250, 920, 500, 22);
+    modal.add(card);
+
+    const title = this.add.text(0, -210, '🌌 CỔNG KHÔNG GIAN • ĐA VŨ TRỤ THẦN THOẠI', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '23px',
+      fontStyle: '900',
+      color: '#4cc9f0'
+    }).setOrigin(0.5);
+    modal.add(title);
+
+    const sub = this.add.text(0, -180, '✨ Đã Khai Mở Thần Khí Nhật Bản! Chạm vào Thế Giới bạn muốn viễn chinh:', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13px',
+      color: '#ffd166'
+    }).setOrigin(0.5);
+    modal.add(sub);
+
+    const REALMS = [
+      { id: 'yokai', name: '⛩️ Nhật Bản', sub: 'Bách Quỷ Đồ Thư • 108 Quái', color: 0xd90429, desc: 'Vùng đất khởi nguyên đã thuần thục hoàn toàn.' },
+      { id: 'egypt', name: '🏺 Ai Cập Cổ Đại', sub: 'Chư Thần Sông Nile • 45 Vị Thần', color: 0xe76f51, desc: 'Bí ẩn kim tự tháp, Pharaoh và lời nguyền sa mạc.' },
+      { id: 'greece', name: '🏛️ Hy Lạp Thần Thoại', sub: 'Đỉnh Olympus • 45 Vị Thần', color: 0x3a86ff, desc: 'Lôi đình Zeus, đại dương Poseidon và minh giới Hades.' },
+      { id: 'wuxia', name: '🗡️ Võ Hiệp Tiên Hiệp', sub: 'Võ Lâm Tiên Giới • 18 Pháp Bảo', color: 0xd00000, desc: 'Phi kiếm ngự phong, chân khí trừ ma độ thế.' },
+      { id: 'underwater', name: '🌊 Thủy Cung Biển Sâu', sub: 'Đế Vương Atlantis • 54 Sinh Vật', color: 0x00b4d8, desc: 'Hải vương kỳ bí, nàng tiên cá và quái vật Kraken.' }
+    ];
+
+    const currentRealm = save.getActiveRealm();
+    const rW = 160;
+    const rH = 250;
+    const spacing = 175;
+
+    REALMS.forEach((r, idx) => {
+      const posX = -2 * spacing + idx * spacing;
+      const posY = 0;
+      const rBox = this.add.container(posX, posY);
+
+      const isCurrent = currentRealm === r.id;
+      const rCard = this.add.graphics();
+      rCard.fillStyle(isCurrent ? 0x241e3d : 0x18182e, 0.95);
+      rCard.fillRoundedRect(-rW / 2, -rH / 2, rW, rH, 14);
+      rCard.lineStyle(isCurrent ? 2 : 1.2, isCurrent ? 0xffd700 : r.color, isCurrent ? 1 : 0.7);
+      rCard.strokeRoundedRect(-rW / 2, -rH / 2, rW, rH, 14);
+      rBox.add(rCard);
+
+      const rName = this.add.text(0, -90, r.name, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '14.5px',
+        fontStyle: '900',
+        color: isCurrent ? '#ffd700' : '#ffffff',
+        align: 'center'
+      }).setOrigin(0.5);
+      rBox.add(rName);
+
+      const rSub = this.add.text(0, -60, r.sub, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '11px',
+        color: '#ced4da',
+        align: 'center',
+        wordWrap: { width: 145 }
+      }).setOrigin(0.5);
+      rBox.add(rSub);
+
+      const rDesc = this.add.text(0, 0, r.desc, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10px',
+        color: '#adb5bd',
+        align: 'center',
+        wordWrap: { width: 140 }
+      }).setOrigin(0.5);
+      rBox.add(rDesc);
+
+      const statusBtn = this.add.container(0, 85);
+      const sBg = this.add.graphics();
+      sBg.fillStyle(isCurrent ? 0x00f5d4 : r.color, 0.95);
+      sBg.fillRoundedRect(-65, -16, 130, 32, 8);
+      const sTxt = this.add.text(0, 0, isCurrent ? '✓ ĐANG CHỌN' : 'CHUYỂN ĐẾN ➔', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '11px',
+        fontStyle: '900',
+        color: isCurrent ? '#101018' : '#ffffff'
+      }).setOrigin(0.5);
+      statusBtn.add([sBg, sTxt]);
+      rBox.add(statusBtn);
+
+      rBox.setSize(rW, rH).setInteractive({ useHandCursor: true });
+      rBox.on('pointerdown', () => {
+        this.audio.playSelect();
+        save.setActiveRealm(r.id);
+        save.setSelectedTheme(r.id);
+        modal.destroy();
+        this.realmModalContainer = null;
+        this.scene.restart();
+      });
+
+      modal.add(rBox);
+    });
+
+    // Close button
+    const closeBtn = this.add.container(0, 205);
+    const cBg = this.add.graphics();
+    cBg.fillStyle(0xe63946, 1);
+    cBg.fillRoundedRect(-100, -20, 200, 40, 12);
+    const cTxt = this.add.text(0, 0, 'ĐÓNG CỔNG', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '14px',
+      fontStyle: 'bold',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    closeBtn.add([cBg, cTxt]);
+    closeBtn.setSize(200, 40).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => {
+      this.audio.playSelect();
+      modal.destroy();
+      this.realmModalContainer = null;
     });
     modal.add(closeBtn);
   }

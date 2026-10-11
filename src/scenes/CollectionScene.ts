@@ -7,6 +7,7 @@ import { TextureGenerator } from '../game/TextureGenerator';
 import { AudioSystem } from '../systems/AudioSystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { CharacterData } from '../types';
+import levelsData from '../data/levels.json';
 
 export class CollectionScene extends Phaser.Scene {
   private audio!: AudioSystem;
@@ -494,16 +495,18 @@ export class CollectionScene extends Phaser.Scene {
 
     const tabs = [
       { id: 'yokai_library', icon: '⛩️', label: 'Thư Viện Yokai' },
+      { id: 'relics', icon: '🏺', label: 'Thần Khí Cổ Vật' },
+      { id: 'badges', icon: '🎖️', label: 'Huy Hiệu Quái' },
       { id: 'companions', icon: '🦊', label: 'Linh Thú' },
       { id: 'items', icon: '🎒', label: 'Vật Phẩm' },
       { id: 'story', icon: '📖', label: 'Cốt Truyện' },
       { id: 'achievements', icon: '🏆', label: 'Thành Tựu' }
     ];
 
-    const startY = 162;
-    const tabSpacing = 50;
+    const startY = 145;
+    const tabSpacing = 44;
     const tabW = 146;
-    const tabH = 42;
+    const tabH = 38;
     const tabX = 95;
 
     tabs.forEach((tabItem, idx) => {
@@ -516,9 +519,9 @@ export class CollectionScene extends Phaser.Scene {
       if (isAct) {
         // Red / Coral Radiant Glowing Pill
         bg.fillStyle(0xd90429, 0.95);
-        bg.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 14);
+        bg.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
         bg.lineStyle(1.8, 0xffd166, 0.95);
-        bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 14);
+        bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
 
         // Little gold indicator dot on right with clean padding
         bg.fillStyle(0xffd700, 1);
@@ -526,19 +529,19 @@ export class CollectionScene extends Phaser.Scene {
       } else {
         // Dark Translucent Glass Pill
         bg.fillStyle(0x131124, 0.85);
-        bg.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 14);
+        bg.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
         bg.lineStyle(1.2, 0x3d3a54, 0.65);
-        bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 14);
+        bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
       }
 
       // Icon & Label
-      const iconTxt = this.add.text(-tabW / 2 + 14, 0, tabItem.icon, {
-        fontSize: '18px'
+      const iconTxt = this.add.text(-tabW / 2 + 12, 0, tabItem.icon, {
+        fontSize: '16px'
       }).setOrigin(0, 0.5);
 
-      const labelTxt = this.add.text(-tabW / 2 + 38, 0, tabItem.label, {
+      const labelTxt = this.add.text(-tabW / 2 + 34, 0, tabItem.label, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11.5px',
+        fontSize: '11px',
         fontStyle: '800',
         color: isAct ? '#ffffff' : '#ced4da'
       }).setOrigin(0, 0.5);
@@ -555,7 +558,7 @@ export class CollectionScene extends Phaser.Scene {
         if (!isAct) {
           this.tweens.add({ targets: tabBtn, scale: 1.03, duration: 80 });
           bg.lineStyle(1.5, 0x00f5d4, 0.8);
-          bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 14);
+          bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
         }
       });
 
@@ -563,7 +566,7 @@ export class CollectionScene extends Phaser.Scene {
         if (!isAct) {
           this.tweens.add({ targets: tabBtn, scale: 1.0, duration: 80 });
           bg.lineStyle(1.2, 0x3d3a54, 0.65);
-          bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 14);
+          bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
         }
       });
 
@@ -575,6 +578,10 @@ export class CollectionScene extends Phaser.Scene {
     if (tabId === 'yokai_library') {
       this.currentSidebarTab = tabId;
       this.renderSidebar();
+    } else if (tabId === 'relics') {
+      this.openRelicsModal();
+    } else if (tabId === 'badges') {
+      this.openBadgesModal();
     } else if (tabId === 'companions') {
       CompanionModal.open(this, (newComp) => {
         this.save.setSelectedCompanion(newComp.id);
@@ -1475,5 +1482,294 @@ export class CollectionScene extends Phaser.Scene {
     achElements.push(closeBtn);
 
     this.modalContainer.add(achElements);
+  }
+
+  /**
+   * Sacred Relics Sanctuary Modal
+   */
+  private openRelicsModal(): void {
+    if (this.modalContainer) this.modalContainer.destroy();
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+    const { width: screenW } = getScreenDimensions();
+
+    this.modalContainer = this.add.container(width / 2, height / 2).setDepth(200);
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.88);
+    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
+    overlay.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
+
+    const cardW = 630;
+    const cardH = 510;
+    const card = this.add.graphics();
+    card.fillStyle(0x151226, 0.98);
+    card.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    card.lineStyle(2, 0xffd700, 0.95);
+    card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+
+    const title = this.add.text(0, -222, '🏺 ĐIỆN THỜ CỔ VẬT THẦN KHÍ (RELICS SANCTUARY)', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '17px',
+      fontStyle: '900',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+
+    const collectedCount = this.save.getCollectedRelicsCount('yokai');
+    const isGateReady = collectedCount >= 10;
+
+    const subTitle = this.add.text(0, -195, `Tiến độ Thần Khí Nhật Bản: ${collectedCount}/10 Mảnh • ${isGateReady ? '🌌 CỔNG ĐA VŨ TRỤ ĐÃ MỞ!' : 'Thu thập đủ 10 mảnh mở Cổng Thế Giới'}`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12.5px',
+      fontStyle: 'bold',
+      color: isGateReady ? '#00f5d4' : '#c77dff'
+    }).setOrigin(0.5);
+
+    const elements: Phaser.GameObjects.GameObject[] = [overlay, card, title, subTitle];
+
+    // Grid of 10 relics: 5 columns x 2 rows
+    const allRelics = (levelsData as any[]).map(lvl => ({
+      ...lvl.relicReward,
+      levelNum: lvl.levelNumber,
+      levelTitle: lvl.title
+    })).filter(r => Boolean(r && r.id));
+
+    const cols = 5;
+    const itemW = 110;
+    const itemH = 118;
+    const startX = -((cols - 1) * 118) / 2;
+    const startY = -118;
+
+    let selectedRelicDescText: Phaser.GameObjects.Text | null = null;
+
+    allRelics.forEach((relic, idx) => {
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      const posX = startX + col * 118;
+      const posY = startY + row * 128;
+
+      const isOwned = this.save.hasRelic(relic.id);
+      const itemContainer = this.add.container(posX, posY);
+
+      const itemBg = this.add.graphics();
+      if (isOwned) {
+        itemBg.fillStyle(0x282042, 0.95);
+        itemBg.fillRoundedRect(-itemW / 2, -itemH / 2, itemW, itemH, 12);
+        itemBg.lineStyle(1.8, 0xffd700, 0.9);
+        itemBg.strokeRoundedRect(-itemW / 2, -itemH / 2, itemW, itemH, 12);
+      } else {
+        itemBg.fillStyle(0x191629, 0.85);
+        itemBg.fillRoundedRect(-itemW / 2, -itemH / 2, itemW, itemH, 12);
+        itemBg.lineStyle(1, 0x3d3558, 0.6);
+        itemBg.strokeRoundedRect(-itemW / 2, -itemH / 2, itemW, itemH, 12);
+      }
+
+      const iconTxt = this.add.text(0, -26, isOwned ? relic.icon : '🔒', {
+        fontSize: isOwned ? '28px' : '22px'
+      }).setOrigin(0.5);
+
+      const nameTxt = this.add.text(0, 10, isOwned ? relic.name : '???', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10.5px',
+        fontStyle: '800',
+        color: isOwned ? '#ffd700' : '#6c757d',
+        align: 'center',
+        wordWrap: { width: itemW - 10 }
+      }).setOrigin(0.5);
+
+      const tagTxt = this.add.text(0, 42, isOwned ? '✓ THU THẬP' : `Màn ${relic.levelNum}`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '9.5px',
+        fontStyle: 'bold',
+        color: isOwned ? '#00f5d4' : '#adb5bd'
+      }).setOrigin(0.5);
+
+      itemContainer.add([itemBg, iconTxt, nameTxt, tagTxt]);
+      itemContainer.setSize(itemW, itemH);
+      itemContainer.setInteractive({ useHandCursor: true });
+
+      itemContainer.on('pointerdown', () => {
+        this.audio.playSelect();
+        if (selectedRelicDescText) {
+          if (isOwned) {
+            selectedRelicDescText.setText(`✨ ${relic.icon} ${relic.name} (${relic.japaneseName || ''}) • Màn ${relic.levelNum}\n📖 ${relic.description}`);
+            selectedRelicDescText.setColor('#ffd700');
+          } else {
+            selectedRelicDescText.setText(`🔒 Mảnh Thần Khí Màn ${relic.levelNum} - Hãy vượt qua ô phát sáng ✨ trong Màn ${relic.levelNum} để tìm thấy!`);
+            selectedRelicDescText.setColor('#ced4da');
+          }
+        }
+      });
+
+      elements.push(itemContainer);
+    });
+
+    // Description Box at bottom
+    const descBoxY = 162;
+    const descBg = this.add.graphics();
+    descBg.fillStyle(0x1e1936, 0.95);
+    descBg.fillRoundedRect(-cardW / 2 + 25, descBoxY - 26, cardW - 50, 52, 10);
+    descBg.lineStyle(1, 0x483a6b, 0.7);
+    descBg.strokeRoundedRect(-cardW / 2 + 25, descBoxY - 26, cardW - 50, 52, 10);
+    elements.push(descBg);
+
+    selectedRelicDescText = this.add.text(0, descBoxY, '💡 Nhấn vào bất kỳ Thần Khí nào ở trên để xem chi tiết & truyền thuyết cổ vật.', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11px',
+      color: '#adb5bd',
+      align: 'center',
+      wordWrap: { width: cardW - 70 }
+    }).setOrigin(0.5);
+    elements.push(selectedRelicDescText);
+
+    // Close Button
+    const closeBtn = this.add.container(0, 222);
+    const clBg = this.add.graphics();
+    clBg.fillStyle(0xd90429, 1);
+    clBg.fillRoundedRect(-65, -15, 130, 30, 10);
+    const clTxt = this.add.text(0, 0, 'ĐÓNG', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '800',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    closeBtn.add([clBg, clTxt]);
+    closeBtn.setSize(130, 30).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
+    elements.push(closeBtn);
+
+    this.modalContainer.add(elements);
+  }
+
+  /**
+   * Monster Badges Collection Modal
+   */
+  private openBadgesModal(): void {
+    if (this.modalContainer) this.modalContainer.destroy();
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+    const { width: screenW } = getScreenDimensions();
+
+    this.modalContainer = this.add.container(width / 2, height / 2).setDepth(200);
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.88);
+    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
+    overlay.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
+
+    const cardW = 650;
+    const cardH = 520;
+    const card = this.add.graphics();
+    card.fillStyle(0x151226, 0.98);
+    card.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    card.lineStyle(2, 0x00f5d4, 0.95);
+    card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+
+    const title = this.add.text(0, -228, '🎖️ BỘ SƯU TẬP HUY HIỆU QUÁI VẬT (MONSTER BADGES)', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '16.5px',
+      fontStyle: '900',
+      color: '#00f5d4'
+    }).setOrigin(0.5);
+
+    const totalBadges = this.save.getCollectedBadgesCount();
+    const subTitle = this.add.text(0, -202, `Đã thu thập: ${totalBadges}/30 Huy hiệu • 3 Cấp: 🟢 Đồng (Dễ) | ⚪ Bạc (Vừa) | 🟡 Vàng (Khó)`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#ffd166'
+    }).setOrigin(0.5);
+
+    const elements: Phaser.GameObjects.GameObject[] = [overlay, card, title, subTitle];
+
+    const startY = -168;
+    const rowH = 34;
+    let tooltipTxt: Phaser.GameObjects.Text;
+
+    (levelsData as any[]).forEach((lvl, rowIdx) => {
+      const posY = startY + rowIdx * rowH;
+      const rowBg = this.add.graphics();
+      rowBg.fillStyle(rowIdx % 2 === 0 ? 0x1d1830 : 0x161325, 0.9);
+      rowBg.fillRoundedRect(-cardW / 2 + 18, posY - 14, cardW - 36, 28, 6);
+      elements.push(rowBg);
+
+      // Level title
+      const lvlTxt = this.add.text(-cardW / 2 + 28, posY, `M${lvl.levelNumber}. ${lvl.title.slice(0, 16)}`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10.5px',
+        fontStyle: 'bold',
+        color: '#adb5bd'
+      }).setOrigin(0, 0.5);
+      elements.push(lvlTxt);
+
+      // 3 badges per level
+      const badges = lvl.badgeRewards || [];
+      const tierStartX = -50;
+      const tierSpacing = 115;
+      const tierColors = ['#cd7f32', '#ced4da', '#ffd700'];
+      const tierLabels = ['Đồng', 'Bạc', 'Vàng'];
+
+      badges.forEach((b: any, bIdx: number) => {
+        const isOwned = this.save.hasBadge(b.id);
+        const bX = tierStartX + bIdx * tierSpacing;
+
+        const bContainer = this.add.container(bX, posY);
+        const char = CharacterRegistry.get(b.characterId);
+        const iconChar = char?.symbol || '🎖️';
+
+        const bIcon = this.add.text(-40, 0, isOwned ? iconChar : '🔒', {
+          fontSize: '13px'
+        }).setOrigin(0, 0.5);
+
+        const bName = this.add.text(-22, 0, isOwned ? (b.name.replace('Huy Hiệu ', '')) : `[${tierLabels[bIdx]}]`, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '10px',
+          fontStyle: 'bold',
+          color: isOwned ? tierColors[bIdx] : '#555566'
+        }).setOrigin(0, 0.5);
+
+        bContainer.add([bIcon, bName]);
+        bContainer.setSize(105, 24);
+        bContainer.setInteractive({ useHandCursor: true });
+        bContainer.on('pointerdown', () => {
+          this.audio.playSelect();
+          const tierStr = bIdx === 0 ? 'Dễ (Đồng)' : bIdx === 1 ? 'Vừa (Bạc)' : 'Khó (Vàng)';
+          const msg = isOwned
+            ? `🎖️ ${b.name} (${tierStr}): Đã sở hữu khi vượt qua Màn ${lvl.levelNumber}!`
+            : `🔒 ${b.name}: Vượt qua Màn ${lvl.levelNumber} ở độ khó ${tierStr} để nhận! (Tối đa 1 chiếc)`;
+          tooltipTxt.setText(msg);
+          tooltipTxt.setColor(isOwned ? '#00f5d4' : '#ffd166');
+        });
+
+        elements.push(bContainer);
+      });
+    });
+
+    // Tooltip info bar
+    const tipY = 186;
+    tooltipTxt = this.add.text(0, tipY, '💡 Nhấn vào từng huy hiệu để xem điều kiện mở khóa & giới hạn sở hữu.', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11px',
+      color: '#adb5bd'
+    }).setOrigin(0.5);
+    elements.push(tooltipTxt);
+
+    // Close button
+    const closeBtn = this.add.container(0, 226);
+    const clBg = this.add.graphics();
+    clBg.fillStyle(0xd90429, 1);
+    clBg.fillRoundedRect(-65, -15, 130, 30, 10);
+    const clTxt = this.add.text(0, 0, 'ĐÓNG', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '800',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    closeBtn.add([clBg, clTxt]);
+    closeBtn.setSize(130, 30).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
+    elements.push(closeBtn);
+
+    this.modalContainer.add(elements);
   }
 }

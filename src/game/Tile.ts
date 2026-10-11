@@ -320,6 +320,32 @@ export class TileView extends Phaser.GameObjects.Container {
         repeat: -1
       });
     }
+
+    // 6. ✨ Relic Shard Golden Sparkling Tile Aura
+    if (this.tileState.hasRelicShard && !isObstacle) {
+      if (!this.specialBorder) {
+        this.specialBorder = this.scene.add.graphics();
+        this.add(this.specialBorder);
+      }
+      this.specialBorder.lineStyle(2.8, 0xffd700, 1.0);
+      this.specialBorder.strokeRoundedRect(-tileSize / 2 + 1, -tileSize / 2 + 1, tileSize - 2, tileSize - 2, 8);
+
+      if (!this.specialBadge) {
+        this.specialBadge = this.scene.add.text(tileSize / 2 - 8, -tileSize / 2 + 8, '✨', {
+          fontSize: '14px'
+        }).setOrigin(0.5);
+        this.add(this.specialBadge);
+
+        this.scene.tweens.add({
+          targets: this.specialBadge,
+          scale: { from: 0.85, to: 1.3 },
+          alpha: { from: 0.6, to: 1.0 },
+          duration: 550,
+          yoyo: true,
+          repeat: -1
+        });
+      }
+    }
   }
 
   public updateLuckyCountdown(seconds: number): void {

@@ -21,7 +21,82 @@
       "coins": 150,
       "stars": 3,
       "unlockCharacterId": "kasa_obake"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 85,
+        "characterPoolCount": 6,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 65,
+        "characterPoolCount": 6,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 49,
+        "characterPoolCount": 6,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Dọn sạch bàn cờ trước khi hết giờ",
+        "icon": "🎯"
+      },
+      {
+        "id": "q2",
+        "type": "combo",
+        "target": 4,
+        "description": "Đạt chuỗi Combo liên tiếp x4",
+        "icon": "⚡"
+      },
+      {
+        "id": "q3",
+        "type": "no_booster",
+        "target": 0,
+        "description": "Không dùng bất kỳ Trợ giúp nào",
+        "icon": "✨"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_01",
+      "name": "Gương Thần Yata",
+      "japaneseName": "八咫鏡",
+      "icon": "🪞",
+      "description": "Bát Chỉ Kính - Phản chiếu chân tướng vạn vật, bảo vệ tâm trí.",
+      "worldId": "yokai",
+      "levelId": "level_01"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_kasa_obake",
+        "name": "Huy Hiệu Ma Dù",
+        "characterId": "kasa_obake",
+        "tier": 1,
+        "rarity": "common"
+      },
+      {
+        "id": "badge_nurikabe",
+        "name": "Huy Hiệu Bức Tường Ma",
+        "characterId": "nurikabe",
+        "tier": 2,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "badge_aka_oni",
+        "name": "Huy Hiệu Xích Quỷ",
+        "characterId": "aka_oni",
+        "tier": 3,
+        "rarity": "rare"
+      }
+    ]
   },
   {
     "id": "level_02",
@@ -53,7 +128,82 @@
       "coins": 180,
       "stars": 3,
       "unlockCharacterId": "nurikabe"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 111,
+        "characterPoolCount": 8,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 85,
+        "characterPoolCount": 12,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 64,
+        "characterPoolCount": 12,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Dọn sạch bàn cờ",
+        "icon": "🎯"
+      },
+      {
+        "id": "q2",
+        "type": "break_ice",
+        "target": 2,
+        "description": "Phá hủy toàn bộ 2 tầng tơ nhện",
+        "icon": "🕸️"
+      },
+      {
+        "id": "q3",
+        "type": "combo",
+        "target": 5,
+        "description": "Đạt chuỗi Combo liên tiếp x5",
+        "icon": "⚡"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_02",
+      "name": "Khúc Ngọc Yasakani",
+      "japaneseName": "八尺瓊勾玉",
+      "icon": "📿",
+      "description": "Bát Xích Quỳnh - Viên ngọc thần chứa linh khí đất trời vô tận.",
+      "worldId": "yokai",
+      "levelId": "level_02"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_sunakake_baba",
+        "name": "Huy Hiệu Bà Bà Cát",
+        "characterId": "sunakake_baba",
+        "tier": 1,
+        "rarity": "common"
+      },
+      {
+        "id": "badge_zashiki_warashi",
+        "name": "Huy Hiệu Phúc Đồng",
+        "characterId": "zashiki_warashi",
+        "tier": 2,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "badge_umibozu",
+        "name": "Huy Hiệu Thần Biển Hải Phường",
+        "characterId": "umibozu",
+        "tier": 3,
+        "rarity": "rare"
+      }
+    ]
   },
   {
     "id": "level_03",
@@ -85,7 +235,82 @@
       "coins": 220,
       "stars": 3,
       "unlockCharacterId": "fukurokuju"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 111,
+        "characterPoolCount": 8,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 85,
+        "characterPoolCount": 12,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 64,
+        "characterPoolCount": 12,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Dọn sạch bàn cờ",
+        "icon": "🎯"
+      },
+      {
+        "id": "q2",
+        "type": "break_stone",
+        "target": 2,
+        "description": "Phá vỡ ít nhất 2 tảng đá cản trở",
+        "icon": "🪨"
+      },
+      {
+        "id": "q3",
+        "type": "time_left",
+        "target": 35,
+        "description": "Hoàn thành khi thời gian còn > 35s",
+        "icon": "⏱️"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_03",
+      "name": "Thảo Thế Kiếm Kusanagi",
+      "japaneseName": "草薙の剣",
+      "icon": "🗡️",
+      "description": "Thiên Tôn Vân Kiếm - Thần kiếm chém gió rạch mây uy chấn tứ phương.",
+      "worldId": "yokai",
+      "levelId": "level_03"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_kappa",
+        "name": "Huy Hiệu Hà Bá",
+        "characterId": "kappa_cucumber",
+        "tier": 1,
+        "rarity": "common"
+      },
+      {
+        "id": "badge_nekomata",
+        "name": "Huy Hiệu Mèo Hai Đuôi",
+        "characterId": "nekomata_calico",
+        "tier": 2,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "badge_obake_shita",
+        "name": "Huy Hiệu Ma Thè Lưỡi",
+        "characterId": "obake_shita",
+        "tier": 3,
+        "rarity": "rare"
+      }
+    ]
   },
   {
     "id": "level_04",
@@ -118,7 +343,82 @@
       "coins": 260,
       "stars": 3,
       "unlockCharacterId": "aka_oni"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 117,
+        "characterPoolCount": 8,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 90,
+        "characterPoolCount": 12,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 68,
+        "characterPoolCount": 12,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Dọn sạch bàn cờ",
+        "icon": "🎯"
+      },
+      {
+        "id": "q2",
+        "type": "combo",
+        "target": 5,
+        "description": "Đạt chuỗi Combo x5 trong sương mù",
+        "icon": "⚡"
+      },
+      {
+        "id": "q3",
+        "type": "no_shuffle",
+        "target": 0,
+        "description": "Không sử dụng tính năng Đổi vị trí",
+        "icon": "🔄"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_04",
+      "name": "Mặt Nạ Kitsune Hoàng Gia",
+      "japaneseName": "狐の面",
+      "icon": "🦊",
+      "description": "Mặt nạ linh hồ chứa đựng thuật biến ảo ngàn năm.",
+      "worldId": "yokai",
+      "levelId": "level_04"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_amabie",
+        "name": "Huy Hiệu Thần Tiên Amabie",
+        "characterId": "amabie",
+        "tier": 1,
+        "rarity": "common"
+      },
+      {
+        "id": "badge_kawauso",
+        "name": "Huy Hiệu Rái Cá Tinh",
+        "characterId": "kawauso",
+        "tier": 2,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "badge_inari_kitsune",
+        "name": "Huy Hiệu Cáo Inari",
+        "characterId": "inari_kitsune",
+        "tier": 3,
+        "rarity": "rare"
+      }
+    ]
   },
   {
     "id": "level_05",
@@ -151,7 +451,82 @@
       "coins": 300,
       "stars": 3,
       "unlockCharacterId": "umibozu"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 117,
+        "characterPoolCount": 8,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 90,
+        "characterPoolCount": 12,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 68,
+        "characterPoolCount": 12,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Dọn sạch bàn cờ",
+        "icon": "🎯"
+      },
+      {
+        "id": "q2",
+        "type": "rescue_cages",
+        "target": 1,
+        "description": "Mở thành công Ổ khóa phong ấn",
+        "icon": "🗝️"
+      },
+      {
+        "id": "q3",
+        "type": "time_left",
+        "target": 40,
+        "description": "Hoàn thành khi thời gian còn > 40s",
+        "icon": "⏱️"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_05",
+      "name": "Chuông Thiêng Suzu",
+      "japaneseName": "神楽鈴",
+      "icon": "🔔",
+      "description": "Thần Lạc Linh xua tan tà khí, đánh thức linh thú thức tỉnh.",
+      "worldId": "yokai",
+      "levelId": "level_05"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_kijimuna",
+        "name": "Huy Hiệu Mộc Tinh",
+        "characterId": "kijimuna",
+        "tier": 1,
+        "rarity": "common"
+      },
+      {
+        "id": "badge_bake_danuki",
+        "name": "Huy Hiệu Hồ Ly Biến Hóa",
+        "characterId": "bake_danuki",
+        "tier": 2,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "badge_komainu",
+        "name": "Huy Hiệu Thạch Sư",
+        "characterId": "komainu",
+        "tier": 3,
+        "rarity": "rare"
+      }
+    ]
   },
   {
     "id": "level_06",
@@ -188,7 +563,82 @@
       "coins": 350,
       "stars": 3,
       "unlockCharacterId": "same_ronin"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 137,
+        "characterPoolCount": 11,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 105,
+        "characterPoolCount": 15,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 79,
+        "characterPoolCount": 15,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Dọn sạch bàn cờ",
+        "icon": "🎯"
+      },
+      {
+        "id": "q2",
+        "type": "break_ice",
+        "target": 4,
+        "description": "Phá tan toàn bộ 4 khối băng giá",
+        "icon": "❄️"
+      },
+      {
+        "id": "q3",
+        "type": "combo",
+        "target": 6,
+        "description": "Đạt chuỗi Combo liên tiếp x6",
+        "icon": "⚡"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_06",
+      "name": "Quạt Phong Lôi Tengu",
+      "japaneseName": "天狗の団扇",
+      "icon": "🪭",
+      "description": "Thiên Cẩu Phong Phiến hiệu lệnh cuồng phong sấm sét.",
+      "worldId": "yokai",
+      "levelId": "level_06"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_yuki_onna",
+        "name": "Huy Hiệu Nữ Chúa Tuyết",
+        "characterId": "yuki_onna",
+        "tier": 1,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "badge_jorogumo",
+        "name": "Huy Hiệu Chúa Nhện",
+        "characterId": "jorogumo",
+        "tier": 2,
+        "rarity": "rare"
+      },
+      {
+        "id": "badge_shuten_doji",
+        "name": "Huy Hiệu Tửu Thôn Đồng Tử",
+        "characterId": "shuten_doji",
+        "tier": 3,
+        "rarity": "epic"
+      }
+    ]
   },
   {
     "id": "level_07",
@@ -225,7 +675,82 @@
       "coins": 400,
       "stars": 3,
       "unlockCharacterId": "ningyo"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 137,
+        "characterPoolCount": 11,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 105,
+        "characterPoolCount": 15,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 79,
+        "characterPoolCount": 15,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Dọn sạch bàn cờ",
+        "icon": "🎯"
+      },
+      {
+        "id": "q2",
+        "type": "no_booster",
+        "target": 0,
+        "description": "Không dùng bất kỳ Trợ giúp nào",
+        "icon": "✨"
+      },
+      {
+        "id": "q3",
+        "type": "time_left",
+        "target": 45,
+        "description": "Hoàn thành khi thời gian còn > 45s",
+        "icon": "⏱️"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_07",
+      "name": "Bình Rượu Hồ Lô Shuten",
+      "japaneseName": "酒呑の瓢箪",
+      "icon": "🍶",
+      "description": "Tửu Thôn Hồ Lô tích tụ ngọn lửa bất tử của Quỷ Vương.",
+      "worldId": "yokai",
+      "levelId": "level_07"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_karasu_hime",
+        "name": "Huy Hiệu Ô Nha Công Chúa",
+        "characterId": "karasu_hime",
+        "tier": 1,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "badge_wanyuudo",
+        "name": "Huy Hiệu Luân Nhập Đạo",
+        "characterId": "wanyuudo",
+        "tier": 2,
+        "rarity": "rare"
+      },
+      {
+        "id": "badge_raijin_god",
+        "name": "Huy Hiệu Lôi Thần Tôn",
+        "characterId": "raijin_god",
+        "tier": 3,
+        "rarity": "epic"
+      }
+    ]
   },
   {
     "id": "level_08",
@@ -268,7 +793,82 @@
       "coins": 480,
       "stars": 3,
       "unlockCharacterId": "suiryu"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 156,
+        "characterPoolCount": 14,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 120,
+        "characterPoolCount": 20,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 90,
+        "characterPoolCount": 20,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Dọn sạch bàn cờ",
+        "icon": "🎯"
+      },
+      {
+        "id": "q2",
+        "type": "combo",
+        "target": 6,
+        "description": "Đạt chuỗi Combo liên tiếp x6",
+        "icon": "⚡"
+      },
+      {
+        "id": "q3",
+        "type": "no_shuffle",
+        "target": 0,
+        "description": "Không sử dụng tính năng Đổi vị trí",
+        "icon": "🔄"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_08",
+      "name": "Thẻ Bùa Trừ Tà Omamori",
+      "japaneseName": "御守",
+      "icon": "🧧",
+      "description": "Ngự Thủ Bình An hộ thân, chống lại mọi lời nguyền bóng tối.",
+      "worldId": "yokai",
+      "levelId": "level_08"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_bakezori",
+        "name": "Huy Hiệu Dép Ma Thảo Hài",
+        "characterId": "bakezori",
+        "tier": 1,
+        "rarity": "common"
+      },
+      {
+        "id": "badge_rokurokubi",
+        "name": "Huy Hiệu Phi Đầu Quỷ",
+        "characterId": "rokurokubi",
+        "tier": 2,
+        "rarity": "rare"
+      },
+      {
+        "id": "badge_fujin_god",
+        "name": "Huy Hiệu Phong Thần Tôn",
+        "characterId": "fujin_god",
+        "tier": 3,
+        "rarity": "epic"
+      }
+    ]
   },
   {
     "id": "level_09",
@@ -310,7 +910,82 @@
       "coins": 550,
       "stars": 3,
       "unlockCharacterId": "jorogumo"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 156,
+        "characterPoolCount": 14,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 120,
+        "characterPoolCount": 20,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 90,
+        "characterPoolCount": 20,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Dọn sạch bàn cờ",
+        "icon": "🎯"
+      },
+      {
+        "id": "q2",
+        "type": "break_ice",
+        "target": 4,
+        "description": "Phá tan toàn bộ 4 khối băng giá",
+        "icon": "❄️"
+      },
+      {
+        "id": "q3",
+        "type": "time_left",
+        "target": 50,
+        "description": "Hoàn thành khi thời gian còn > 50s",
+        "icon": "⏱️"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_09",
+      "name": "Trống Sấm Raijin",
+      "japaneseName": "雷神の太鼓",
+      "icon": "🥁",
+      "description": "Lôi Thần Trống dội vang sấm sét, kích hoạt trạng thái cuồng nộ.",
+      "worldId": "yokai",
+      "levelId": "level_09"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_same_ronin",
+        "name": "Huy Hiệu Sa Ngư Lãng Khách",
+        "characterId": "same_ronin",
+        "tier": 1,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "badge_suiryu",
+        "name": "Huy Hiệu Thủy Long",
+        "characterId": "suiryu",
+        "tier": 2,
+        "rarity": "rare"
+      },
+      {
+        "id": "badge_kyuubi_kitsune",
+        "name": "Huy Hiệu Cửu Vĩ Thiên Hồ",
+        "characterId": "kyuubi_kitsune",
+        "tier": 3,
+        "rarity": "legendary"
+      }
+    ]
   },
   {
     "id": "level_10",
@@ -383,7 +1058,82 @@
       "coins": 1000,
       "stars": 3,
       "unlockCharacterId": "kyuubi_kitsune"
-    }
+    },
+    "difficulties": {
+      "easy": {
+        "timeLimit": 176,
+        "characterPoolCount": 14,
+        "modifierMultiplier": 0.5,
+        "rewardMultiplier": 1
+      },
+      "medium": {
+        "timeLimit": 135,
+        "characterPoolCount": 20,
+        "modifierMultiplier": 1,
+        "rewardMultiplier": 1.5
+      },
+      "hard": {
+        "timeLimit": 101,
+        "characterPoolCount": 20,
+        "modifierMultiplier": 1.5,
+        "rewardMultiplier": 2.5
+      }
+    },
+    "quests": [
+      {
+        "id": "q1",
+        "type": "clear",
+        "target": 1,
+        "description": "Tiêu diệt Bát Kỳ Đại Xà (Yamata no Orochi)",
+        "icon": "👑"
+      },
+      {
+        "id": "q2",
+        "type": "combo",
+        "target": 7,
+        "description": "Đạt chuỗi Combo liên tiếp x7",
+        "icon": "⚡"
+      },
+      {
+        "id": "q3",
+        "type": "time_left",
+        "target": 45,
+        "description": "Hạ gục trùm khi thời gian còn > 45s",
+        "icon": "⏱️"
+      }
+    ],
+    "relicReward": {
+      "id": "yokai_relic_10",
+      "name": "Vảy Rồng Ryujin Hoàng Kim",
+      "japaneseName": "龍神の鱗",
+      "icon": "🐉",
+      "description": "Long Thần Kim Lân - Kết tinh tối thượng mở ra Cổng Không Gian Đa Vũ Trụ.",
+      "worldId": "yokai",
+      "levelId": "level_10"
+    },
+    "badgeRewards": [
+      {
+        "id": "badge_orochi_fang",
+        "name": "Huy Hiệu Nanh Vuốt Đại Xà",
+        "characterId": "yamata_no_orochi_boss",
+        "tier": 1,
+        "rarity": "rare"
+      },
+      {
+        "id": "badge_ryujin_pearl",
+        "name": "Huy Hiệu Ngọc Long Thần",
+        "characterId": "ryujin_pearl",
+        "tier": 2,
+        "rarity": "epic"
+      },
+      {
+        "id": "badge_orochi_supreme",
+        "name": "Huy Hiệu Bát Kỳ Bá Vương",
+        "characterId": "yamata_no_orochi_boss",
+        "tier": 3,
+        "rarity": "legendary"
+      }
+    ]
   },
   {
     "id": "level_30",

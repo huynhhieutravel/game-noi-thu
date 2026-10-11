@@ -102,6 +102,37 @@ export class BoardManager {
     this.resetShapeshifterTimer();
   }
 
+  /**
+   * Tag 1 matching pair of tiles with a sparkling golden Relic Shard aura
+   */
+  public tagRelicShardPair(): boolean {
+    const charMap = new Map<string, GridPoint[]>();
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const state = this.grid[r]?.[c];
+        if (state && !state.isCleared && state.characterId && state.modifier !== 'stone' && state.modifier !== 'thorn' && state.modifier !== 'barricade') {
+          if (!charMap.has(state.characterId)) {
+            charMap.set(state.characterId, []);
+          }
+          charMap.get(state.characterId)!.push({ r, c });
+        }
+      }
+    }
+
+    for (const points of charMap.values()) {
+      if (points.length >= 2) {
+        const p1 = points[0];
+        const p2 = points[1];
+        this.grid[p1.r][p1.c].hasRelicShard = true;
+        this.grid[p2.r][p2.c].hasRelicShard = true;
+        this.tileViews[p1.r]?.[p1.c]?.updateState(this.grid[p1.r][p1.c], this.tileSize);
+        this.tileViews[p2.r]?.[p2.c]?.updateState(this.grid[p2.r][p2.c], this.tileSize);
+        return true;
+      }
+    }
+    return false;
+  }
+
   private resetShapeshifterTimer(): void {
     if (this.shapeshifterTimer) {
       this.shapeshifterTimer.destroy();
@@ -847,6 +878,7 @@ export class BoardManager {
       t1Cleared = false;
       v1?.updateState(t1, this.tileSize);
     } else {
+      if (t1.modifier === 'ice') (this.scene as any).onObstacleDestroyed?.('ice');
       t1.isCleared = true;
       t1.characterId = null;
       v1?.playPopAndClear();
@@ -857,6 +889,7 @@ export class BoardManager {
       t2Cleared = false;
       v2?.updateState(t2, this.tileSize);
     } else {
+      if (t2.modifier === 'ice') (this.scene as any).onObstacleDestroyed?.('ice');
       t2.isCleared = true;
       t2.characterId = null;
       v2?.playPopAndClear();
@@ -1017,6 +1050,7 @@ export class BoardManager {
         tile.modifier = 'none';
         tile.isCleared = true;
         tile.characterId = null;
+        (this.scene as any).onObstacleDestroyed?.('stone');
         view.playPopAndClear();
         this.spawnObstacleDebris(posX, posY, 'stone_debris', 10);
         (this.scene as any).audio?.playMatchSuccess?.();
@@ -1032,6 +1066,7 @@ export class BoardManager {
       } else {
         tile.modifier = 'none';
         tile.modifierLevel = 0;
+        (this.scene as any).onObstacleDestroyed?.('lock');
         view.updateState(tile, this.tileSize);
         view.playBounceIn();
         this.spawnObstacleDebris(posX, posY, 'thorn_debris', 10);
