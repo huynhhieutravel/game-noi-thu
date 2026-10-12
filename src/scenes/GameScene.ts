@@ -556,7 +556,7 @@ export class GameScene extends Phaser.Scene {
 
     const backTxt = this.add.text(0, 0, `${menuIcon} MENU`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '14.5px',
       fontStyle: '900',
       color: '#e2e8f0'
     }).setOrigin(0.5);
@@ -574,7 +574,7 @@ export class GameScene extends Phaser.Scene {
     // Lives next to Menu button (In Zen mode: 🌸 Vô Tận)
     this.livesText = this.add.text(142, 25, this.isSurvivalMode ? `❤️ x${this.lives}` : (this.isZenMode ? '🌸 Vô Tận' : `❤️ x${this.lives}`), {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16px',
+      fontSize: '17px',
       fontStyle: '900',
       color: this.isZenMode ? '#ff758f' : (this.isSurvivalMode ? '#00f5d4' : '#ff4d6d')
     }).setOrigin(0, 0.5);
@@ -589,16 +589,16 @@ export class GameScene extends Phaser.Scene {
 
     const titleText = this.add.text(width / 2, 17, cleanTitle, {
       fontFamily: 'Zen Maru Gothic, Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '16.5px',
       fontStyle: '900',
       color: this.isSurvivalMode ? '#90e0ef' : '#ffd700',
       stroke: '#0e0b17',
-      strokeThickness: 2
+      strokeThickness: 2.5
     }).setOrigin(0.5);
     this.levelTitleText = titleText;
 
-    const plaqueW = Math.max(280, Math.min(400, titleText.width + 60));
-    const plaqueH = 26;
+    const plaqueW = Math.max(300, Math.min(420, titleText.width + 64));
+    const plaqueH = 28;
     const plaqueX = width / 2;
     const plaqueY = 17;
 
@@ -677,7 +677,7 @@ export class GameScene extends Phaser.Scene {
     // Time Label (placed right next to the timer bar)
     this.timeText = this.add.text(timerBarX + timerBarW + 14, capY, this.isZenMode ? '∞' : `⏳ ${Math.ceil(this.timeRemaining)}s`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '17px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(0, 0.5);
@@ -710,24 +710,24 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Score capsule (top right) matching mockup [ 💮 0 PTS ]
-    const scoreCapW = 108;
-    const scoreCapH = 30;
+    const scoreCapW = 118;
+    const scoreCapH = 32;
     const scoreCapX = width - 64;
     const scoreCapY = 25;
 
     const scoreCapBg = this.add.graphics();
     scoreCapBg.fillStyle(0x131728, 0.92);
-    scoreCapBg.fillRoundedRect(scoreCapX - scoreCapW / 2, scoreCapY - scoreCapH / 2, scoreCapW, scoreCapH, 15);
+    scoreCapBg.fillRoundedRect(scoreCapX - scoreCapW / 2, scoreCapY - scoreCapH / 2, scoreCapW, scoreCapH, 16);
     scoreCapBg.lineStyle(1.2, 0x4a4768, 0.85);
-    scoreCapBg.strokeRoundedRect(scoreCapX - scoreCapW / 2, scoreCapY - scoreCapH / 2, scoreCapW, scoreCapH, 15);
+    scoreCapBg.strokeRoundedRect(scoreCapX - scoreCapW / 2, scoreCapY - scoreCapH / 2, scoreCapW, scoreCapH, 16);
 
     const scoreEmblem = this.add.text(scoreCapX - scoreCapW / 2 + 16, scoreCapY, '💮', {
-      fontSize: '15px'
+      fontSize: '16px'
     }).setOrigin(0.5);
 
     this.scoreText = this.add.text(scoreCapX + 10, scoreCapY, `${this.score} PTS`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -735,7 +735,7 @@ export class GameScene extends Phaser.Scene {
     // Floating Combo popup text
     this.comboText = this.add.text(width / 2, 58, '', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '20px',
+      fontSize: '24px',
       fontStyle: '900',
       color: '#ff758f',
       stroke: '#3b0918',
@@ -752,7 +752,7 @@ export class GameScene extends Phaser.Scene {
 
     const fvText = this.add.text(0, 0, '⚡ FEVER MODE x3.5! ⚡', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '16px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -769,7 +769,7 @@ export class GameScene extends Phaser.Scene {
 
     const wTxt = this.add.text(0, 0, '⚠️ CẢNH BÁO: BĂNG DÂNG GẦN NÓC TRÊN! ⚠️', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#ff595e'
     }).setOrigin(0.5);
@@ -817,8 +817,8 @@ export class GameScene extends Phaser.Scene {
 
     this.questTrackerStarsText = this.add.text(0, 0, '⭐ THỬ THÁCH', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
-      fontStyle: '800',
+      fontSize: '13.5px',
+      fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
@@ -840,14 +840,14 @@ export class GameScene extends Phaser.Scene {
 
     const bg = this.add.graphics();
     bg.fillStyle(0x19142b, 0.98);
-    bg.fillRoundedRect(-160, -78, 320, 156, 14);
+    bg.fillRoundedRect(-165, -82, 330, 164, 14);
     bg.lineStyle(1.5, 0xffd700, 0.85);
-    bg.strokeRoundedRect(-160, -78, 320, 156, 14);
+    bg.strokeRoundedRect(-165, -82, 330, 164, 14);
 
     const diffName = this.currentDifficulty === 'easy' ? 'DỄ' : this.currentDifficulty === 'medium' ? 'VỪA' : 'KHÓ';
-    const title = this.add.text(0, -56, `⭐ THỬ THÁCH 3 SAO (${diffName})`, {
+    const title = this.add.text(0, -58, `⭐ THỬ THÁCH 3 SAO (${diffName})`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -888,18 +888,20 @@ export class GameScene extends Phaser.Scene {
         statusStr = `(${this.brokenCagesCount}/${q.target})`;
       }
 
-      const qTxt = this.add.text(-145, -32 + idx * 24, `⭐ ${idx + 1}. ${q.description} ${statusStr} ${isDone ? '✓' : ''}`, {
+      const qTxt = this.add.text(-150, -32 + idx * 25, `⭐ ${idx + 1}. ${q.description} ${statusStr} ${isDone ? '✓' : ''}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
+        fontSize: '12.5px',
+        fontStyle: 'bold',
         color: isDone ? '#00f5d4' : '#ffd166',
-        wordWrap: { width: 285 }
+        wordWrap: { width: 300 }
       });
       questTexts.push(qTxt);
     });
 
-    const closeTxt = this.add.text(0, 48, '(Chạm để đóng)', {
+    const closeTxt = this.add.text(0, 52, '(Chạm để đóng)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
+      fontStyle: 'bold',
       color: '#adb5bd'
     }).setOrigin(0.5);
 
@@ -1004,8 +1006,8 @@ export class GameScene extends Phaser.Scene {
     const nameStr = `👑 TRÙM: ${boss.name} ${boss.native_name || boss.japaneseName ? `(${boss.native_name || boss.japaneseName})` : ''}`;
     const nameText = this.add.text(contentX, -17, nameStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
-      fontStyle: '800',
+      fontSize: '16.5px',
+      fontStyle: '900',
       color: '#ffd166'
     }).setOrigin(0.5);
 
@@ -1021,8 +1023,8 @@ export class GameScene extends Phaser.Scene {
 
     this.bossHpText = this.add.text(contentX, 2, `${this.bossManager!.getHp()} / ${this.bossManager!.getMaxHp()} HP`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: 'bold',
+      fontSize: '13px',
+      fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
 
@@ -1032,8 +1034,8 @@ export class GameScene extends Phaser.Scene {
 
     this.bossWarningText = this.add.text(contentX, 39, '', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
-      fontStyle: 'bold',
+      fontSize: '13.5px',
+      fontStyle: '900',
       color: '#ffd166'
     }).setOrigin(0.5);
 
@@ -1224,7 +1226,7 @@ export class GameScene extends Phaser.Scene {
     // Companion Name
     this.companionNameText = this.add.text(-38, -14, `⛩️ ${this.companionConfig.name}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '14.5px',
       fontStyle: '900',
       color: '#ffffff'
     });
@@ -1242,7 +1244,7 @@ export class GameScene extends Phaser.Scene {
     // Energy Text
     this.companionEnergyText = this.add.text(29, 9, '0% NỘ', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '12.5px',
       fontStyle: '900',
       color: '#ced4da'
     }).setOrigin(0.5);
@@ -1250,7 +1252,7 @@ export class GameScene extends Phaser.Scene {
     // Ready Badge Text (hidden by default)
     this.companionReadyBadge = this.add.text(29, 9, '⚡ BẤM DÙNG!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '12.5px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5).setVisible(false);
@@ -1600,11 +1602,11 @@ export class GameScene extends Phaser.Scene {
 
       const count = this.add.text(badgeX, badgeY, countStr, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13.5px',
+        fontSize: '15px',
         fontStyle: '900',
         color: '#ffd700',
         stroke: '#0d0d14',
-        strokeThickness: 2
+        strokeThickness: 2.5
       }).setOrigin(0.5);
 
       container.add([btnSprite, count]);
@@ -1667,7 +1669,7 @@ export class GameScene extends Phaser.Scene {
 
     const txt = this.add.text(8, 0, label, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#f8f9fa'
     }).setOrigin(0.5);
@@ -1684,7 +1686,7 @@ export class GameScene extends Phaser.Scene {
 
     const count = this.add.text(badgeX, badgeY, countStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13px',
       fontStyle: '900',
       color: '#111111'
     }).setOrigin(0.5);
@@ -2765,7 +2767,7 @@ export class GameScene extends Phaser.Scene {
     const diffBadge = this.currentDifficulty === 'easy' ? '🟢 DỄ' : this.currentDifficulty === 'medium' ? '🟡 VỪA' : '🔴 KHÓ';
     const subTitle = this.add.text(0, -228, `${this.levelConfig.title} • [${diffBadge}]`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14.5px',
       fontStyle: 'bold',
       color: '#adb5bd'
     }).setOrigin(0.5);
@@ -2813,7 +2815,7 @@ export class GameScene extends Phaser.Scene {
 
     const ratingBadge = this.add.text(0, -135, ratingBadgeStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '15px',
       fontStyle: '900',
       color: ratingColor
     }).setOrigin(0.5);
@@ -2832,7 +2834,7 @@ export class GameScene extends Phaser.Scene {
 
     const panelTitle = this.add.text(0, qPanelY - 54, '⭐ NHIỆM VỤ 3 SAO (STAR QUESTS)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#c77dff'
     }).setOrigin(0.5);
@@ -2848,13 +2850,13 @@ export class GameScene extends Phaser.Scene {
     const q1Desc = levelQuests[0]?.description || 'Dọn sạch bàn cờ trước khi hết giờ';
     const q1Txt = this.add.text(-195, qPanelY - 34, `⭐ 1. ${q1Desc}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '13px',
       fontStyle: 'bold',
       color: '#f8f9fa'
     });
     const q1Badge = this.add.text(195, qPanelY - 34, '[✓ ĐẠT]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '13px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(1, 0);
@@ -2865,13 +2867,13 @@ export class GameScene extends Phaser.Scene {
     const q2Desc = levelQuests[1]?.description || 'Đạt chuỗi Combo thử thách';
     const q2Txt = this.add.text(-195, qPanelY - 10, `⭐ 2. ${q2Desc}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '13px',
       fontStyle: 'bold',
       color: q2Ok ? '#f8f9fa' : '#adb5bd'
     });
     const q2Badge = this.add.text(195, qPanelY - 10, q2Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '13px',
       fontStyle: '900',
       color: q2Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
@@ -2882,13 +2884,13 @@ export class GameScene extends Phaser.Scene {
     const q3Desc = levelQuests[2]?.description || 'Vượt qua không dùng trợ giúp';
     const q3Txt = this.add.text(-195, qPanelY + 14, `⭐ 3. ${q3Desc}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '13px',
       fontStyle: 'bold',
       color: q3Ok ? '#f8f9fa' : '#adb5bd'
     });
     const q3Badge = this.add.text(195, qPanelY + 14, q3Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '13px',
       fontStyle: '900',
       color: q3Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
@@ -2897,7 +2899,7 @@ export class GameScene extends Phaser.Scene {
     // Quest Tip / Note
     const qNoteTxt = this.add.text(0, qPanelY + 46, isPerfect ? '✨ Xuất sắc! Bạn đã thu phục trọn vẹn điểm màn này! ✨' : '💡 Mẹo: Bấm chơi lại để đạt điểm tuyệt đối 3 sao!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12.5px',
       fontStyle: 'bold',
       color: isPerfect ? '#ffd700' : '#adb5bd'
     }).setOrigin(0.5);
@@ -2906,8 +2908,8 @@ export class GameScene extends Phaser.Scene {
     // Rewards info text
     const rewardsText = this.add.text(0, 48, `+${coins} 💰 Ngân lượng • ⏱️ Thưởng: +${timeBonus} PTS • ❤️ ${this.lives}/10`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      fontStyle: 'bold',
+      fontSize: '14.5px',
+      fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
     modal.add(rewardsText);
@@ -2924,7 +2926,7 @@ export class GameScene extends Phaser.Scene {
       rBg.strokeRoundedRect(-200, -12, 400, 24, 8);
       const rTxt = this.add.text(0, 0, `✨ THU THẬP THẦN KHÍ: ${relic.icon} ${relic.name} (${relic.japaneseName})`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11.5px',
+        fontSize: '13px',
         fontStyle: '900',
         color: '#ffd700'
       }).setOrigin(0.5);
@@ -2945,7 +2947,7 @@ export class GameScene extends Phaser.Scene {
       bBg.strokeRoundedRect(-200, -12, 400, 24, 8);
       const bTxt = this.add.text(0, 0, `🎖️ HUY HIỆU QUÁI: ${badge.name} [TIER ${tierLabel}]`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11.5px',
+        fontSize: '13px',
         fontStyle: '900',
         color: '#00f5d4'
       }).setOrigin(0.5);
@@ -2960,8 +2962,8 @@ export class GameScene extends Phaser.Scene {
       if (char) {
         const charTxt = this.add.text(0, extraRewardOffset, `🎊 THU PHỤC LINH THÚ: ${char.symbol} ${char.name} (${char.japaneseName})`, {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '12px',
-          fontStyle: '800',
+          fontSize: '13.5px',
+          fontStyle: '900',
           color: '#ff758f'
         }).setOrigin(0.5);
         modal.add(charTxt);
@@ -2978,8 +2980,8 @@ export class GameScene extends Phaser.Scene {
       nBg.fillRoundedRect(-130, -20, 260, 40, 14);
       const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH CHIẾN DỊCH! 👑' : 'TIẾP TỤC HÀNH TRÌNH ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13.5px',
-        fontStyle: '800',
+        fontSize: '15px',
+        fontStyle: '900',
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
       }).setOrigin(0.5);
       nextBtn.add([nBg, nTxt]);
@@ -3004,8 +3006,8 @@ export class GameScene extends Phaser.Scene {
       mBg.fillRoundedRect(-130, -18, 260, 36, 12);
       const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
-        fontStyle: 'bold',
+        fontSize: '14.5px',
+        fontStyle: '800',
         color: '#adb5bd'
       }).setOrigin(0.5);
       menuBtn.add([mBg, mTxt]);
@@ -3025,8 +3027,8 @@ export class GameScene extends Phaser.Scene {
       nBg.fillRoundedRect(-130, -18, 260, 36, 12);
       const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH CHIẾN DỊCH! 👑' : 'TIẾP TỤC HÀNH TRÌNH ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
-        fontStyle: '800',
+        fontSize: '14.5px',
+        fontStyle: '900',
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
       }).setOrigin(0.5);
       nextBtn.add([nBg, nTxt]);
@@ -3053,8 +3055,8 @@ export class GameScene extends Phaser.Scene {
       rBg.strokeRoundedRect(-130, -18, 260, 36, 12);
       const rTxt = this.add.text(0, 0, '🔄 CHƠI LẠI ĐỂ SĂN 3 SAO!', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
-        fontStyle: '800',
+        fontSize: '14.5px',
+        fontStyle: '900',
         color: '#ffd166'
       }).setOrigin(0.5);
       replayBtn.add([rBg, rTxt]);
@@ -3073,8 +3075,8 @@ export class GameScene extends Phaser.Scene {
       mBg.fillRoundedRect(-130, -17, 260, 34, 10);
       const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12.5px',
-        fontStyle: 'bold',
+        fontSize: '14px',
+        fontStyle: '800',
         color: '#adb5bd'
       }).setOrigin(0.5);
       menuBtn.add([mBg, mTxt]);
@@ -3131,7 +3133,7 @@ export class GameScene extends Phaser.Scene {
 
     const reasonText = this.add.text(0, -45, this.gameOverReason, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '14.5px',
       fontStyle: 'bold',
       color: '#ffd166',
       wordWrap: { width: 260 },
@@ -3146,8 +3148,8 @@ export class GameScene extends Phaser.Scene {
     rBg.fillRoundedRect(-105, -21, 210, 42, 12);
     const rTxt = this.add.text(0, 0, 'THỬ LẠI MÀN NÀY 🔄', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
-      fontStyle: '800',
+      fontSize: '15px',
+      fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
     retryBtn.add([rBg, rTxt]);
@@ -3165,8 +3167,8 @@ export class GameScene extends Phaser.Scene {
     mBg.fillRoundedRect(-105, -19, 210, 38, 12);
     const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
-      fontStyle: 'bold',
+      fontSize: '14.5px',
+      fontStyle: '800',
       color: '#adb5bd'
     }).setOrigin(0.5);
     menuBtn.add([mBg, mTxt]);
@@ -3212,7 +3214,7 @@ export class GameScene extends Phaser.Scene {
 
     const reasonText = this.add.text(0, -110, this.gameOverReason, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '14.5px',
       fontStyle: 'bold',
       color: '#ffd166',
       wordWrap: { width: 320 },
@@ -3238,22 +3240,22 @@ export class GameScene extends Phaser.Scene {
 
     const scoreText = this.add.text(0, -38, `Điểm số: ${this.score.toLocaleString()} PTS`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '15px',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5);
 
     const recordText = this.add.text(0, -15, `Kỷ lục: ${record.maxWaves} Đợt • ${record.highScore.toLocaleString()} PTS${isNewRecord ? ' 🔥 MỚI!' : ''}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
-      fontStyle: '800',
+      fontSize: '13.5px',
+      fontStyle: '900',
       color: isNewRecord ? '#ffb703' : '#ced4da'
     }).setOrigin(0.5);
 
     const coinsText = this.add.text(0, 10, `+${earnedCoins} 💰 Ngân lượng nhận được`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
-      fontStyle: 'bold',
+      fontSize: '14.5px',
+      fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
@@ -3268,8 +3270,8 @@ export class GameScene extends Phaser.Scene {
     rBg.strokeRoundedRect(-120, -21, 240, 42, 14);
     const rTxt = this.add.text(0, 0, 'THỬ LẠI SINH TỒN ❄️🔄', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
-      fontStyle: '800',
+      fontSize: '15px',
+      fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
     retryBtn.add([rBg, rTxt]);
@@ -3288,8 +3290,8 @@ export class GameScene extends Phaser.Scene {
     mBg.fillRoundedRect(-120, -19, 240, 38, 12);
     const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
-      fontStyle: 'bold',
+      fontSize: '14.5px',
+      fontStyle: '800',
       color: '#adb5bd'
     }).setOrigin(0.5);
     menuBtn.add([mBg, mTxt]);

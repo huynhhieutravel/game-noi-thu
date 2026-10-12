@@ -128,8 +128,8 @@ export class CompanionModal {
 
       const titleText = scene.add.text(0, 1, `[ ${comp.title} ]`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12.5px',
-        fontStyle: 'bold',
+        fontSize: '13.5px',
+        fontStyle: '800',
         color: `#${comp.themeColor.toString(16).padStart(6, '0')}`
       }).setOrigin(0.5);
 
@@ -142,14 +142,15 @@ export class CompanionModal {
 
       const skillName = scene.add.text(0, 36, `⚡ ${comp.skillName}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13.5px',
-        fontStyle: '800',
+        fontSize: '14.5px',
+        fontStyle: '900',
         color: '#ffd700'
       }).setOrigin(0.5);
 
       const skillDesc = scene.add.text(0, 68, comp.skillDesc, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '13px',
+        fontStyle: 'bold',
         color: '#ced4da',
         wordWrap: { width: cardW - 40 },
         align: 'center',
@@ -181,8 +182,8 @@ export class CompanionModal {
 
       const btnText = scene.add.text(0, btnY, btnLabel, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
-        fontStyle: '800',
+        fontSize: '14px',
+        fontStyle: '900',
         color: btnTextColor
       }).setOrigin(0.5);
 

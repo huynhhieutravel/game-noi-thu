@@ -360,8 +360,8 @@ export class CollectionScene extends Phaser.Scene {
 
     const backTxt = this.add.text(0, 0, '⬅ Quay lại', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: '800',
+      fontSize: '13.5px',
+      fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
 
@@ -409,7 +409,8 @@ export class CollectionScene extends Phaser.Scene {
     // Decorative Subtitle
     this.add.text(width / 2, titleY + 22, `✦  🌸  ${cfg.kanji}  🌸  ✦`, {
       fontFamily: 'Zen Maru Gothic, serif',
-      fontSize: '11px',
+      fontSize: '13px',
+      fontStyle: 'bold',
       color: '#ffccd5'
     }).setOrigin(0.5);
 
@@ -442,8 +443,8 @@ export class CollectionScene extends Phaser.Scene {
 
     this.add.text(starX, 28, `⭐ ${save.stars}/30`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: 'bold',
+      fontSize: '13.5px',
+      fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
 
@@ -458,8 +459,8 @@ export class CollectionScene extends Phaser.Scene {
 
     this.add.text(coinX - 8, 28, `💰 ${save.coins}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      fontStyle: 'bold',
+      fontSize: '14.5px',
+      fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
@@ -468,8 +469,8 @@ export class CollectionScene extends Phaser.Scene {
     plusCircle.fillCircle(coinX + 34, 28, 8);
     this.add.text(coinX + 34, 27, '+', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
-      fontStyle: 'bold',
+      fontSize: '13px',
+      fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
@@ -535,14 +536,14 @@ export class CollectionScene extends Phaser.Scene {
       }
 
       // Icon & Label
-      const iconTxt = this.add.text(-tabW / 2 + 12, 0, tabItem.icon, {
-        fontSize: '16px'
+      const iconTxt = this.add.text(-tabW / 2 + 10, 0, tabItem.icon, {
+        fontSize: '17px'
       }).setOrigin(0, 0.5);
 
-      const labelTxt = this.add.text(-tabW / 2 + 34, 0, tabItem.label, {
+      const labelTxt = this.add.text(-tabW / 2 + 32, 0, tabItem.label, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
-        fontStyle: '800',
+        fontSize: '12.5px',
+        fontStyle: '900',
         color: isAct ? '#ffffff' : '#ced4da'
       }).setOrigin(0, 0.5);
 
@@ -645,8 +646,8 @@ export class CollectionScene extends Phaser.Scene {
 
       const txt = this.add.text(0, 0, `${cat.icon} ${cat.label}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
-        fontStyle: '800',
+        fontSize: '12.5px',
+        fontStyle: '900',
         color: isAct ? '#ffffff' : '#ced4da'
       }).setOrigin(0.5);
 
@@ -697,15 +698,15 @@ export class CollectionScene extends Phaser.Scene {
 
     const pLabel = this.add.text(-cardW / 2 + 18, 0, `TIẾN ĐỘ THU PHỤC ${cfg.id.toUpperCase()}:`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontStyle: '800',
       color: '#adb5bd'
     }).setOrigin(0, 0.5);
 
     const pValue = this.add.text(cardW / 2 - 18, 0, `${discoveredCount} / ${totalCount} (${completionPct}%)`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: 'bold',
+      fontSize: '13.5px',
+      fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(1, 0.5);
 
@@ -759,7 +760,8 @@ export class CollectionScene extends Phaser.Scene {
     prevBg.fillRoundedRect(-14, -10, 28, 20, 5);
     const prevTxt = this.add.text(0, 0, '◀', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13px',
+      fontStyle: 'bold',
       color: '#ffd700'
     }).setOrigin(0.5);
     prevBtn.add([prevBg, prevTxt]);
@@ -775,8 +777,8 @@ export class CollectionScene extends Phaser.Scene {
     // Chapter Title
     const titleText = this.add.text(barCenterX, barY, `CHƯƠNG ${this.currentTab + 1}/${chapters.length}: ⛩️ ${currentCh.name}  •  ${currentCh.sub.toUpperCase()}`, {
       fontFamily: 'Zen Maru Gothic, sans-serif',
-      fontSize: '12.5px',
-      fontStyle: 'bold',
+      fontSize: '14px',
+      fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
     this.chapterNavContainer.add(titleText);
@@ -788,7 +790,8 @@ export class CollectionScene extends Phaser.Scene {
     nextBg.fillRoundedRect(-14, -10, 28, 20, 5);
     const nextTxt = this.add.text(0, 0, '▶', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13px',
+      fontStyle: 'bold',
       color: '#ffd700'
     }).setOrigin(0.5);
     nextBtn.add([nextBg, nextTxt]);
@@ -826,8 +829,8 @@ export class CollectionScene extends Phaser.Scene {
 
       const cTxt = this.add.text(0, 0, `${idx + 1}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
-        fontStyle: 'bold',
+        fontSize: '12.5px',
+        fontStyle: '900',
         color: isAct ? '#ffffff' : '#8d99ae'
       }).setOrigin(0.5);
 
@@ -946,7 +949,7 @@ export class CollectionScene extends Phaser.Scene {
       // Name
       const name = this.add.text(0, 39, char.name, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13.5px',
+        fontSize: '14.5px',
         fontStyle: '900',
         color: '#ffffff'
       }).setOrigin(0.5);
@@ -954,15 +957,16 @@ export class CollectionScene extends Phaser.Scene {
       // Kanji Japanese Name
       const kanji = this.add.text(0, 58, char.japaneseName, {
         fontFamily: 'Zen Maru Gothic, sans-serif',
-        fontSize: '11.5px',
+        fontSize: '12.5px',
+        fontStyle: 'bold',
         color: '#ced4da'
       }).setOrigin(0.5);
 
       // Rarity Label
       const rarityBadge = this.add.text(0, 77, CharacterRegistry.getRarityName(char.rarity), {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
-        fontStyle: 'bold',
+        fontSize: '12px',
+        fontStyle: '900',
         color: `#${rarityColor.toString(16).padStart(6, '0')}`
       }).setOrigin(0.5);
 
@@ -1022,14 +1026,15 @@ export class CollectionScene extends Phaser.Scene {
 
       const unknownText = this.add.text(0, 44, 'Chưa Gặp', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
+        fontSize: '14px',
         fontStyle: 'bold',
         color: '#adb5bd'
       }).setOrigin(0.5);
 
       const hintText = this.add.text(0, 64, 'Vượt ải để mở', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11.5px',
+        fontSize: '12px',
+        fontStyle: 'bold',
         color: '#6c757d'
       }).setOrigin(0.5);
 
@@ -1060,14 +1065,15 @@ export class CollectionScene extends Phaser.Scene {
 
     const unknownText = this.add.text(0, 44, 'Chưa Gặp', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '14px',
       fontStyle: 'bold',
       color: '#adb5bd'
     }).setOrigin(0.5);
 
     const hintText = this.add.text(0, 64, 'Vượt ải để mở', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11.5px',
+      fontSize: '12px',
+      fontStyle: 'bold',
       color: '#6c757d'
     }).setOrigin(0.5);
 
@@ -1145,7 +1151,7 @@ export class CollectionScene extends Phaser.Scene {
 
     const rarityBadge = this.add.text(120, -65, `[ ${CharacterRegistry.getRarityName(char.rarity)} • Hệ ${char.element.toUpperCase()} ]`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: `#${rarityColor.toString(16).padStart(6, '0')}`
     }).setOrigin(0.5);
@@ -1153,7 +1159,7 @@ export class CollectionScene extends Phaser.Scene {
     const compData = COMPANIONS[char.id];
     const desc = this.add.text(120, compData ? 0 : 15, char.description, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '13px',
       color: '#ced4da',
       wordWrap: { width: 270 },
       align: 'center',
@@ -1166,7 +1172,7 @@ export class CollectionScene extends Phaser.Scene {
     if (compData) {
       skillDescText = this.add.text(120, 75, `⚡ TUYỆT CHIÊU: ${compData.skillName}\n(${compData.skillDesc})`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
+        fontSize: '12px',
         fontStyle: 'bold',
         color: '#ffd700',
         wordWrap: { width: 270 },
@@ -1196,8 +1202,8 @@ export class CollectionScene extends Phaser.Scene {
       eqBg.fillRoundedRect(-85, -18, 170, 36, 10);
       const eqTxt = this.add.text(0, 0, btnLabel, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
-        fontStyle: '800',
+        fontSize: '12.5px',
+        fontStyle: '900',
         color: btnTxtColor
       }).setOrigin(0.5);
       equipBtn.add([eqBg, eqTxt]);
@@ -1240,8 +1246,8 @@ export class CollectionScene extends Phaser.Scene {
     clBg.fillRoundedRect(-closeBtnW / 2, -18, closeBtnW, 36, 10);
     const clTxt = this.add.text(0, 0, 'ĐÓNG', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      fontStyle: '800',
+      fontSize: '14px',
+      fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
     closeBtn.add([clBg, clTxt]);
