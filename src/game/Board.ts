@@ -35,6 +35,32 @@ export class BoardManager {
   private boardOffsetX: number = 0;
   private boardOffsetY: number = 0;
   private isProcessingMatch: boolean = false;
+  private processingMatchWatchdog: Phaser.Time.TimerEvent | null = null;
+
+  public isProcessing(): boolean {
+    return this.isProcessingMatch;
+  }
+
+  public setProcessingMatch(val: boolean): void {
+    this.isProcessingMatch = val;
+    if (this.processingMatchWatchdog) {
+      this.processingMatchWatchdog.destroy();
+      this.processingMatchWatchdog = null;
+    }
+    if (val) {
+      // 🛡️ Watchdog: Tự động giải phóng lock sau 1400ms nếu animation gặp sự cố hoặc drop
+      this.processingMatchWatchdog = this.scene.time.delayedCall(1400, () => {
+        if (this.isProcessingMatch) {
+          console.warn('[Board] isProcessingMatch watchdog auto-released!');
+          this.isProcessingMatch = false;
+          this.processingMatchWatchdog = null;
+          this.clearSelection();
+          this.clearHint();
+          this.checkBoardStatus();
+        }
+      });
+    }
+  }
 
   // ⛩️ Board Frame Container (Japanese Shrine Roof and Backing)
   private boardFrameContainer: Phaser.GameObjects.Container | null = null;
@@ -54,6 +80,9 @@ export class BoardManager {
 
   // 🌙 Piercing Laser (Giờ Bách Quỷ Dạ Hành - Xuyên thấu vật cản)
   private isPiercingLaserActive: boolean = false;
+
+  // 🔄 Pending deadlock auto-shuffle timer
+  private pendingShuffleTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(scene: Phaser.Scene, config: LevelConfig, events: BoardEvents = {}) {
     this.scene = scene;
@@ -767,9 +796,9 @@ export class BoardManager {
       rows: this.rows,
       cols: this.cols,
       isEmpty: (row, col) => {
-        if (row < 0 || row > this.rows + 1 || col < 0 || col > this.cols + 1) return true;
-        const cell = this.grid[row][col];
-        return cell.isCleared && cell.modifier !== 'stone';
+        if (row <= 0 || row > this.rows || col <= 0 || col > this.cols) return true;
+        const cell = this.grid[row]?.[col];
+        return !!(cell && cell.isCleared && cell.modifier !== 'stone');
       }
     };
 
@@ -802,9 +831,9 @@ export class BoardManager {
     }
 
     // Successful Match!
-    this.isProcessingMatch = true;
+    this.setProcessingMatch(true);
     this.selectedTile = null;
-    this.tileViews[firstTile.r][firstTile.c]?.setSelected(false);
+    this.tileViews[firstTile.r]?.[firstTile.c]?.setSelected(false);
 
     // Draw connecting laser path
     this.drawMatchPath(matchPath, () => {
@@ -901,8 +930,8 @@ export class BoardManager {
   }
 
   private processClearedTiles(t1: TileState, t2: TileState, path: GridPoint[]): void {
-    const v1 = this.tileViews[t1.r][t1.c];
-    const v2 = this.tileViews[t2.r][t2.c];
+    const v1 = this.tileViews[t1.r]?.[t1.c];
+    const v2 = this.tileViews[t2.r]?.[t2.c];
 
     const mod1 = t1.modifier;
     const mod2 = t2.modifier;
@@ -971,7 +1000,9 @@ export class BoardManager {
 
     // Check Board Movement (gravity) if applicable
     if (this.config.movement && this.config.movement !== 'none') {
+      this.clearSelection();
       this.scene.time.delayedCall(220, () => {
+        this.clearSelection();
         BoardModifiers.applyMovement(this.grid, this.rows, this.cols, this.config.movement);
         this.syncViewsAfterMovement();
         this.checkBoardStatus();
@@ -1319,7 +1350,7 @@ export class BoardManager {
   }
 
   public checkBoardStatus(): void {
-    this.isProcessingMatch = false;
+    this.setProcessingMatch(false);
 
     // 🛡️ Ironclad Parity Audit & Auto-Heal before status check
     this.auditAndHealParity();
@@ -1356,16 +1387,31 @@ export class BoardManager {
       }
     }
 
+    if (available && this.pendingShuffleTimer) {
+      this.pendingShuffleTimer.destroy();
+      this.pendingShuffleTimer = null;
+    }
+
     // CRITICAL: Do NOT auto-shuffle deadlock if Piercing Laser or Rescue Portals is handling it!
     if (!available && !this.isPiercingLaserActive) {
-      // Deadlock detected -> slight pause for player to comprehend before smooth auto-shuffle
-      this.scene.time.delayedCall(350, () => {
+      if (this.pendingShuffleTimer) {
+        this.pendingShuffleTimer.destroy();
+      }
+      this.pendingShuffleTimer = this.scene.time.delayedCall(350, () => {
+        this.pendingShuffleTimer = null;
         this.performShuffle(true);
       });
     }
   }
 
   public performShuffle(isAuto: boolean = false): void {
+    if (this.pendingShuffleTimer) {
+      this.pendingShuffleTimer.destroy();
+      this.pendingShuffleTimer = null;
+    }
+    this.clearSelection();
+    this.clearHint();
+    this.setProcessingMatch(false);
     BoardGenerator.reshuffleBoard(this.grid, this.rows, this.cols, this.getPortals());
     this.auditAndHealParity();
     this.syncViewsAfterMovement();
@@ -1429,6 +1475,8 @@ export class BoardManager {
   }
 
   public triggerBomb(): boolean {
+    if (this.isProcessingMatch) return false;
+
     let match = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, this.getPortals());
 
     if (!match && this.isPiercingLaserActive) {
@@ -1462,11 +1510,13 @@ export class BoardManager {
 
     if (!match) return false;
 
+    this.clearSelection();
     this.clearHint();
-    const t1 = this.grid[match.p1.r][match.p1.c];
-    const t2 = this.grid[match.p2.r][match.p2.c];
+    const t1 = this.grid[match.p1.r]?.[match.p1.c];
+    const t2 = this.grid[match.p2.r]?.[match.p2.c];
+    if (!t1 || !t2 || t1.isCleared || t2.isCleared) return false;
 
-    this.isProcessingMatch = true;
+    this.setProcessingMatch(true);
     this.drawMatchPath(match.path, () => {
       this.processClearedTiles(t1, t2, match.path);
       // 💣 Bomb radial shockwave: extra blast deals 1 hit to all obstacles within 2 tiles
@@ -1495,13 +1545,17 @@ export class BoardManager {
     const t2 = this.grid[p2.r]?.[p2.c];
     if (!t1 || !t2 || t1.isCleared || t2.isCleared) return;
 
+    this.clearSelection();
+    this.clearHint();
+    this.setProcessingMatch(true);
+
     const boardGridAdapter: BoardGrid = {
       rows: this.rows,
       cols: this.cols,
       isEmpty: (row, col) => {
-        if (row < 0 || row > this.rows + 1 || col < 0 || col > this.cols + 1) return true;
-        const cell = this.grid[row][col];
-        return cell.isCleared && cell.modifier !== 'stone';
+        if (row <= 0 || row > this.rows || col <= 0 || col > this.cols) return true;
+        const cell = this.grid[row]?.[col];
+        return !!(cell && cell.isCleared && cell.modifier !== 'stone');
       }
     };
 
@@ -1524,6 +1578,7 @@ export class BoardManager {
    */
   private morphShapeshifters(): void {
     if (this.isProcessingMatch) return;
+    this.clearSelection();
 
     const shifters: { state: TileState; view: TileView }[] = [];
     for (let r = 1; r <= this.rows; r++) {
@@ -1745,7 +1800,7 @@ export class BoardManager {
     }
 
     this.clearSelection();
-    this.isProcessingMatch = true;
+    this.setProcessingMatch(true);
 
     // 2. Animate all active existing TileViews sliding UP by tileSize
     for (let r = 1; r <= this.rows; r++) {
@@ -1828,7 +1883,7 @@ export class BoardManager {
         }
       }
 
-      this.isProcessingMatch = false;
+      this.setProcessingMatch(false);
 
       // Ensure solvable matches exist on board
       const hasMatch = !!BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, this.getPortals());
@@ -1843,6 +1898,14 @@ export class BoardManager {
   }
 
   public destroy(): void {
+    if (this.processingMatchWatchdog) {
+      this.processingMatchWatchdog.destroy();
+      this.processingMatchWatchdog = null;
+    }
+    if (this.pendingShuffleTimer) {
+      this.pendingShuffleTimer.destroy();
+      this.pendingShuffleTimer = null;
+    }
     if (this.shapeshifterTimer) {
       this.shapeshifterTimer.destroy();
       this.shapeshifterTimer = null;

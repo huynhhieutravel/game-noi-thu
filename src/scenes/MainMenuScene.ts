@@ -9,6 +9,7 @@ import { TextureGenerator } from '../game/TextureGenerator';
 import bossesData from '../data/bosses.json';
 import levelsData from '../data/levels.json';
 import { LevelConfig, DifficultyLevel } from '../types';
+import { LevelManager } from '../game/LevelManager';
 
 export class MainMenuScene extends Phaser.Scene {
   private saveSystem!: SaveSystem;
@@ -20,6 +21,7 @@ export class MainMenuScene extends Phaser.Scene {
   private rulesModalContainer: Phaser.GameObjects.Container | null = null;
   private themeModalContainer: Phaser.GameObjects.Container | null = null;
   private bossModalContainer: Phaser.GameObjects.Container | null = null;
+  private stageSelectChapter: number = 1;
 
   public static readonly THEMES = [
     { id: 'yokai', label: 'Bách Quỷ', icon: '⛩️', tag: 'Thần Thoại Nhật', color: 0xd90429, hex: '#d90429' },
@@ -873,7 +875,7 @@ export class MainMenuScene extends Phaser.Scene {
     const hubW = 530;
 
     // --- 1. HERO CTA: Primary "CHƠI TIẾP" Button ---
-    const currentLvl = Math.min(save.highestLevel, 10);
+    const currentLvl = Math.min(save.highestLevel, 100);
     const heroY = 120;
     const heroH = 82;
 
@@ -973,9 +975,9 @@ export class MainMenuScene extends Phaser.Scene {
       width: cardW,
       height: cardH,
       icon: '🗺️',
-      title: 'CHỌN MÀN (1 - 10)',
-      sub: '10 Hướng dồn trọng lực cổ điển',
-      badge: `Màn cao: ${save.highestLevel}/10  •  ⭐ ${save.stars}/30`,
+      title: 'CHỌN MÀN (1 - 100)',
+      sub: '10 Chương viễn chinh đa vũ trụ',
+      badge: `Màn cao: ${save.highestLevel}/100  •  ⭐ ${save.stars}/300`,
       actionTxt: 'BẢN ĐỒ ➔',
       primaryColor: 0x0e172a,
       accentColor: 0x3a86ff,
@@ -1060,7 +1062,7 @@ export class MainMenuScene extends Phaser.Scene {
       color: '#ffd700'
     }).setOrigin(0.5);
 
-    const sLine1 = this.add.text(0, 4, `📊 Màn cao: Màn ${save.highestLevel}/10   ⭐ ${save.stars} Sao   💰 ${save.coins} Xu`, {
+    const sLine1 = this.add.text(0, 4, `📊 Màn cao: Màn ${save.highestLevel}/100   ⭐ ${save.stars} Sao   💰 ${save.coins} Xu`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '13.5px',
       fontStyle: 'bold',
@@ -1489,7 +1491,7 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   /**
-   * Stage Select (1 - 10) Modal
+   * Stage Select (1 - 100) Modal with 10 Mythological Chapters & Pagination
    */
   private openStageSelectModal(): void {
     if (this.stageModalContainer) return;
@@ -1497,6 +1499,8 @@ export class MainMenuScene extends Phaser.Scene {
     const width = GAME_WIDTH;
     const height = GAME_HEIGHT;
     const save = this.saveSystem || SaveSystem.getInstance();
+
+    this.stageSelectChapter = Math.max(1, Math.min(10, Math.ceil(save.getHighestLevel() / 10)));
 
     const modal = this.add.container(width / 2, height / 2).setDepth(200);
     this.stageModalContainer = modal;
@@ -1518,36 +1522,29 @@ export class MainMenuScene extends Phaser.Scene {
     const collectedRelics = save.getCollectedRelicsCount('yokai');
     const isAllRelicsCollected = collectedRelics >= 10;
 
-    const title = this.add.text(0, -202, '⛩️ BÁCH QUỶ ĐỒ THƯ • CHỌN MÀN (1 - 10)', {
+    const title = this.add.text(0, -204, '🗺️ CHIẾN DỊCH VIỄN CHINH • 100 MÀN CHƠI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '22px',
+      fontSize: '21px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
     modal.add(title);
 
-    const sub = this.add.text(0, -174, `🏛️ Thần Khí Nhật Bản: ${collectedRelics}/10 Mảnh ${isAllRelicsCollected ? '✨ (ĐÃ MỞ CỔNG KHÔNG GIAN!)' : '• Nối cặp ô phát sáng để nhặt'}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      color: isAllRelicsCollected ? '#00f5d4' : '#ffd166'
-    }).setOrigin(0.5);
-    modal.add(sub);
-
     if (isAllRelicsCollected) {
-      const portalBtn = this.add.container(290, -202);
+      const portalBtn = this.add.container(310, -204);
       const pBg = this.add.graphics();
       pBg.fillStyle(0x7209b7, 0.95);
-      pBg.fillRoundedRect(-100, -16, 200, 32, 8);
+      pBg.fillRoundedRect(-85, -15, 170, 30, 8);
       pBg.lineStyle(1.5, 0x4cc9f0, 0.9);
-      pBg.strokeRoundedRect(-100, -16, 200, 32, 8);
+      pBg.strokeRoundedRect(-85, -15, 170, 30, 8);
       const pTxt = this.add.text(0, 0, '🌌 CỔNG THẾ GIỚI ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11.5px',
+        fontSize: '11px',
         fontStyle: '900',
         color: '#ffffff'
       }).setOrigin(0.5);
       portalBtn.add([pBg, pTxt]);
-      portalBtn.setSize(200, 32).setInteractive({ useHandCursor: true });
+      portalBtn.setSize(170, 30).setInteractive({ useHandCursor: true });
       portalBtn.on('pointerdown', () => {
         this.audio.playSelect();
         modal.destroy();
@@ -1557,106 +1554,178 @@ export class MainMenuScene extends Phaser.Scene {
       modal.add(portalBtn);
     }
 
-    const STAGES = [
-      { id: 'level_01', num: 1, name: 'Màn 1: Tĩnh Lặng', sub: '90s • 4x6 Khởi động', boss: false },
-      { id: 'level_02', num: 2, name: 'Màn 2: Trọng Lực Đáy', sub: '120s • Dồn xuống + Băng', boss: false },
-      { id: 'level_03', num: 3, name: 'Màn 3: Khinh Khí Đỉnh', sub: '125s • Dồn lên + Đá cản', boss: false },
-      { id: 'level_04', num: 4, name: 'Màn 4: Thủy Triều Trái', sub: '135s • Dồn trái + Sương mù', boss: false },
-      { id: 'level_05', num: 5, name: 'Màn 5: Phong Vân Phải', sub: '135s • Dồn phải + Ổ khóa', boss: false },
-      { id: 'level_06', num: 6, name: 'Màn 6: Hợp Tung Ngang', sub: '150s • Ép tâm + Băng đá', boss: false },
-      { id: 'level_07', num: 7, name: 'Màn 7: Quy Tụ Dọc', sub: '155s • Ép dọc + Sương mù', boss: false },
-      { id: 'level_08', num: 8, name: 'Màn 8: Phân Ly Dọc', sub: '175s • Tách đôi + Tứ thạch', boss: false },
-      { id: 'level_09', num: 9, name: 'Màn 9: Phân Ly Ngang', sub: '185s • Tách ngang + Hàn băng', boss: false },
-      { id: 'level_10', num: 10, name: 'Màn 10: Trảm Xà Thần 🐉', sub: '210s • Bát Kỳ Đại Xà (400HP)', boss: true }
-    ];
+    // --- CHAPTER SELECTOR BAR ---
+    const navY = -170;
+    const chBannerTxt = this.add.text(0, navY, '', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13.5px',
+      fontStyle: '800',
+      color: '#00f5d4',
+      align: 'center'
+    }).setOrigin(0.5);
+    modal.add(chBannerTxt);
 
-    const cardW = 155;
-    const cardH = 106;
-    const colSpacing = 168;
-    const rowY1 = -90;
-    const rowY2 = 45;
+    // Prev Chapter Button
+    const prevBtn = this.add.container(-275, navY);
+    const prevBg = this.add.graphics();
+    prevBg.fillStyle(0x2a2845, 0.9);
+    prevBg.fillRoundedRect(-58, -14, 116, 28, 7);
+    prevBg.lineStyle(1, 0x5a557d, 0.8);
+    prevBg.strokeRoundedRect(-58, -14, 116, 28, 7);
+    const prevTxt = this.add.text(0, 0, '◄ CHƯƠNG TRƯỚC', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: '#ced4da'
+    }).setOrigin(0.5);
+    prevBtn.add([prevBg, prevTxt]);
+    prevBtn.setSize(116, 28).setInteractive({ useHandCursor: true });
+    modal.add(prevBtn);
 
-    STAGES.forEach((stg, i) => {
-      const isSecondRow = i >= 5;
-      const colIndex = i % 5;
-      const posX = -2 * colSpacing + colIndex * colSpacing;
-      const posY = isSecondRow ? rowY2 : rowY1;
+    // Next Chapter Button
+    const nextBtn = this.add.container(275, navY);
+    const nextBg = this.add.graphics();
+    nextBg.fillStyle(0x2a2845, 0.9);
+    nextBg.fillRoundedRect(-58, -14, 116, 28, 7);
+    nextBg.lineStyle(1, 0x5a557d, 0.8);
+    nextBg.strokeRoundedRect(-58, -14, 116, 28, 7);
+    const nextTxt = this.add.text(0, 0, 'CHƯƠNG SAU ►', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: '#ced4da'
+    }).setOrigin(0.5);
+    nextBtn.add([nextBg, nextTxt]);
+    nextBtn.setSize(116, 28).setInteractive({ useHandCursor: true });
+    modal.add(nextBtn);
 
-      const row = this.add.container(posX, posY);
+    // Stages Grid Container
+    const stagesGrid = this.add.container(0, 0);
+    modal.add(stagesGrid);
 
-      const stars = save.getLevelStars(stg.id);
-      const isPerfect = stars === 3;
-      let starStr = '☆☆☆';
-      if (stars === 3) starStr = '⭐⭐⭐';
-      else if (stars === 2) starStr = '⭐⭐☆';
-      else if (stars === 1) starStr = '⭐☆☆';
+    const renderChapter = () => {
+      stagesGrid.removeAll(true);
+      const ch = LevelManager.getChapterConfig(this.stageSelectChapter);
+      chBannerTxt.setText(`Chương ${ch.chapterNum}/10: ${ch.title}  (Màn ${ch.startLevel} - ${ch.endLevel})  •  Trùm: ${ch.bossSymbol} ${ch.bossName}`);
+      chBannerTxt.setColor(ch.hex);
 
-      const fullLvl = (levelsData as any[]).find((l: any) => l.id === stg.id);
-      const hasRelic = fullLvl?.relicReward ? save.hasRelic(fullLvl.relicReward.id) : false;
+      prevBtn.setAlpha(this.stageSelectChapter > 1 ? 1 : 0.4);
+      nextBtn.setAlpha(this.stageSelectChapter < 10 ? 1 : 0.4);
 
-      const rBg = this.add.graphics();
-      if (stg.boss) {
-        rBg.fillStyle(isPerfect ? 0x3d1a24 : 0x2a1219, 0.95);
-        rBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
-        rBg.lineStyle(1.8, isPerfect ? 0xffd700 : 0xff595e, 0.95);
-        rBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
-      } else {
-        rBg.fillStyle(isPerfect ? 0x27203a : 0x232538, 0.95);
-        rBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
-        rBg.lineStyle(1.5, isPerfect ? 0xffd700 : 0x4f5d75, isPerfect ? 0.9 : 0.7);
-        rBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
-      }
+      const cardW = 155;
+      const cardH = 106;
+      const colSpacing = 168;
+      const rowY1 = -90;
+      const rowY2 = 45;
 
-      const numBadge = this.add.text(0, -34, stg.boss ? '👑 TRÙM CUỐI' : `MÀN ${stg.num}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
-        fontStyle: '900',
-        color: stg.boss ? '#ff595e' : (isPerfect ? '#ffd700' : '#00f5d4')
-      }).setOrigin(0.5);
+      for (let i = 0; i < 10; i++) {
+        const stgNum = ch.startLevel + i;
+        const stgConfig = LevelManager.getLevelConfig(stgNum, save.getSelectedTheme());
+        const isUnlocked = stgNum <= save.getHighestLevel();
+        const isBoss = stgNum % 10 === 0;
 
-      if (hasRelic && fullLvl?.relicReward) {
-        const relicPill = this.add.text(cardW / 2 - 16, -cardH / 2 + 15, fullLvl.relicReward.icon || '✨', {
+        const isSecondRow = i >= 5;
+        const colIndex = i % 5;
+        const posX = -2 * colSpacing + colIndex * colSpacing;
+        const posY = isSecondRow ? rowY2 : rowY1;
+
+        const row = this.add.container(posX, posY);
+        const stars = save.getLevelStars(stgConfig.id);
+        const isPerfect = stars === 3;
+        let starStr = isUnlocked ? '☆☆☆' : '🔒';
+        if (stars === 3) starStr = '⭐⭐⭐';
+        else if (stars === 2) starStr = '⭐⭐☆';
+        else if (stars === 1) starStr = '⭐☆☆';
+
+        const rBg = this.add.graphics();
+        if (!isUnlocked) {
+          rBg.fillStyle(0x131320, 0.9);
+          rBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
+          rBg.lineStyle(1.2, 0x2a283e, 0.6);
+          rBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
+        } else if (isBoss) {
+          rBg.fillStyle(isPerfect ? 0x3d1a24 : 0x2a1219, 0.95);
+          rBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
+          rBg.lineStyle(1.8, isPerfect ? 0xffd700 : 0xff595e, 0.95);
+          rBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
+        } else {
+          rBg.fillStyle(isPerfect ? 0x27203a : 0x232538, 0.95);
+          rBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
+          rBg.lineStyle(1.5, isPerfect ? 0xffd700 : 0x4f5d75, isPerfect ? 0.9 : 0.7);
+          rBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
+        }
+
+        const numBadge = this.add.text(0, -34, !isUnlocked ? `🔒 MÀN ${stgNum}` : (isBoss ? '👑 ĐẠI TRÙM' : `MÀN ${stgNum}`), {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '12px',
+          fontStyle: '900',
+          color: !isUnlocked ? '#6c757d' : (isBoss ? '#ff595e' : (isPerfect ? '#ffd700' : '#00f5d4'))
+        }).setOrigin(0.5);
+
+        const displayName = stgConfig.title.includes(':') ? stgConfig.title.split(':')[1]?.trim() : stgConfig.title;
+        const stgName = this.add.text(0, -16, displayName.slice(0, 15), {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: isBoss ? '12px' : '13px',
+          fontStyle: '800',
+          color: !isUnlocked ? '#555566' : (isBoss ? '#ffd166' : '#ffffff'),
+          align: 'center'
+        }).setOrigin(0.5);
+
+        const subText = !isUnlocked
+          ? `Vượt Màn ${stgNum - 1} để mở`
+          : `${stgConfig.timeLimit}s • ${stgConfig.movement === 'none' ? 'Tĩnh lặng' : stgConfig.movement}`;
+        const stgSub = this.add.text(0, 3, subText, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '10.5px',
+          color: !isUnlocked ? '#495057' : (isBoss ? '#fca311' : '#ced4da'),
+          align: 'center'
+        }).setOrigin(0.5);
+
+        const starsTxt = this.add.text(0, 21, starStr, {
           fontSize: '13px'
         }).setOrigin(0.5);
-        row.add(relicPill);
+
+        const playLabel = !isUnlocked
+          ? 'CHƯA MỞ'
+          : (isPerfect ? 'CHI TIẾT ➔' : (stars > 0 ? 'SĂN 3 SAO ➔' : (isBoss ? 'KHIÊU CHIẾN ⚔️' : 'CHỌN ĐỘ KHÓ ➔')));
+        const playTxt = this.add.text(0, 38, playLabel, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '11px',
+          fontStyle: 'bold',
+          color: !isUnlocked ? '#495057' : (isPerfect ? '#ffd700' : (isBoss ? '#ff595e' : '#ff758f'))
+        }).setOrigin(0.5);
+
+        row.add([rBg, numBadge, stgName, stgSub, starsTxt, playTxt]);
+        row.setSize(cardW, cardH);
+
+        if (isUnlocked) {
+          row.setInteractive({ useHandCursor: true });
+          row.on('pointerdown', () => {
+            this.audio.playSelect();
+            this.openStageDetailModal(stgConfig);
+          });
+        }
+
+        stagesGrid.add(row);
       }
+    };
 
-      const stgName = this.add.text(0, -16, stg.name.split(':')[1]?.trim() || stg.name, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: stg.boss ? '12px' : '13px',
-        fontStyle: '800',
-        color: stg.boss ? '#ffd166' : '#ffffff',
-        align: 'center'
-      }).setOrigin(0.5);
+    renderChapter();
 
-      const stgSub = this.add.text(0, 3, stg.sub, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
-        color: stg.boss ? '#fca311' : '#ced4da',
-        align: 'center'
-      }).setOrigin(0.5);
-
-      const starsTxt = this.add.text(0, 21, starStr, {
-        fontSize: '14px'
-      }).setOrigin(0.5);
-
-      const playTxt = this.add.text(0, 38, isPerfect ? 'CHI TIẾT ➔' : (stars > 0 ? 'SĂN 3 SAO ➔' : (stg.boss ? 'KHIÊU CHIẾN ⚔️' : 'CHỌN ĐỘ KHÓ ➔')), {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11.5px',
-        fontStyle: 'bold',
-        color: isPerfect ? '#ffd700' : (stg.boss ? '#ff595e' : '#ff758f')
-      }).setOrigin(0.5);
-
-      row.add([rBg, numBadge, stgName, stgSub, starsTxt, playTxt]);
-      row.setSize(cardW, cardH).setInteractive({ useHandCursor: true });
-
-      row.on('pointerdown', () => {
+    prevBtn.on('pointerdown', () => {
+      if (this.stageSelectChapter > 1) {
         this.audio.playSelect();
-        const targetLvl = fullLvl || stg;
-        this.openStageDetailModal(targetLvl);
-      });
+        this.stageSelectChapter--;
+        renderChapter();
+      }
+    });
 
-      modal.add(row);
+    nextBtn.on('pointerdown', () => {
+      if (this.stageSelectChapter < 10) {
+        this.audio.playSelect();
+        this.stageSelectChapter++;
+        renderChapter();
+      }
     });
 
     // Close button
@@ -2045,11 +2114,11 @@ export class MainMenuScene extends Phaser.Scene {
     modal.add(sub);
 
     const REALMS = [
-      { id: 'yokai', name: '⛩️ Nhật Bản', sub: 'Bách Quỷ Đồ Thư • 108 Quái', color: 0xd90429, desc: 'Vùng đất khởi nguyên đã thuần thục hoàn toàn.' },
-      { id: 'egypt', name: '🏺 Ai Cập Cổ Đại', sub: 'Chư Thần Sông Nile • 45 Vị Thần', color: 0xe76f51, desc: 'Bí ẩn kim tự tháp, Pharaoh và lời nguyền sa mạc.' },
-      { id: 'greece', name: '🏛️ Hy Lạp Thần Thoại', sub: 'Đỉnh Olympus • 45 Vị Thần', color: 0x3a86ff, desc: 'Lôi đình Zeus, đại dương Poseidon và minh giới Hades.' },
-      { id: 'wuxia', name: '🗡️ Võ Hiệp Tiên Hiệp', sub: 'Võ Lâm Tiên Giới • 18 Pháp Bảo', color: 0xd00000, desc: 'Phi kiếm ngự phong, chân khí trừ ma độ thế.' },
-      { id: 'underwater', name: '🌊 Thủy Cung Biển Sâu', sub: 'Đế Vương Atlantis • 54 Sinh Vật', color: 0x00b4d8, desc: 'Hải vương kỳ bí, nàng tiên cá và quái vật Kraken.' }
+      { id: 'yokai', name: '⛩️ Nhật Bản', sub: 'Bách Quỷ Đồ Thư • 108 Quái', color: 0xd90429, desc: 'Vùng đất khởi nguyên đã thuần thục hoàn toàn.', unlockAtLevel: 1 },
+      { id: 'egypt', name: '🏺 Ai Cập Cổ Đại', sub: 'Chư Thần Sông Nile • 45 Vị Thần', color: 0xe76f51, desc: 'Bí ẩn kim tự tháp, Pharaoh và lời nguyền sa mạc.', unlockAtLevel: 10 },
+      { id: 'greece', name: '🏛️ Hy Lạp Thần Thoại', sub: 'Đỉnh Olympus • 45 Vị Thần', color: 0x3a86ff, desc: 'Lôi đình Zeus, đại dương Poseidon và minh giới Hades.', unlockAtLevel: 20 },
+      { id: 'wuxia', name: '🗡️ Võ Hiệp Tiên Hiệp', sub: 'Võ Lâm Tiên Giới • 18 Pháp Bảo', color: 0xd00000, desc: 'Phi kiếm ngự phong, chân khí trừ ma độ thế.', unlockAtLevel: 30 },
+      { id: 'underwater', name: '🌊 Thủy Cung Biển Sâu', sub: 'Đế Vương Atlantis • 54 Sinh Vật', color: 0x00b4d8, desc: 'Hải vương kỳ bí, nàng tiên cá và quái vật Kraken.', unlockAtLevel: 40 }
     ];
 
     const currentRealm = save.getActiveRealm();
@@ -2062,19 +2131,27 @@ export class MainMenuScene extends Phaser.Scene {
       const posY = 0;
       const rBox = this.add.container(posX, posY);
 
+      const isUnlocked = save.isRealmUnlocked(r.id);
       const isCurrent = currentRealm === r.id;
       const rCard = this.add.graphics();
-      rCard.fillStyle(isCurrent ? 0x241e3d : 0x18182e, 0.95);
-      rCard.fillRoundedRect(-rW / 2, -rH / 2, rW, rH, 14);
-      rCard.lineStyle(isCurrent ? 2 : 1.2, isCurrent ? 0xffd700 : r.color, isCurrent ? 1 : 0.7);
-      rCard.strokeRoundedRect(-rW / 2, -rH / 2, rW, rH, 14);
+      if (!isUnlocked) {
+        rCard.fillStyle(0x121220, 0.85);
+        rCard.fillRoundedRect(-rW / 2, -rH / 2, rW, rH, 14);
+        rCard.lineStyle(1, 0x333348, 0.6);
+        rCard.strokeRoundedRect(-rW / 2, -rH / 2, rW, rH, 14);
+      } else {
+        rCard.fillStyle(isCurrent ? 0x241e3d : 0x18182e, 0.95);
+        rCard.fillRoundedRect(-rW / 2, -rH / 2, rW, rH, 14);
+        rCard.lineStyle(isCurrent ? 2 : 1.2, isCurrent ? 0xffd700 : r.color, isCurrent ? 1 : 0.7);
+        rCard.strokeRoundedRect(-rW / 2, -rH / 2, rW, rH, 14);
+      }
       rBox.add(rCard);
 
-      const rName = this.add.text(0, -90, r.name, {
+      const rName = this.add.text(0, -90, !isUnlocked ? `🔒 ${r.name.replace(/[^a-zA-Z0-9\sÀ-ỹ]/g, '').trim()}` : r.name, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '14.5px',
+        fontSize: '14px',
         fontStyle: '900',
-        color: isCurrent ? '#ffd700' : '#ffffff',
+        color: !isUnlocked ? '#6c757d' : (isCurrent ? '#ffd700' : '#ffffff'),
         align: 'center'
       }).setOrigin(0.5);
       rBox.add(rName);
@@ -2082,16 +2159,19 @@ export class MainMenuScene extends Phaser.Scene {
       const rSub = this.add.text(0, -60, r.sub, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '11px',
-        color: '#ced4da',
+        color: !isUnlocked ? '#495057' : '#ced4da',
         align: 'center',
         wordWrap: { width: 145 }
       }).setOrigin(0.5);
       rBox.add(rSub);
 
-      const rDesc = this.add.text(0, 0, r.desc, {
+      const descText = !isUnlocked
+        ? `Vượt Màn ${r.unlockAtLevel} (Trảm Đại Trùm) để khai mở Thế Giới này.`
+        : r.desc;
+      const rDesc = this.add.text(0, 0, descText, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '10px',
-        color: '#adb5bd',
+        color: !isUnlocked ? '#fca311' : '#adb5bd',
         align: 'center',
         wordWrap: { width: 140 }
       }).setOrigin(0.5);
@@ -2099,19 +2179,32 @@ export class MainMenuScene extends Phaser.Scene {
 
       const statusBtn = this.add.container(0, 85);
       const sBg = this.add.graphics();
-      sBg.fillStyle(isCurrent ? 0x00f5d4 : r.color, 0.95);
-      sBg.fillRoundedRect(-65, -16, 130, 32, 8);
-      const sTxt = this.add.text(0, 0, isCurrent ? '✓ ĐANG CHỌN' : 'CHUYỂN ĐẾN ➔', {
+      if (!isUnlocked) {
+        sBg.fillStyle(0x242436, 0.9);
+        sBg.fillRoundedRect(-65, -16, 130, 32, 8);
+      } else {
+        sBg.fillStyle(isCurrent ? 0x00f5d4 : r.color, 0.95);
+        sBg.fillRoundedRect(-65, -16, 130, 32, 8);
+      }
+      const btnLabel = !isUnlocked
+        ? `🔒 MỞ MÀN ${r.unlockAtLevel}`
+        : (isCurrent ? '✓ ĐANG CHỌN' : 'CHUYỂN ĐẾN ➔');
+      const sTxt = this.add.text(0, 0, btnLabel, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11px',
+        fontSize: '10.5px',
         fontStyle: '900',
-        color: isCurrent ? '#101018' : '#ffffff'
+        color: !isUnlocked ? '#adb5bd' : (isCurrent ? '#101018' : '#ffffff')
       }).setOrigin(0.5);
       statusBtn.add([sBg, sTxt]);
       rBox.add(statusBtn);
 
       rBox.setSize(rW, rH).setInteractive({ useHandCursor: true });
       rBox.on('pointerdown', () => {
+        if (!isUnlocked) {
+          this.haptic.error();
+          this.audio.playError();
+          return;
+        }
         this.audio.playSelect();
         save.setActiveRealm(r.id);
         save.setSelectedTheme(r.id);

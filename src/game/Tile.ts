@@ -71,6 +71,8 @@ export class TileView extends Phaser.GameObjects.Container {
 
   public updateState(state: TileState, tileSize: number): void {
     this.tileState = state;
+    this.gridR = state.r;
+    this.gridC = state.c;
     const isObstacle = state.modifier === 'stone' || state.modifier === 'thorn' || state.modifier === 'barricade';
 
     if (state.isCleared || (!state.characterId && !isObstacle)) {
@@ -93,6 +95,9 @@ export class TileView extends Phaser.GameObjects.Container {
       this.setInteractive({ cursor: 'not-allowed' });
     } else {
       this.setInteractive({ useHandCursor: true });
+    }
+    if (this.input) {
+      this.input.enabled = true;
     }
 
     if (isObstacle) {

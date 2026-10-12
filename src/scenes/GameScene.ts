@@ -12,7 +12,8 @@ import { HapticSystem } from '../systems/HapticSystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { CompanionManager } from '../game/CompanionManager';
 import { CompanionModal } from '../game/CompanionModal';
-import { BossConfig, CompanionConfig, DifficultyLevel, GridPoint, LevelConfig, TileState } from '../types';
+import { LevelManager } from '../game/LevelManager';
+import { BoardMovement, BossConfig, CompanionConfig, DifficultyLevel, GridPoint, LevelConfig, TileState } from '../types';
 import { TextureGenerator } from '../game/TextureGenerator';
 
 export class GameScene extends Phaser.Scene {
@@ -43,6 +44,7 @@ export class GameScene extends Phaser.Scene {
   // 🌙 Giờ Bách Quỷ Dạ Hành (Night Parade Rush)
   private isNightParadeActive: boolean = false;
   private nightParadeTimeRemaining: number = 0;
+  private nightParadeMaxDuration: number = 10.0;
   private hasTriggeredLowTimeRush: boolean = false;
   private nightParadeOverlay: Phaser.GameObjects.Container | null = null;
   private nightParadeTimerPill: Phaser.GameObjects.Container | null = null;
@@ -128,8 +130,6 @@ export class GameScene extends Phaser.Scene {
     this.playerUsedBoosterCount = 0;
     this.maxComboAchieved = 0;
     const levelId = data.levelId || 'level_01';
-    const allLevels = levelsData as LevelConfig[];
-    const found = allLevels.find(l => l.id === levelId) || allLevels[0];
 
     // Check selected theme from save system
     const save = SaveSystem.getInstance();
@@ -227,43 +227,10 @@ export class GameScene extends Phaser.Scene {
       this.lives = 999;
       this.timeRemaining = 999999;
     } else {
-      if (found.boss) {
-        if (!found.boss.id.startsWith('boss_')) {
-          found.boss.id = 'boss_orochi';
-          found.boss.symbol = '🐉';
-          found.boss.element = 'water';
-          found.boss.native_name = '八岐大蛇';
-          found.boss.title = 'Bát Kỳ Thần Xà Cổ Đại';
-        }
-        this.levelConfig = found;
-      } else if (currentTheme !== 'yokai') {
-        // Player picked a non-Yokai theme in main menu (e.g. Egypt, Greece)
-        const nonBossThemeChars = CharacterRegistry.getNonBossByCollection(currentTheme);
-        const poolSize = found.characterPool?.length || 15;
-        this.levelConfig = {
-          ...found,
-          characterPool: (nonBossThemeChars.length >= 8 ? nonBossThemeChars : themeChars)
-            .filter(c => !CharacterRegistry.isBoss(c))
-            .map(c => c.id)
-            .slice(0, poolSize)
-        };
-      } else {
-        // Yokai default theme: ALWAYS preserve the handcrafted level characterPool!
-        // Strictly filter out any boss characters so normal levels are pure puzzle animals!
-        this.levelConfig = {
-          ...found,
-          characterPool: found.characterPool.filter(id => !CharacterRegistry.isBoss(id))
-        };
-      }
-
+      const baseConfig = LevelManager.getLevelConfig(levelId, currentTheme);
+      this.levelConfig = LevelManager.applyDifficultyToConfig(baseConfig, this.currentDifficulty);
       this.lives = data.lives !== undefined ? data.lives : 5;
-      if (this.levelConfig.difficulties && this.levelConfig.difficulties[this.currentDifficulty]) {
-        const dCfg = this.levelConfig.difficulties[this.currentDifficulty];
-        this.timeRemaining = dCfg.timeLimit;
-        this.levelConfig.timeLimit = dCfg.timeLimit;
-      } else {
-        this.timeRemaining = this.levelConfig.timeLimit;
-      }
+      this.timeRemaining = this.levelConfig.timeLimit;
     }
 
     this.score = 0;
@@ -385,7 +352,10 @@ export class GameScene extends Phaser.Scene {
           this.audio.playError();
           this.haptic.error();
           if (this.boardManager) {
+            this.boardManager.clearSelection();
+            this.boardManager.clearHint();
             this.boardManager.syncViewsAfterMovement();
+            this.boardManager.checkBoardStatus();
           }
         },
         onDefeated: () => {
@@ -1114,14 +1084,20 @@ export class GameScene extends Phaser.Scene {
 
     // 1. Hint Button (Amber glowing - matching Image 2)
     const hintBtn = this.createBoosterButton(-spacing, 0, btnWidth, '💡', 'Gợi Ý', `x${saveData.boosters.hint}`, 0xffa200, () => {
-      if (this.isGameOver || this.isVictory) return;
-      if (this.save.useBooster('hint')) {
+      if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
+      if (this.save.getData().boosters.hint <= 0) {
+        this.showNotice('Hết Gợi Ý! (Kiếm thêm trong màn sau)', 0xff99c8);
+        this.audio.playError();
+        return;
+      }
+      const success = this.boardManager.showHint();
+      if (success) {
+        this.save.useBooster('hint');
         this.playerUsedBoosterCount++;
-        this.boardManager.showHint();
         this.audio.playSelect();
         this.updateBoosterCounts();
       } else {
-        this.showNotice('Hết Gợi Ý! (Kiếm thêm trong màn sau)', 0xff99c8);
+        this.showNotice('Không tìm thấy nước đi phù hợp!', 0xffd166);
         this.audio.playError();
       }
     }, 'btn_booster_hint');
@@ -1129,30 +1105,38 @@ export class GameScene extends Phaser.Scene {
 
     // 2. Shuffle Button (Cyan glowing - matching Image 2)
     const shuffleBtn = this.createBoosterButton(0, 0, btnWidth, '🔄', 'Đổi Vị Trí', `x${saveData.boosters.shuffle}`, 0x00b4d8, () => {
-      if (this.isGameOver || this.isVictory) return;
+      if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
+      if (this.save.getData().boosters.shuffle <= 0) {
+        this.showNotice('Hết Lượt Đảo! (Kiếm thêm trong màn sau)', 0xff99c8);
+        this.audio.playError();
+        return;
+      }
       if (this.save.useBooster('shuffle')) {
         this.playerUsedBoosterCount++;
         this.playerUsedShuffleCount++;
         this.boardManager.performShuffle();
         this.audio.playShuffle();
         this.updateBoosterCounts();
-      } else {
-        this.showNotice('Hết Lượt Đảo! (Kiếm thêm trong màn sau)', 0xff99c8);
-        this.audio.playError();
       }
     }, 'btn_booster_shuffle');
     this.shuffleCountText = shuffleBtn.countText;
 
     // 3. Bomb Button (Purple glowing - matching Image 2)
     const bombBtn = this.createBoosterButton(spacing, 0, btnWidth, '💣', 'Phá Cặp', `x${saveData.boosters.bomb}`, 0x9d4edd, () => {
-      if (this.isGameOver || this.isVictory) return;
-      if (this.save.useBooster('bomb')) {
+      if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
+      if (this.save.getData().boosters.bomb <= 0) {
+        this.showNotice('Hết Bom! (Kiếm thêm trong màn sau)', 0xff99c8);
+        this.audio.playError();
+        return;
+      }
+      const success = this.boardManager.triggerBomb();
+      if (success) {
+        this.save.useBooster('bomb');
         this.playerUsedBoosterCount++;
-        this.boardManager.triggerBomb();
         this.audio.playBossHit();
         this.updateBoosterCounts();
       } else {
-        this.showNotice('Hết Bom! (Kiếm thêm trong màn sau)', 0xff99c8);
+        this.showNotice('Không tìm thấy cặp ô để phá!', 0xffd166);
         this.audio.playError();
       }
     }, 'btn_booster_bomb');
@@ -1241,7 +1225,7 @@ export class GameScene extends Phaser.Scene {
     this.companionPod.setSize(podW, podH).setInteractive({ useHandCursor: true });
 
     this.companionPod.on('pointerdown', () => {
-      if (this.isGameOver || this.isVictory) return;
+      if (this.isGameOver || this.isVictory || this.boardManager.isProcessing()) return;
       if (this.isCompanionSkillReady) {
         this.activateCompanionSkill();
       } else {
@@ -1346,6 +1330,7 @@ export class GameScene extends Phaser.Scene {
 
   private activateCompanionSkill(): void {
     if (!this.isCompanionSkillReady) return;
+    if (this.isGameOver || this.isVictory || this.boardManager.isProcessing()) return;
     this.isCompanionSkillReady = false;
     this.companionEnergy = 0;
     this.updateCompanionEnergyUI();
@@ -1385,24 +1370,31 @@ export class GameScene extends Phaser.Scene {
         this.feverParticles.explode(16, wPos1.x, wPos1.y);
       }
 
-      // Pair 2 (delay 360ms)
-      this.time.delayedCall(360, () => {
-        if (this.isVictory || this.isGameOver) return;
-        const match2 = BoardGenerator.findFirstAvailableMatch(
-          this.boardManager.getGrid(),
-          this.boardManager.getRows(),
-          this.boardManager.getCols(),
-          this.boardManager.getPortals()
-        );
-        if (match2) {
-          this.audio.playLaserZap();
-          this.score += 200;
-          this.scoreText.setText(`${this.score} PTS`);
-          this.boardManager.triggerPairClear(match2.p1, match2.p2);
-          const wPos2 = this.boardManager.gridToWorld(match2.p1.r, match2.p1.c);
-          this.feverParticles.explode(16, wPos2.x, wPos2.y);
-          this.showNotice('🦊 Linh Hồ đã hoàn thành giải cứu 2 cặp ô! +400 PTS! ✨', 0xff758f);
-        }
+      // Pair 2 (delay 550ms, with safe retry if board is currently processing)
+      this.time.delayedCall(550, () => {
+        const doPair2 = () => {
+          if (this.isVictory || this.isGameOver) return;
+          if (this.boardManager.isProcessing()) {
+            this.time.delayedCall(200, doPair2);
+            return;
+          }
+          const match2 = BoardGenerator.findFirstAvailableMatch(
+            this.boardManager.getGrid(),
+            this.boardManager.getRows(),
+            this.boardManager.getCols(),
+            this.boardManager.getPortals()
+          );
+          if (match2) {
+            this.audio.playLaserZap();
+            this.score += 200;
+            this.scoreText.setText(`${this.score} PTS`);
+            this.boardManager.triggerPairClear(match2.p1, match2.p2);
+            const wPos2 = this.boardManager.gridToWorld(match2.p1.r, match2.p1.c);
+            this.feverParticles.explode(16, wPos2.x, wPos2.y);
+            this.showNotice('🦊 Linh Hồ đã hoàn thành giải cứu 2 cặp ô! +400 PTS! ✨', 0xff758f);
+          }
+        };
+        doPair2();
       });
     } else if (comp.id === 'ryujin_pearl') {
       // 🐉 Thần Rồng Ryujin: Đóng băng đồng hồ đếm ngược trong 8 giây
@@ -1697,141 +1689,187 @@ export class GameScene extends Phaser.Scene {
     if (this.isNightParadeActive) {
       // If already active, extend duration by 6s (up to max 15s)
       this.nightParadeTimeRemaining = Math.min(15, this.nightParadeTimeRemaining + 6);
+      this.nightParadeMaxDuration = Math.max(this.nightParadeMaxDuration, this.nightParadeTimeRemaining);
       this.showNotice(`🌙 KÉO DÀI DẠ HÀNH THÊM 6S! (${reasonTitle})`, 0xc77dff);
+      this.updateNightParadeTimerUI();
+      if (this.nightParadeTimerPill) {
+        this.tweens.add({
+          targets: this.nightParadeTimerPill,
+          scaleX: 1.08,
+          scaleY: 1.08,
+          duration: 160,
+          yoyo: true
+        });
+      }
       return;
     }
 
     this.isNightParadeActive = true;
     this.nightParadeTimeRemaining = 10.0;
+    this.nightParadeMaxDuration = 10.0;
     this.boardManager.setPiercingLaser(true);
     this.audio.startNightParadeMusic();
     this.haptic.heavy();
 
-    // 1. Create Mystical Violet Atmosphere Overlay
     const { width: screenW, offsetX } = getScreenDimensions();
-    const overlay = this.add.container(0, 0).setDepth(15);
-    const bgGfx = this.add.graphics();
-    // Soft violet atmospheric tint across board
-    bgGfx.fillStyle(0x240046, 0.42);
-    bgGfx.fillRect(-offsetX, 0, screenW, GAME_HEIGHT);
 
-    // Glowing mystical purple border vignette
-    bgGfx.lineStyle(6, 0x9d4edd, 0.85);
-    bgGfx.strokeRect(-offsetX + 3, 3, screenW - 6, GAME_HEIGHT - 6);
-    bgGfx.lineStyle(2, 0xe0aaff, 0.6);
-    bgGfx.strokeRect(-offsetX + 7, 7, screenW - 14, GAME_HEIGHT - 14);
+    // 1. SÓNG ĐIỆN QUANG MỞ MÀN (Chỉ lóe sáng năng lượng thần bí 0.9s rồi tan biến ngay, BÀN CỜ LUÔN SÁNG 100%, KHÔNG TỐI MÀN HÌNH)
+    const introSurge = this.add.container(0, 0).setDepth(85);
+    const surgeGfx = this.add.graphics();
+    // Vầng hào quang tím sáng nhẹ (chỉ 0.15 alpha, tuyệt đối không làm đen/tối màn hình gây mỏi mắt)
+    surgeGfx.fillStyle(0x7209b7, 0.15);
+    surgeGfx.fillRect(-offsetX, 0, screenW, GAME_HEIGHT);
+    surgeGfx.lineStyle(4, 0xe0aaff, 0.85);
+    surgeGfx.strokeRect(-offsetX + 4, 4, screenW - 8, GAME_HEIGHT - 8);
+    introSurge.add(surgeGfx);
 
-    overlay.add(bgGfx);
-    this.nightParadeOverlay = overlay;
-
-    // Subtle breathing pulse on the mystical purple aura
+    // Tan biến nhanh sau 900ms để người chơi tập trung tối đa vào các ô thú
     this.tweens.add({
-      targets: bgGfx,
-      alpha: { from: 0.7, to: 1.0 },
-      duration: 600,
+      targets: introSurge,
+      alpha: 0,
+      duration: 900,
+      ease: 'Quad.easeOut',
+      onComplete: () => {
+        introSurge.destroy();
+      }
+    });
+
+    // 2. HIỆU ỨNG NGOÀI KHUNG (Chỉ hiển thị ngoài viền màn hình và mép viền, TUYỆT ĐỐI KHÔNG PHỦ LÊN CÁC Ô BÀN CỜ)
+    const borderOverlay = this.add.container(0, 0).setDepth(18);
+    const borderGfx = this.add.graphics();
+
+    // Viền Neon Dạ Hành tím điện quang quanh rìa ngoài cùng mép màn hình
+    borderGfx.lineStyle(5, 0x9d4edd, 0.85);
+    borderGfx.strokeRect(-offsetX + 3, 3, screenW - 6, GAME_HEIGHT - 6);
+    borderGfx.lineStyle(2, 0xc77dff, 0.95);
+    borderGfx.strokeRect(-offsetX + 6, 6, screenW - 12, GAME_HEIGHT - 12);
+    borderGfx.lineStyle(1, 0xffffff, 0.6);
+    borderGfx.strokeRect(-offsetX + 8, 8, screenW - 16, GAME_HEIGHT - 16);
+
+    // 4 Góc Đền Torii phát quang vàng tím tinh xảo
+    const cornerSize = 32;
+    borderGfx.lineStyle(3, 0xffd700, 0.9);
+    borderGfx.lineBetween(-offsetX + 3, 3 + cornerSize, -offsetX + 3, 3);
+    borderGfx.lineBetween(-offsetX + 3, 3, -offsetX + 3 + cornerSize, 3);
+    borderGfx.lineBetween(-offsetX + screenW - 3 - cornerSize, 3, -offsetX + screenW - 3, 3);
+    borderGfx.lineBetween(-offsetX + screenW - 3, 3, -offsetX + screenW - 3, 3 + cornerSize);
+    borderGfx.lineBetween(-offsetX + 3, GAME_HEIGHT - 3 - cornerSize, -offsetX + 3, GAME_HEIGHT - 3);
+    borderGfx.lineBetween(-offsetX + 3, GAME_HEIGHT - 3, -offsetX + 3 + cornerSize, GAME_HEIGHT - 3);
+    borderGfx.lineBetween(-offsetX + screenW - 3 - cornerSize, GAME_HEIGHT - 3, -offsetX + screenW - 3, GAME_HEIGHT - 3);
+    borderGfx.lineBetween(-offsetX + screenW - 3, GAME_HEIGHT - 3, -offsetX + screenW - 3, GAME_HEIGHT - 3 - cornerSize);
+
+    borderOverlay.add(borderGfx);
+
+    // Linh hồn dạ hành (Hitodama wisps) bay lượn ở mép ngoài lề màn hình (ngoài rìa bàn cờ)
+    const wispPositions = [
+      { x: -offsetX + 18, y: GAME_HEIGHT * 0.25 },
+      { x: -offsetX + 22, y: GAME_HEIGHT * 0.55 },
+      { x: -offsetX + 18, y: GAME_HEIGHT * 0.75 },
+      { x: -offsetX + screenW - 18, y: GAME_HEIGHT * 0.35 },
+      { x: -offsetX + screenW - 22, y: GAME_HEIGHT * 0.65 },
+      { x: -offsetX + screenW - 18, y: GAME_HEIGHT * 0.82 }
+    ];
+
+    for (const pos of wispPositions) {
+      const wisp = this.add.circle(pos.x, pos.y, 6, 0xc77dff, 0.75);
+      borderOverlay.add(wisp);
+      this.tweens.add({
+        targets: wisp,
+        y: pos.y + Phaser.Math.Between(-25, 25),
+        alpha: { from: 0.4, to: 0.9 },
+        scale: { from: 0.8, to: 1.3 },
+        duration: Phaser.Math.Between(800, 1400),
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    // Nhịp thở phát quang viền ngoài màn hình
+    this.tweens.add({
+      targets: borderGfx,
+      alpha: { from: 0.75, to: 1.0 },
+      duration: 550,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut'
     });
 
-    // 2. Build Floating Night Parade Timer Pill (HUD)
-    const pillW = 320;
-    const pillH = 24;
-    const pillX = GAME_WIDTH / 2;
-    const pillY = 56;
+    this.nightParadeOverlay = borderOverlay;
 
-    const timerPill = this.add.container(pillX, pillY).setDepth(30);
+    // 3. ĐỒNG HỒ ĐẾM NGƯỢC THỜI GIAN DẠ HÀNH (HUD COUNTDOWN CLOCK)
+    // Vị trí an toàn tuyệt đối: không đè thanh máu Trùm và không đè bàn cờ
+    const pillW = 340;
+    const pillH = 28;
+    const pillX = GAME_WIDTH / 2;
+    const pillY = this.bossManager ? 126 : 68;
+
+    const timerPill = this.add.container(pillX, pillY).setDepth(35);
 
     const pillBg = this.add.graphics();
-    pillBg.fillStyle(0x10002b, 0.95);
-    pillBg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 12);
-    pillBg.lineStyle(1.8, 0xc77dff, 0.9);
-    pillBg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 12);
+    pillBg.fillStyle(0x10002b, 0.96);
+    pillBg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 14);
+    pillBg.lineStyle(2, 0xc77dff, 0.95);
+    pillBg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 14);
+    pillBg.lineStyle(1, 0xffd700, 0.7);
+    pillBg.strokeRoundedRect(-pillW / 2 + 2, -pillH / 2 + 2, pillW - 4, pillH - 4, 12);
 
     this.nightParadeTimerBarGfx = this.add.graphics();
 
-    this.nightParadeTimerText = this.add.text(0, 0, '🌙 DẠ HÀNH: 10s • x3 PTS • XUYÊN THẤU', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+    this.nightParadeTimerText = this.add.text(0, 0, '🌙 BÁCH QUỶ DẠ HÀNH: 10s • XUYÊN THẤU ⚡', {
+      fontFamily: 'Zen Maru Gothic, Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
       fontStyle: '900',
-      color: '#ffffff'
+      color: '#ffffff',
+      stroke: '#240046',
+      strokeThickness: 2
     }).setOrigin(0.5);
 
     timerPill.add([pillBg, this.nightParadeTimerBarGfx, this.nightParadeTimerText]);
     this.nightParadeTimerPill = timerPill;
 
+    // Pop-in animation cho đồng hồ đếm ngược
+    timerPill.setScale(0.85);
+    timerPill.setAlpha(0);
+    this.tweens.add({
+      targets: timerPill,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 220,
+      ease: 'Back.easeOut'
+    });
+
     this.updateNightParadeTimerUI();
 
-    // 3. Show Grand Cinematic Announcement Banner
-    this.showNightParadeBanner(reasonTitle);
+    // 4. Thông báo Toast trang trọng gọn gàng ở khu vực an toàn (KHÔNG che khuất bất kỳ ô thú nào trên bàn cờ)
+    this.showNotice(`🌙 BÁCH QUỶ DẠ HÀNH KÍCH HOẠT! (${reasonTitle}) • x3 ĐIỂM & XUYÊN THẤU ⚡`, 0xe0aaff);
   }
 
   private updateNightParadeTimerUI(): void {
     if (!this.nightParadeTimerBarGfx || !this.nightParadeTimerText) return;
 
-    const pillW = 320;
-    const pillH = 24;
-    const progress = Math.max(0, this.nightParadeTimeRemaining / 10.0);
-    const barW = Math.max(0, (pillW - 8) * Math.min(1, progress));
+    const pillW = 340;
+    const pillH = 28;
+    const maxDur = this.nightParadeMaxDuration || 10.0;
+    const progress = Math.max(0, Math.min(1, this.nightParadeTimeRemaining / maxDur));
+    const barW = Math.max(0, (pillW - 8) * progress);
+
+    const isUrgent = this.nightParadeTimeRemaining <= 3.0;
+    const barColor = isUrgent ? 0xff006e : 0x7b2cbf;
 
     this.nightParadeTimerBarGfx.clear();
-    this.nightParadeTimerBarGfx.fillStyle(0x7b2cbf, 0.75);
-    this.nightParadeTimerBarGfx.fillRoundedRect(-(pillW - 8) / 2, -pillH / 2 + 3, barW, pillH - 6, 9);
+    this.nightParadeTimerBarGfx.fillStyle(barColor, 0.85);
+    this.nightParadeTimerBarGfx.fillRoundedRect(-(pillW - 8) / 2, -pillH / 2 + 3, barW, pillH - 6, 11);
 
     const sec = Math.max(0, Math.ceil(this.nightParadeTimeRemaining));
-    this.nightParadeTimerText.setText(`🌙 DẠ HÀNH: ${sec}s • x3 PTS • XUYÊN THẤU ⚡`);
-  }
-
-  private showNightParadeBanner(reason: string): void {
-    const banner = this.add.container(GAME_WIDTH / 2, 125).setDepth(200);
-    const bW = 680;
-    const bH = 68;
-
-    const bg = this.add.graphics();
-    bg.fillStyle(0x190028, 0.98);
-    bg.fillRoundedRect(-bW / 2, -bH / 2, bW, bH, 18);
-    bg.lineStyle(2.5, 0xc77dff, 1);
-    bg.strokeRoundedRect(-bW / 2, -bH / 2, bW, bH, 18);
-
-    const title = this.add.text(0, -13, '🌙 BÁCH QUỶ DẠ HÀNH (NIGHT PARADE RUSH)!', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17px',
-      fontStyle: '900',
-      color: '#e0aaff',
-      stroke: '#3c096c',
-      strokeThickness: 3
-    }).setOrigin(0.5);
-
-    const subtitle = this.add.text(0, 14, `${reason} • x3 ĐIỂM THƯỞNG • LASER XUYÊN THẤU VẬT CẢN (10S)!`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: '800',
-      color: '#ffd700'
-    }).setOrigin(0.5);
-
-    banner.add([bg, title, subtitle]);
-    banner.setScale(0.8);
-    banner.setAlpha(0);
-
-    this.tweens.add({
-      targets: banner,
-      scaleX: 1,
-      scaleY: 1,
-      alpha: 1,
-      duration: 220,
-      ease: 'Back.easeOut',
-      onComplete: () => {
-        this.time.delayedCall(1800, () => {
-          this.tweens.add({
-            targets: banner,
-            alpha: 0,
-            y: 105,
-            duration: 250,
-            onComplete: () => banner.destroy()
-          });
-        });
-      }
-    });
+    if (isUrgent) {
+      this.nightParadeTimerText.setText(`⚠️ DẠ HÀNH SẮP HẾT: ${sec}s • XUYÊN THẤU ⚡`);
+      this.nightParadeTimerText.setColor('#ff99c8');
+    } else {
+      this.nightParadeTimerText.setText(`🌙 DẠ HÀNH: ${sec}s • x3 ĐIỂM • XUYÊN THẤU ⚡`);
+      this.nightParadeTimerText.setColor('#ffffff');
+    }
   }
 
   private showRushPointsPopup(x: number, y: number, pts: number): void {
@@ -2585,6 +2623,14 @@ export class GameScene extends Phaser.Scene {
     this.save.recordLevelCompleted(this.levelConfig.id, this.levelConfig.levelNumber, earnedStars);
     this.save.recordDifficultyCompleted(this.levelConfig.id, this.currentDifficulty);
 
+    // Unlock next realm if completing milestone 10th level of chapter
+    if (this.levelConfig.levelNumber % 10 === 0) {
+      const nextChapter = LevelManager.getChapterByLevel(this.levelConfig.levelNumber + 1);
+      if (nextChapter && nextChapter.worldId) {
+        this.save.unlockRealm(nextChapter.worldId);
+      }
+    }
+
     // Save Relic Shard if collected this run
     if (this.isRelicShardCollectedThisRun && this.levelConfig.relicReward) {
       this.save.collectRelic(this.levelConfig.relicReward.id);
@@ -2880,7 +2926,7 @@ export class GameScene extends Phaser.Scene {
 
     // Action Buttons
     if (isPerfect) {
-      const isFinalLevel = this.levelConfig.levelNumber >= 10;
+      const isFinalLevel = this.levelConfig.levelNumber >= 100;
       // 1. Next Level / Campaign Victory Button
       const nextBtn = this.add.container(0, 182);
       const nBg = this.add.graphics();
@@ -2927,7 +2973,7 @@ export class GameScene extends Phaser.Scene {
       });
       modal.add(menuBtn);
     } else {
-      const isFinalLevel = this.levelConfig.levelNumber >= 10;
+      const isFinalLevel = this.levelConfig.levelNumber >= 100;
       // 1. Next Level / Campaign Victory Button
       const nextBtn = this.add.container(0, 172);
       const nBg = this.add.graphics();

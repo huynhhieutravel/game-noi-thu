@@ -235,6 +235,14 @@ export class SaveSystem {
     return this.data.coins || 0;
   }
 
+  public getHighestLevel(): number {
+    return this.data.highestLevel || 1;
+  }
+
+  public getStars(): number {
+    return this.data.stars || 0;
+  }
+
   public addCoins(amount: number): number {
     this.data.coins += amount;
     this.save();

@@ -274,6 +274,49 @@ export class BoardGenerator {
       attempts++;
     }
 
+    // 🎯 Guaranteed Solvable First Move: If dense obstacles prevent initial matches, force at least 1 reachable pair
+    if (!this.findFirstAvailableMatch(grid, rows, cols)) {
+      let matched = false;
+      for (let r = 1; r <= rows && !matched; r++) {
+        for (let c = 1; c <= cols && !matched; c++) {
+          const t1 = grid[r][c];
+          if (t1.isCleared || !t1.characterId || t1.isLocked || t1.modifier !== 'none') continue;
+
+          // Check adjacent neighbors (horizontal right or vertical down)
+          const neighbors = [
+            grid[r]?.[c + 1],
+            grid[r + 1]?.[c]
+          ];
+          for (const t2 of neighbors) {
+            if (t2 && !t2.isCleared && t2.characterId && !t2.isLocked && t2.modifier === 'none') {
+              if (t1.characterId !== t2.characterId) {
+                const targetChar = t1.characterId;
+                // Find another tile with targetChar and swap with t2 to strictly preserve pair parity
+                let partner: TileState | null = null;
+                for (let pr = 1; pr <= rows && !partner; pr++) {
+                  for (let pc = 1; pc <= cols && !partner; pc++) {
+                    const candidate = grid[pr][pc];
+                    if (candidate && candidate !== t1 && candidate !== t2 && candidate.characterId === targetChar && candidate.modifier === 'none') {
+                      partner = candidate;
+                    }
+                  }
+                }
+                if (partner) {
+                  const oldT2 = t2.characterId;
+                  t2.characterId = targetChar;
+                  partner.characterId = oldT2;
+                } else {
+                  t2.characterId = targetChar;
+                }
+              }
+              matched = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
     return grid;
   }
 
@@ -428,9 +471,9 @@ export class BoardGenerator {
       rows,
       cols,
       isEmpty: (r, c) => {
-        if (r < 0 || r > rows + 1 || c < 0 || c > cols + 1) return true;
-        const cell = grid[r][c];
-        return cell.isCleared && cell.modifier !== 'stone';
+        if (r <= 0 || r > rows || c <= 0 || c > cols) return true;
+        const cell = grid[r]?.[c];
+        return !!(cell && cell.isCleared && cell.modifier !== 'stone');
       }
     };
 
@@ -491,9 +534,9 @@ export class BoardGenerator {
       rows,
       cols,
       isEmpty: (r, c) => {
-        if (r < 0 || r > rows + 1 || c < 0 || c > cols + 1) return true;
-        const cell = grid[r][c];
-        return cell.isCleared && cell.modifier !== 'stone';
+        if (r <= 0 || r > rows || c <= 0 || c > cols) return true;
+        const cell = grid[r]?.[c];
+        return !!(cell && cell.isCleared && cell.modifier !== 'stone');
       }
     };
 
@@ -594,8 +637,12 @@ export class BoardGenerator {
       charIdx = 0;
       for (let r = startRow; r <= rows; r++) {
         for (let c = 1; c <= cols; c++) {
-          grid[r][c].characterId = characterList[charIdx++];
-          grid[r][c].isCleared = false;
+          if (charIdx < characterList.length) {
+            grid[r][c].characterId = characterList[charIdx++];
+            grid[r][c].isCleared = false;
+          } else {
+            grid[r][c].isCleared = true;
+          }
         }
       }
       attempts++;
