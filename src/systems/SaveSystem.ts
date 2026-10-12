@@ -201,29 +201,38 @@ export class SaveSystem {
 
   public save(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+      if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+      }
     } catch (e) {
       console.warn('Failed to save game data to localStorage', e);
     }
   }
 
+  public resetSave(): void {
+    this.data = JSON.parse(JSON.stringify(DEFAULT_SAVE));
+    this.save();
+  }
+
   private load(): UserSaveData {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        return {
-          ...DEFAULT_SAVE,
-          ...parsed,
-          selectedTheme: (parsed.selectedTheme && parsed.selectedTheme !== 'pikachu') ? parsed.selectedTheme : 'yokai',
-          boosters: { ...DEFAULT_SAVE.boosters, ...(parsed.boosters || {}) },
-          discoveredCharacters: { ...DEFAULT_SAVE.discoveredCharacters, ...(parsed.discoveredCharacters || {}) },
-          relicsCollected: { ...(DEFAULT_SAVE.relicsCollected || {}), ...(parsed.relicsCollected || {}) },
-          badgesCollected: { ...(DEFAULT_SAVE.badgesCollected || {}), ...(parsed.badgesCollected || {}) },
-          completedDifficulties: { ...(DEFAULT_SAVE.completedDifficulties || {}), ...(parsed.completedDifficulties || {}) },
-          unlockedRealms: (Array.isArray(parsed.unlockedRealms) && parsed.unlockedRealms.length > 0) ? parsed.unlockedRealms : ['yokai'],
-          activeRealm: parsed.activeRealm || 'yokai'
-        };
+      if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return {
+            ...DEFAULT_SAVE,
+            ...parsed,
+            selectedTheme: (parsed.selectedTheme && parsed.selectedTheme !== 'pikachu') ? parsed.selectedTheme : 'yokai',
+            boosters: { ...DEFAULT_SAVE.boosters, ...(parsed.boosters || {}) },
+            discoveredCharacters: { ...DEFAULT_SAVE.discoveredCharacters, ...(parsed.discoveredCharacters || {}) },
+            relicsCollected: { ...(DEFAULT_SAVE.relicsCollected || {}), ...(parsed.relicsCollected || {}) },
+            badgesCollected: { ...(DEFAULT_SAVE.badgesCollected || {}), ...(parsed.badgesCollected || {}) },
+            completedDifficulties: { ...(DEFAULT_SAVE.completedDifficulties || {}), ...(parsed.completedDifficulties || {}) },
+            unlockedRealms: (Array.isArray(parsed.unlockedRealms) && parsed.unlockedRealms.length > 0) ? parsed.unlockedRealms : ['yokai'],
+            activeRealm: parsed.activeRealm || 'yokai'
+          };
+        }
       }
     } catch (e) {
       console.warn('Failed to parse save data', e);
@@ -286,6 +295,10 @@ export class SaveSystem {
     }
     this.save();
     return isNew;
+  }
+
+  public isCharacterDiscovered(charId: string): boolean {
+    return !!this.data.discoveredCharacters[charId];
   }
 
   public useBooster(type: 'hint' | 'shuffle' | 'bomb'): boolean {

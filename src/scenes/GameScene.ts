@@ -15,6 +15,7 @@ import { CompanionModal } from '../game/CompanionModal';
 import { LevelManager } from '../game/LevelManager';
 import { BoardMovement, BossConfig, CompanionConfig, DifficultyLevel, GridPoint, LevelConfig, TileState } from '../types';
 import { TextureGenerator } from '../game/TextureGenerator';
+import { QADebugPanel } from '../game/QADebugPanel';
 
 export class GameScene extends Phaser.Scene {
   private levelConfig!: LevelConfig;
@@ -24,6 +25,7 @@ export class GameScene extends Phaser.Scene {
   private audio!: AudioSystem;
   private haptic!: HapticSystem;
   private save!: SaveSystem;
+  private qaDebugPanel!: QADebugPanel;
 
   // Pet Companion System
   private companionConfig!: CompanionConfig;
@@ -477,6 +479,48 @@ export class GameScene extends Phaser.Scene {
 
     // 10. Frost Overlay for Time Freeze
     this.frostOverlayGraphics = this.add.graphics().setDepth(120);
+
+    // 11. QA Debug Cheats Panel
+    this.qaDebugPanel = new QADebugPanel(this);
+  }
+
+  // ==========================================
+  // 🐞 QA DEBUG CHEAT METHODS
+  // ==========================================
+  public triggerInstantWin(): void {
+    if (this.isVictory || this.isGameOver) return;
+    this.handleVictory();
+  }
+
+  public triggerInstantLose(): void {
+    if (this.isVictory || this.isGameOver) return;
+    this.handleGameOver('QA Forced Defeat');
+  }
+
+  public addTimeCheat(seconds: number = 60): void {
+    if (this.isZenMode) return;
+    this.timeRemaining += seconds;
+    if (this.timeText) {
+      this.timeText.setText(`⏳ ${Math.max(0, Math.ceil(this.timeRemaining))}s`);
+    }
+  }
+
+  public triggerFeverCheat(): void {
+    for (let i = 0; i < 5; i++) {
+      this.comboSystem.registerMatch();
+    }
+  }
+
+  public damageBossCheat(damage: number = 250): void {
+    if (this.bossManager) {
+      this.bossManager.applyDamage(damage);
+    }
+  }
+
+  public triggerShuffleCheat(): void {
+    if (this.boardManager) {
+      this.boardManager.performShuffle(false);
+    }
   }
 
   private setupSakuraParticles(): void {

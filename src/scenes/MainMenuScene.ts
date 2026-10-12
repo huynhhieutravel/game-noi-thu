@@ -10,11 +10,13 @@ import bossesData from '../data/bosses.json';
 import levelsData from '../data/levels.json';
 import { LevelConfig, DifficultyLevel } from '../types';
 import { LevelManager } from '../game/LevelManager';
+import { QADebugPanel } from '../game/QADebugPanel';
 
 export class MainMenuScene extends Phaser.Scene {
   private saveSystem!: SaveSystem;
   private audio!: AudioSystem;
   private haptic!: HapticSystem;
+  private qaDebugPanel!: QADebugPanel;
   private stageModalContainer: Phaser.GameObjects.Container | null = null;
   private stageDetailModalContainer: Phaser.GameObjects.Container | null = null;
   private realmModalContainer: Phaser.GameObjects.Container | null = null;
@@ -112,6 +114,9 @@ export class MainMenuScene extends Phaser.Scene {
       fontSize: '12.5px',
       color: '#ced4da'
     }).setOrigin(0.5);
+
+    // 7. QA Debug Panel
+    this.qaDebugPanel = new QADebugPanel(this);
   }
 
   /**
