@@ -17,7 +17,8 @@ export class QADebugPanel {
 
   private createToggleButton(): void {
     const width = GAME_WIDTH;
-    const btnContainer = this.scene.add.container(width - 45, 30);
+    const height = GAME_HEIGHT;
+    const btnContainer = this.scene.add.container(width - 45, height - 24);
     btnContainer.setDepth(9999);
 
     const bg = this.scene.add.graphics();
