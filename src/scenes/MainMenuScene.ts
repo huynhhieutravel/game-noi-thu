@@ -11,6 +11,7 @@ import levelsData from '../data/levels.json';
 import { LevelConfig, DifficultyLevel } from '../types';
 import { LevelManager } from '../game/LevelManager';
 import { QADebugPanel } from '../game/QADebugPanel';
+import { SettingsModal } from '../game/SettingsModal';
 
 export class MainMenuScene extends Phaser.Scene {
   private saveSystem!: SaveSystem;
@@ -260,9 +261,33 @@ export class MainMenuScene extends Phaser.Scene {
       color: '#ffd700'
     }).setOrigin(0.5);
 
+    // --- Right: Settings Button (Circular Glass Gear Button) ---
+    const setW = 38;
+    const setX = width - 24 - setW;
+
+    const setBg = this.add.graphics();
+    setBg.fillStyle(0x111024, 0.88);
+    setBg.fillCircle(setX + setW / 2, topY + compH / 2, 19);
+    setBg.lineStyle(1.5, 0xffd700, 0.8);
+    setBg.strokeCircle(setX + setW / 2, topY + compH / 2, 19);
+
+    this.add.text(setX + setW / 2, topY + compH / 2, '⚙️', {
+      fontSize: '18px'
+    }).setOrigin(0.5);
+
+    const setHit = this.add.zone(setX, topY, setW, compH)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+
+    setHit.on('pointerdown', () => {
+      this.haptic.medium();
+      this.audio.playSelect();
+      SettingsModal.open(this);
+    });
+
     // --- Right: Audio Toggle (Circular Glass Button) ---
     const audioW = 38;
-    const audioX = width - 24 - audioW;
+    const audioX = setX - 10 - audioW;
 
     const audioBg = this.add.graphics();
     audioBg.fillStyle(0x111024, 0.88);
@@ -288,7 +313,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // --- Right: Rulebook Guide Button ---
-    const ruleW = 132;
+    const ruleW = 126;
     const ruleX = audioX - 10 - ruleW;
 
     const ruleBg = this.add.graphics();

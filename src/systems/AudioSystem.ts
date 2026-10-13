@@ -2,6 +2,8 @@ export class AudioSystem {
   private static instance: AudioSystem;
   private ctx: AudioContext | null = null;
   private isEnabled: boolean = true;
+  private isBgmEnabled: boolean = true;
+  private isSfxEnabled: boolean = true;
   private isBgmPlaying: boolean = false;
   private bgmIntervalId: number | null = null;
   private bgmMasterGain: GainNode | null = null;
@@ -11,6 +13,14 @@ export class AudioSystem {
       const saved = localStorage.getItem('yokai_audio_enabled');
       if (saved !== null) {
         this.isEnabled = saved === 'true';
+      }
+      const bgmSaved = localStorage.getItem('yokai_bgm_enabled');
+      if (bgmSaved !== null) {
+        this.isBgmEnabled = bgmSaved === 'true';
+      }
+      const sfxSaved = localStorage.getItem('yokai_sfx_enabled');
+      if (sfxSaved !== null) {
+        this.isSfxEnabled = sfxSaved === 'true';
       }
     }
 
@@ -65,7 +75,7 @@ export class AudioSystem {
     }
     if (!enabled) {
       this.stopBGM();
-    } else {
+    } else if (this.isBgmEnabled) {
       this.startBGM();
     }
   }
@@ -79,11 +89,38 @@ export class AudioSystem {
     return this.isEnabled;
   }
 
+  public setBGMEnabled(enabled: boolean): void {
+    this.isBgmEnabled = enabled;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('yokai_bgm_enabled', String(enabled));
+    }
+    if (!enabled) {
+      this.stopBGM();
+    } else if (this.isEnabled) {
+      this.startBGM();
+    }
+  }
+
+  public getBGMEnabled(): boolean {
+    return this.isBgmEnabled;
+  }
+
+  public setSFXEnabled(enabled: boolean): void {
+    this.isSfxEnabled = enabled;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('yokai_sfx_enabled', String(enabled));
+    }
+  }
+
+  public getSFXEnabled(): boolean {
+    return this.isSfxEnabled;
+  }
+
   /**
    * Start Ambient Traditional Japanese Koto Background Music (Zen BGM)
    */
   public startBGM(): void {
-    if (!this.isEnabled || this.isBgmPlaying) return;
+    if (!this.isEnabled || !this.isBgmEnabled || this.isBgmPlaying) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -116,7 +153,7 @@ export class AudioSystem {
     let noteInPattern = 0;
 
     const playNextKotoNote = () => {
-      if (!this.isBgmPlaying || !this.ctx || !this.isEnabled) return;
+      if (!this.isBgmPlaying || !this.ctx || !this.isEnabled || !this.isBgmEnabled) return;
       if (this.isNightParadeMusicPlaying) {
         this.bgmIntervalId = window.setTimeout(playNextKotoNote, 600);
         return;
@@ -161,7 +198,7 @@ export class AudioSystem {
    * Synthesize a warm, resonant Japanese Koto string pluck with lowpass body filter
    */
   private playKotoNote(freq: number): void {
-    if (!this.ctx || !this.isEnabled) return;
+    if (!this.ctx || !this.isEnabled || !this.isBgmEnabled) return;
     const now = this.ctx.currentTime;
 
     // 1. Dual Oscillators for wooden string resonance
@@ -202,7 +239,7 @@ export class AudioSystem {
    * Crisp bamboo / wooden tap when selecting a tile
    */
   public playSelect(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -228,7 +265,7 @@ export class AudioSystem {
    * Sparkling pop chime with ascending pitch according to combo count
    */
   public playMatch(combo: number = 1): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -274,7 +311,7 @@ export class AudioSystem {
    * Error shake sound (dull wooden clack)
    */
   public playError(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -299,7 +336,7 @@ export class AudioSystem {
    * Energetic FEVER mode fanfare arpeggio
    */
   public playFever(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -327,7 +364,7 @@ export class AudioSystem {
    * Deep Taiko Drum resonant impact for Boss attack/hit
    */
   public playBossHit(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -368,7 +405,7 @@ export class AudioSystem {
    * Booster / Shuffle swoosh
    */
   public playShuffle(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -393,7 +430,7 @@ export class AudioSystem {
    * Victory grand Shinto chime
    */
   public playVictory(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -427,7 +464,7 @@ export class AudioSystem {
    * Retro 8-bit electric zap / laser sound for authentic Pikachu matching
    */
   public playLaserZap(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -452,7 +489,7 @@ export class AudioSystem {
    * ⛩️ Mystical Torii Portal wormhole warp sound
    */
   public playPortalWarp(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -479,7 +516,7 @@ export class AudioSystem {
    * Clock ticking alert when time is low (< 20s)
    */
   public playTick(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -507,7 +544,7 @@ export class AudioSystem {
    * Deep Japanese Taiko drum strike (Don / Ka)
    */
   public playTaikoHit(isRim: boolean = false, accent: boolean = false): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isSfxEnabled) return;
     this.initContext();
     if (!this.ctx) return;
 
@@ -564,7 +601,7 @@ export class AudioSystem {
    * 🌙 Start fast-paced Taiko festival drums during Night Parade Rush (150 BPM)
    */
   public startNightParadeMusic(): void {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled || !this.isBgmEnabled) return;
     this.stopNightParadeMusic();
     this.initContext();
 

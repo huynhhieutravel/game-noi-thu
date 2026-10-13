@@ -16,6 +16,7 @@ import { LevelManager } from '../game/LevelManager';
 import { BoardMovement, BossConfig, CompanionConfig, DifficultyLevel, GridPoint, LevelConfig, TileState } from '../types';
 import { TextureGenerator } from '../game/TextureGenerator';
 import { QADebugPanel } from '../game/QADebugPanel';
+import { SettingsModal } from '../game/SettingsModal';
 
 export class GameScene extends Phaser.Scene {
   private levelConfig!: LevelConfig;
@@ -707,6 +708,36 @@ export class GameScene extends Phaser.Scene {
       if (enabled) {
         this.audio.playSelect();
       }
+    });
+
+    // Settings Gear Button (⚙️)
+    const setBtnX = audioBtnX - 42;
+    const setBtnY = 25;
+    const setBtnSize = 34;
+
+    const setBg = this.add.graphics();
+    setBg.fillStyle(0x131728, 0.92);
+    setBg.fillCircle(setBtnX, setBtnY, setBtnSize / 2);
+    setBg.lineStyle(1.5, 0xffd700, 0.75);
+    setBg.strokeCircle(setBtnX, setBtnY, setBtnSize / 2);
+
+    this.add.text(setBtnX, setBtnY, '⚙️', {
+      fontSize: '16px'
+    }).setOrigin(0.5);
+
+    const setHit = this.add.zone(setBtnX, setBtnY, setBtnSize, setBtnSize)
+      .setInteractive({ useHandCursor: true });
+
+    setHit.on('pointerdown', () => {
+      this.isPaused = true;
+      this.audio.playSelect();
+      this.haptic.light();
+      SettingsModal.open(this, () => {
+        this.isPaused = false;
+        if (this.audioToggleIcon) {
+          this.audioToggleIcon.setText(this.audio.getEnabled() ? '🔊' : '🔇');
+        }
+      });
     });
 
     // Score capsule (top right) matching mockup [ 💮 0 PTS ]

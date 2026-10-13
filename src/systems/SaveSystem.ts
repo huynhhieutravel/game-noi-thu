@@ -214,24 +214,28 @@ export class SaveSystem {
     this.save();
   }
 
+  private sanitize(parsed: any): UserSaveData {
+    return {
+      ...DEFAULT_SAVE,
+      ...parsed,
+      selectedTheme: (parsed.selectedTheme && parsed.selectedTheme !== 'pikachu') ? parsed.selectedTheme : 'yokai',
+      boosters: { ...DEFAULT_SAVE.boosters, ...(parsed.boosters || {}) },
+      discoveredCharacters: { ...DEFAULT_SAVE.discoveredCharacters, ...(parsed.discoveredCharacters || {}) },
+      relicsCollected: { ...(DEFAULT_SAVE.relicsCollected || {}), ...(parsed.relicsCollected || {}) },
+      badgesCollected: { ...(DEFAULT_SAVE.badgesCollected || {}), ...(parsed.badgesCollected || {}) },
+      completedDifficulties: { ...(DEFAULT_SAVE.completedDifficulties || {}), ...(parsed.completedDifficulties || {}) },
+      unlockedRealms: (Array.isArray(parsed.unlockedRealms) && parsed.unlockedRealms.length > 0) ? parsed.unlockedRealms : ['yokai'],
+      activeRealm: parsed.activeRealm || 'yokai'
+    };
+  }
+
   private load(): UserSaveData {
     try {
       if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          return {
-            ...DEFAULT_SAVE,
-            ...parsed,
-            selectedTheme: (parsed.selectedTheme && parsed.selectedTheme !== 'pikachu') ? parsed.selectedTheme : 'yokai',
-            boosters: { ...DEFAULT_SAVE.boosters, ...(parsed.boosters || {}) },
-            discoveredCharacters: { ...DEFAULT_SAVE.discoveredCharacters, ...(parsed.discoveredCharacters || {}) },
-            relicsCollected: { ...(DEFAULT_SAVE.relicsCollected || {}), ...(parsed.relicsCollected || {}) },
-            badgesCollected: { ...(DEFAULT_SAVE.badgesCollected || {}), ...(parsed.badgesCollected || {}) },
-            completedDifficulties: { ...(DEFAULT_SAVE.completedDifficulties || {}), ...(parsed.completedDifficulties || {}) },
-            unlockedRealms: (Array.isArray(parsed.unlockedRealms) && parsed.unlockedRealms.length > 0) ? parsed.unlockedRealms : ['yokai'],
-            activeRealm: parsed.activeRealm || 'yokai'
-          };
+          return this.sanitize(parsed);
         }
       }
     } catch (e) {
@@ -467,5 +471,70 @@ export class SaveSystem {
 
   public getActiveRealm(): string {
     return this.data.activeRealm || 'yokai';
+  }
+
+  /**
+   * Generates a portable, checksummed base64 backup code for offline transfer
+   */
+  public exportSaveCode(): string {
+    const jsonStr = JSON.stringify(this.data);
+    const b64 = btoa(encodeURIComponent(jsonStr));
+    let hash = 0;
+    for (let i = 0; i < b64.length; i++) {
+      hash = ((hash << 5) - hash + b64.charCodeAt(i)) & 0xffff;
+    }
+    const checksum = Math.abs(hash).toString(16).padStart(4, '0');
+    return `YOKAI-v1-${b64}-${checksum}`;
+  }
+
+  /**
+   * Imports and restores a backup code. Returns success or descriptive error.
+   */
+  public importSaveCode(rawCode: string): { success: boolean; message: string } {
+    if (!rawCode || typeof rawCode !== 'string') {
+      return { success: false, message: 'Mã sao lưu không được để trống!' };
+    }
+    const trimmed = rawCode.trim();
+    if (!trimmed.startsWith('YOKAI-v1-')) {
+      return { success: false, message: 'Định dạng mã sao lưu không đúng (cần bắt đầu bằng YOKAI-v1-)!' };
+    }
+    const parts = trimmed.split('-');
+    if (parts.length < 4) {
+      return { success: false, message: 'Cấu trúc mã sao lưu không hợp lệ!' };
+    }
+    const checksum = parts[parts.length - 1];
+    const b64 = parts.slice(2, parts.length - 1).join('-');
+
+    // Validate checksum
+    let hash = 0;
+    for (let i = 0; i < b64.length; i++) {
+      hash = ((hash << 5) - hash + b64.charCodeAt(i)) & 0xffff;
+    }
+    const expectedChecksum = Math.abs(hash).toString(16).padStart(4, '0');
+    if (checksum !== expectedChecksum) {
+      return { success: false, message: 'Mã sao lưu bị sai hoặc thiếu ký tự (Checksum mismatch)!' };
+    }
+
+    try {
+      const decodedJson = decodeURIComponent(atob(b64));
+      const parsed = JSON.parse(decodedJson);
+      if (!parsed || typeof parsed !== 'object' || typeof parsed.version !== 'number') {
+        return { success: false, message: 'Dữ liệu sao lưu không đúng định dạng game!' };
+      }
+
+      this.data = this.sanitize(parsed);
+      this.save();
+      return { success: true, message: 'Khôi phục tiến trình thành công!' };
+    } catch (e: any) {
+      return { success: false, message: `Lỗi giải mã: ${e?.message || 'Chuỗi hỏng'}` };
+    }
+  }
+
+  /**
+   * Reset save to factory default
+   */
+  public resetToDefault(): void {
+    this.data = JSON.parse(JSON.stringify(DEFAULT_SAVE));
+    this.save();
   }
 }

@@ -47,3 +47,22 @@ _Avoid_: Boss fight, raid stage, monster round
 **Fever Mode**:
 A temporary high-tempo state triggered at combo streak 5+, granting score multipliers, golden laser lines, and sakura blossom visuals.
 _Avoid_: Rage mode, rush mode, super streak
+
+## Architecture & Economy
+
+**Arcade Fair-Play**:
+The progression pacing model guaranteeing unmetered level attempts with zero stamina or energy constraints, where in-game currency is exclusively used for boosters, revives, and companion unlocks.
+_Avoid_: Energy system, heart timer, stamina gate
+
+**Save Portability**:
+The zero-cloud mechanism for exporting and importing complete game progression via a checksummed base64 code string, enabling device migration without a server or account.
+_Avoid_: Account sync, cloud save, backup file
+
+**Procedural Audio Synthesis**:
+Real-time generation of traditional Japanese musical scales and match sound effects via the Web Audio API without downloading audio asset files.
+_Avoid_: Sound download, audio stream, music assets
+
+**Offline PWA Cache**:
+The client-side Service Worker caching strategy guaranteeing immediate cold-start execution and autonomous gameplay in disconnected environments.
+_Avoid_: Local cache, offline app, disk store
+

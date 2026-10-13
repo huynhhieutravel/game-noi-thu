@@ -153,15 +153,49 @@
       <div class="rotate-desc">Yokai Onet được thiết kế dạng màn hình ngang để có góc nhìn rộng, nối linh thú chuẩn xác nhất!</div>
     </div>
 
+    <!-- Non-intrusive Update notification banner for PWA offline cache -->
+    <div id="update-toast" style="display: none; position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 999999; background: rgba(19, 20, 36, 0.96); border: 1.5px solid #ffd700; border-radius: 24px; padding: 8px 18px; box-shadow: 0 8px 32px rgba(0,0,0,0.7); align-items: center; gap: 12px; font-family: 'Plus Jakarta Sans', sans-serif;">
+      <span style="font-size: 16px;">✨</span>
+      <span style="color: #f8f9fa; font-size: 13.5px; font-weight: 700;">Đã có bản cập nhật mới!</span>
+      <button id="update-btn" style="background: #ffd700; color: #0d0f17; border: none; border-radius: 12px; padding: 6px 14px; font-size: 12.5px; font-weight: 900; cursor: pointer;">LÀM MỚI</button>
+      <span id="close-toast" style="color: #adb5bd; font-size: 16px; cursor: pointer; padding-left: 4px;">✕</span>
+    </div>
+
     <div id="game-container"></div>
     <script type="module" src="/src/main.ts"></script>
     <script>
       // Register Offline PWA Service Worker for zero-internet browser play
       if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch((err) => {
+          navigator.serviceWorker.register('./sw.js').then((reg) => {
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    const toast = document.getElementById('update-toast');
+                    if (toast) toast.style.display = 'flex';
+                  }
+                });
+              }
+            });
+          }).catch((err) => {
             console.warn('[PWA] SW register skipped:', err);
           });
+
+          const updateBtn = document.getElementById('update-btn');
+          if (updateBtn) {
+            updateBtn.addEventListener('click', () => {
+              window.location.reload();
+            });
+          }
+          const closeToast = document.getElementById('close-toast');
+          if (closeToast) {
+            closeToast.addEventListener('click', () => {
+              const toast = document.getElementById('update-toast');
+              if (toast) toast.style.display = 'none';
+            });
+          }
         });
       }
     </script>
