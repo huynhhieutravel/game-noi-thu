@@ -31,13 +31,60 @@ export class BootScene extends Phaser.Scene {
       color: '#adb5bd'
     }).setOrigin(0.5);
 
-    // Pulse animation
+    // Pulse animation for header
     this.tweens.add({
-      targets: [loadingText, subText],
-      alpha: { from: 1, to: 0.5 },
+      targets: [loadingText],
+      alpha: { from: 1, to: 0.6 },
       duration: 600,
       yoyo: true,
       repeat: -1
+    });
+
+    // Loading Progress Bar
+    const barWidth = 240;
+    const barHeight = 8;
+    const barX = width / 2 - barWidth / 2;
+    const barY = height / 2 + 55;
+
+    const progressBox = this.add.graphics();
+    progressBox.fillStyle(0x1a1d2e, 0.9);
+    progressBox.fillRoundedRect(barX, barY, barWidth, barHeight, 4);
+    progressBox.lineStyle(1, 0x3a4060, 0.8);
+    progressBox.strokeRoundedRect(barX, barY, barWidth, barHeight, 4);
+
+    const progressBar = this.add.graphics();
+
+    this.load.on('progress', (val: number) => {
+      progressBar.clear();
+      progressBar.fillStyle(0xffd700, 1);
+      progressBar.fillRoundedRect(barX + 1, barY + 1, (barWidth - 2) * val, barHeight - 2, 3);
+      subText.setText(`Đang chuẩn bị linh giới... ${Math.round(val * 100)}%`);
+    });
+
+    // Resilience: Never let a single missing or slow asset stall boot
+    this.load.on('loaderror', (fileObj: any) => {
+      console.warn(`[BootScene] Warning: Asset ${fileObj?.key || 'unknown'} skipped.`);
+    });
+
+    // Safety Watchdog: If offline I/O stalls, guarantee transition within 3.5s
+    let hasTransitioned = false;
+    const safeTransition = () => {
+      if (hasTransitioned) return;
+      hasTransitioned = true;
+      TextureGenerator.generateAll(this);
+      this.scene.start('MainMenuScene');
+      SplashScreen.hide().catch(() => {});
+    };
+
+    const watchdogTimer = setTimeout(() => {
+      if (this.scene.isActive('BootScene')) {
+        console.warn('[BootScene] Watchdog timer fired - proceeding to MainMenuScene');
+        safeTransition();
+      }
+    }, 3500);
+
+    this.load.once('complete', () => {
+      clearTimeout(watchdogTimer);
     });
 
     // Helper to ensure relative asset URLs for both web and Capacitor WKWebView
@@ -92,7 +139,7 @@ export class BootScene extends Phaser.Scene {
     // Generate procedural tile bases, borders, particles and fallbacks
     TextureGenerator.generateAll(this);
 
-    this.time.delayedCall(300, () => {
+    this.time.delayedCall(200, () => {
       this.scene.start('MainMenuScene');
       SplashScreen.hide().catch(() => {});
     });
