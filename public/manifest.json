@@ -1,0 +1,25 @@
+{
+  "name": "Onet Linh Thú - Yokai Onet",
+  "short_name": "Yokai Onet",
+  "description": "Trò chơi Nối Thú Cổ Điển Yokai & Thần Thoại - Chơi Hoàn Toàn Offline",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0d0f17",
+  "theme_color": "#0d0f17",
+  "icons": [
+    {
+      "src": "./assets/avatar_inari.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/avatar_inari.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
