@@ -158,56 +158,56 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   /**
-   * Top Glassmorphic Navigation Bar
+   * Top Glassmorphic Navigation Bar - Symmetrically balanced with 0 overlap
    */
   private createTopBar(width: number, save: any, currentTheme: string): void {
     const container = this.add.container(0, 0);
+    const topY = 14;
+    const compH = 36;
 
-    // --- Left: Companion / Pet Pill ---
+    // --- LEFT GROUP: Profile, Currencies & Shop (x = 16 to 430) ---
+    // 1. Companion / Pet Pill
     const compId = this.saveSystem.getSelectedCompanion();
     const companion = CompanionManager.get(compId);
-    const compW = 166;
-    const compH = 38;
-    const compX = 14;
-    const topY = 16;
+    const compW = 146;
+    const compX = 16;
 
     const compBg = this.add.graphics();
-    compBg.fillStyle(0x111024, 0.88);
-    compBg.fillRoundedRect(compX, topY, compW, compH, 19);
+    compBg.fillStyle(0x111024, 0.9);
+    compBg.fillRoundedRect(compX, topY, compW, compH, 18);
     compBg.lineStyle(1.5, companion.themeColor, 0.85);
-    compBg.strokeRoundedRect(compX, topY, compW, compH, 19);
+    compBg.strokeRoundedRect(compX, topY, compW, compH, 18);
 
-    // Avatar Circle (Uses avatar_inari if available, or procedural character card)
     let avItem: Phaser.GameObjects.GameObject;
     const compTexKey = `char_${companion.id}`;
     if (this.textures.exists('avatar_inari')) {
       const avRing = this.add.graphics();
       avRing.lineStyle(2, 0xd90429, 0.9);
-      avRing.strokeCircle(compX + 20, topY + compH / 2, 14);
+      avRing.strokeCircle(compX + 18, topY + compH / 2, 13);
       container.add(avRing);
 
-      const avImg = this.add.image(compX + 20, topY + compH / 2, 'avatar_inari');
-      avImg.setDisplaySize(26, 26);
+      const avImg = this.add.image(compX + 18, topY + compH / 2, 'avatar_inari');
+      avImg.setDisplaySize(24, 24);
       avItem = avImg;
     } else {
       TextureGenerator.ensureCharacterTexture(this, companion.id);
       if (this.textures.exists(compTexKey)) {
         const avRing = this.add.graphics();
         avRing.lineStyle(2, companion.themeColor, 0.9);
-        avRing.strokeCircle(compX + 20, topY + compH / 2, 14);
+        avRing.strokeCircle(compX + 18, topY + compH / 2, 13);
         container.add(avRing);
 
-        const avImg = this.add.image(compX + 20, topY + compH / 2, compTexKey);
-        avImg.setDisplaySize(26, 26);
+        const avImg = this.add.image(compX + 18, topY + compH / 2, compTexKey);
+        avImg.setDisplaySize(24, 24);
         avItem = avImg;
       } else {
-        avItem = this.add.text(compX + 10, topY + 9, companion.icon, { fontSize: '16px' });
+        avItem = this.add.text(compX + 9, topY + 8, companion.icon, { fontSize: '15px' });
       }
     }
 
-    const compText = this.add.text(compX + 38, topY + 9, `${companion.name}`, {
+    const compText = this.add.text(compX + 34, topY + 9, `${companion.name}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '13px',
       fontStyle: '800',
       color: '#ffffff'
     });
@@ -215,13 +215,13 @@ export class MainMenuScene extends Phaser.Scene {
     // Purple "ĐỔI" Button Capsule
     const changeBg = this.add.graphics();
     changeBg.fillStyle(0x7209b7, 0.95);
-    changeBg.fillRoundedRect(compX + compW - 44, topY + 6, 38, 26, 12);
-    changeBg.lineStyle(1.5, 0x9d4edd, 0.9);
-    changeBg.strokeRoundedRect(compX + compW - 44, topY + 6, 38, 26, 12);
+    changeBg.fillRoundedRect(compX + compW - 38, topY + 6, 32, 24, 10);
+    changeBg.lineStyle(1.2, 0x9d4edd, 0.9);
+    changeBg.strokeRoundedRect(compX + compW - 38, topY + 6, 32, 24, 10);
 
-    const changeTag = this.add.text(compX + compW - 25, topY + 19, 'ĐỔI', {
+    const changeTag = this.add.text(compX + compW - 22, topY + 18, 'ĐỔI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
+      fontSize: '11px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -241,34 +241,33 @@ export class MainMenuScene extends Phaser.Scene {
       });
     });
 
-    // --- Left: Coins Pill with "+" Button ---
-    const coinW = 98;
-    const coinX = compX + compW + 8;
+    // 2. Coins Pill with "+" Button
+    const coinW = 88;
+    const coinX = compX + compW + 8; // x = 170
 
     const coinsBg = this.add.graphics();
-    coinsBg.fillStyle(0x111024, 0.88);
-    coinsBg.fillRoundedRect(coinX, topY, coinW, compH, 19);
+    coinsBg.fillStyle(0x111024, 0.9);
+    coinsBg.fillRoundedRect(coinX, topY, coinW, compH, 18);
     coinsBg.lineStyle(1.5, 0xffd166, 0.8);
-    coinsBg.strokeRoundedRect(coinX, topY, coinW, compH, 19);
+    coinsBg.strokeRoundedRect(coinX, topY, coinW, compH, 18);
 
-    const coinIcon = this.add.text(coinX + 11, topY + 8, '💰', { fontSize: '16px' });
-    const coinText = this.add.text(coinX + 32, topY + 9, `${save.coins}`, {
+    const coinIcon = this.add.text(coinX + 9, topY + 8, '💰', { fontSize: '15px' });
+    const coinText = this.add.text(coinX + 28, topY + 9, `${save.coins}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#ffd700'
     });
 
-    // Small "+" circle
     const plusCircle = this.add.graphics();
     plusCircle.fillStyle(0x272346, 0.9);
-    plusCircle.fillCircle(coinX + coinW - 13, topY + compH / 2, 9);
+    plusCircle.fillCircle(coinX + coinW - 12, topY + compH / 2, 8);
     plusCircle.lineStyle(1.2, 0xffd166, 0.85);
-    plusCircle.strokeCircle(coinX + coinW - 13, topY + compH / 2, 9);
+    plusCircle.strokeCircle(coinX + coinW - 12, topY + compH / 2, 8);
 
-    const plusTxt = this.add.text(coinX + coinW - 13, topY + compH / 2 - 1, '+', {
+    const plusTxt = this.add.text(coinX + coinW - 12, topY + compH / 2 - 1, '+', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -280,20 +279,20 @@ export class MainMenuScene extends Phaser.Scene {
       this.openShopModal();
     });
 
-    // --- Left: 💎 Diamonds Pill ---
-    const diaW = 80;
-    const diaX = coinX + coinW + 8;
+    // 3. Diamonds Pill
+    const diaW = 74;
+    const diaX = coinX + coinW + 6; // x = 264
 
     const diaBg = this.add.graphics();
-    diaBg.fillStyle(0x111024, 0.88);
-    diaBg.fillRoundedRect(diaX, topY, diaW, compH, 19);
+    diaBg.fillStyle(0x111024, 0.9);
+    diaBg.fillRoundedRect(diaX, topY, diaW, compH, 18);
     diaBg.lineStyle(1.5, 0x00f5d4, 0.85);
-    diaBg.strokeRoundedRect(diaX, topY, diaW, compH, 19);
+    diaBg.strokeRoundedRect(diaX, topY, diaW, compH, 18);
 
-    const diaIcon = this.add.text(diaX + 10, topY + 8, '💎', { fontSize: '16px' });
-    const diaText = this.add.text(diaX + 30, topY + 9, `${this.saveSystem.getDiamonds()}`, {
+    const diaIcon = this.add.text(diaX + 8, topY + 8, '💎', { fontSize: '15px' });
+    const diaText = this.add.text(diaX + 27, topY + 9, `${this.saveSystem.getDiamonds()}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#00f5d4'
     });
@@ -305,19 +304,19 @@ export class MainMenuScene extends Phaser.Scene {
       this.openShopModal();
     });
 
-    // --- Left: 🏮 Tiệm Đạo Cụ (Shop) Pill Button ---
-    const shopW = 114;
-    const shopX = diaX + diaW + 8;
+    // 4. Shop Pill Button
+    const shopW = 96;
+    const shopX = diaX + diaW + 6; // x = 344 to 440
 
     const shopBg = this.add.graphics();
     shopBg.fillStyle(0x27101b, 0.92);
-    shopBg.fillRoundedRect(shopX, topY, shopW, compH, 19);
-    shopBg.lineStyle(1.8, 0xff4d6d, 0.95);
-    shopBg.strokeRoundedRect(shopX, topY, shopW, compH, 19);
+    shopBg.fillRoundedRect(shopX, topY, shopW, compH, 18);
+    shopBg.lineStyle(1.6, 0xff4d6d, 0.95);
+    shopBg.strokeRoundedRect(shopX, topY, shopW, compH, 18);
 
     const shopTxt = this.add.text(shopX + shopW / 2, topY + compH / 2, '🏮 CỬA HÀNG', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#ff758f'
     }).setOrigin(0.5);
@@ -332,52 +331,104 @@ export class MainMenuScene extends Phaser.Scene {
 
     shopHit.on('pointerover', () => {
       shopBg.fillStyle(0xd90429, 1);
-      shopBg.fillRoundedRect(shopX, topY, shopW, compH, 19);
+      shopBg.fillRoundedRect(shopX, topY, shopW, compH, 18);
       shopTxt.setColor('#ffffff');
     });
 
     shopHit.on('pointerout', () => {
       shopBg.fillStyle(0x27101b, 0.92);
-      shopBg.fillRoundedRect(shopX, topY, shopW, compH, 19);
+      shopBg.fillRoundedRect(shopX, topY, shopW, compH, 18);
       shopTxt.setColor('#ff758f');
     });
 
-    // --- Right: Settings Button (Circular Glass Gear Button) ---
-    const setW = 34;
-    const setX = width - 14 - setW;
+    // --- CENTER: Theme Switcher (Centered at width / 2 = 540) ---
+    this.createThemeSwitcher(container, width / 2, topY + compH / 2, currentTheme);
 
-    const setBg = this.add.graphics();
-    setBg.fillStyle(0x111024, 0.88);
-    setBg.fillCircle(setX + setW / 2, topY + compH / 2, 17);
-    setBg.lineStyle(1.5, 0xffd700, 0.8);
-    setBg.strokeCircle(setX + setW / 2, topY + compH / 2, 17);
+    // --- RIGHT GROUP: Progress, Rules & System (x = 644 to 1064) ---
+    // 5. 100 Màn Codex Button
+    const codexW = 94;
+    const codexX = 644;
 
-    this.add.text(setX + setW / 2, topY + compH / 2, '⚙️', {
-      fontSize: '16px'
+    const codexBg = this.add.graphics();
+    codexBg.fillStyle(0x191833, 0.92);
+    codexBg.fillRoundedRect(codexX, topY, codexW, compH, 18);
+    codexBg.lineStyle(1.5, 0xffd700, 0.95);
+    codexBg.strokeRoundedRect(codexX, topY, codexW, compH, 18);
+
+    const codexTxt = this.add.text(codexX + codexW / 2, topY + compH / 2, '🗺️ 100 MÀN', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '900',
+      color: '#ffd700'
     }).setOrigin(0.5);
 
-    const setHit = this.add.zone(setX, topY, setW, compH)
+    const codexHit = this.add.zone(codexX, topY, codexW, compH)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
 
-    setHit.on('pointerdown', () => {
-      this.haptic.medium();
+    codexHit.on('pointerdown', () => {
       this.audio.playSelect();
-      SettingsModal.open(this);
+      this.haptic.light();
+      this.openStageLootCodexModal(1);
     });
 
-    // --- Right: Audio Toggle (Circular Glass Button) ---
-    const audioW = 34;
-    const audioX = setX - 6 - audioW;
+    // 6. Stars Pill
+    const starW = 76;
+    const starX = codexX + codexW + 6; // x = 744
+
+    const starsBg = this.add.graphics();
+    starsBg.fillStyle(0x111024, 0.9);
+    starsBg.fillRoundedRect(starX, topY, starW, compH, 18);
+    starsBg.lineStyle(1.5, 0xffb703, 0.8);
+    starsBg.strokeRoundedRect(starX, topY, starW, compH, 18);
+
+    const starIcon = this.add.text(starX + 8, topY + 8, '⭐', { fontSize: '14px' });
+    const starText = this.add.text(starX + 26, topY + 9, `${save.stars}/300`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13px',
+      fontStyle: '900',
+      color: '#ffd700'
+    });
+
+    // 7. Rulebook Guide Button
+    const ruleW = 78;
+    const ruleX = starX + starW + 6; // x = 826
+
+    const ruleBg = this.add.graphics();
+    ruleBg.fillStyle(0x111024, 0.9);
+    ruleBg.fillRoundedRect(ruleX, topY, ruleW, compH, 18);
+    ruleBg.lineStyle(1.5, 0x00f5d4, 0.85);
+    ruleBg.strokeRoundedRect(ruleX, topY, ruleW, compH, 18);
+
+    const ruleTxt = this.add.text(ruleX + ruleW / 2, topY + compH / 2, '📖 LUẬT', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '800',
+      color: '#00f5d4'
+    }).setOrigin(0.5);
+
+    const ruleHit = this.add.zone(ruleX, topY, ruleW, compH)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+
+    ruleHit.on('pointerdown', () => {
+      this.audio.playSelect();
+      this.haptic.light();
+      this.openRulebookModal();
+    });
+
+    // 8. Audio Toggle Button
+    const audioW = 36;
+    const audioX = ruleX + ruleW + 6; // x = 910
 
     const audioBg = this.add.graphics();
-    audioBg.fillStyle(0x111024, 0.88);
+    audioBg.fillStyle(0x111024, 0.9);
     audioBg.fillCircle(audioX + audioW / 2, topY + compH / 2, 17);
     audioBg.lineStyle(1.5, 0x00f5d4, 0.6);
     audioBg.strokeCircle(audioX + audioW / 2, topY + compH / 2, 17);
 
     const audioIcon = this.add.text(audioX + audioW / 2, topY + compH / 2, this.audio.getEnabled() ? '🔊' : '🔇', {
-      fontSize: '16px'
+      fontSize: '15px'
     }).setOrigin(0.5);
 
     const audioHit = this.add.zone(audioX, topY, audioW, compH)
@@ -393,100 +444,40 @@ export class MainMenuScene extends Phaser.Scene {
       }
     });
 
-    // --- Right: Rulebook Guide Button ---
-    const ruleW = 90;
-    const ruleX = audioX - 6 - ruleW;
+    // 9. Settings Button
+    const setW = 36;
+    const setX = audioX + audioW + 6; // x = 952
 
-    const ruleBg = this.add.graphics();
-    ruleBg.fillStyle(0x111024, 0.88);
-    ruleBg.fillRoundedRect(ruleX, topY, ruleW, compH, 19);
-    ruleBg.lineStyle(1.5, 0x00f5d4, 0.85);
-    ruleBg.strokeRoundedRect(ruleX, topY, ruleW, compH, 19);
+    const setBg = this.add.graphics();
+    setBg.fillStyle(0x111024, 0.9);
+    setBg.fillCircle(setX + setW / 2, topY + compH / 2, 17);
+    setBg.lineStyle(1.5, 0xffd700, 0.8);
+    setBg.strokeCircle(setX + setW / 2, topY + compH / 2, 17);
 
-    const ruleTxt = this.add.text(ruleX + ruleW / 2, topY + compH / 2, '📖 LUẬT', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
-      fontStyle: '800',
-      color: '#00f5d4'
+    const setIcon = this.add.text(setX + setW / 2, topY + compH / 2, '⚙️', {
+      fontSize: '15px'
     }).setOrigin(0.5);
 
-    const ruleHit = this.add.zone(ruleX, topY, ruleW, compH)
+    const setHit = this.add.zone(setX, topY, setW, compH)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
 
-    ruleHit.on('pointerdown', () => {
+    setHit.on('pointerdown', () => {
+      this.haptic.medium();
       this.audio.playSelect();
-      this.haptic.light();
-      this.openRulebookModal();
+      SettingsModal.open(this);
     });
-
-    // --- Right: Stars Pill ---
-    const starW = 78;
-    const starX = ruleX - 6 - starW;
-
-    const starsBg = this.add.graphics();
-    starsBg.fillStyle(0x111024, 0.88);
-    starsBg.fillRoundedRect(starX, topY, starW, compH, 19);
-    starsBg.lineStyle(1.5, 0xffb703, 0.8);
-    starsBg.strokeRoundedRect(starX, topY, starW, compH, 19);
-
-    const starIcon = this.add.text(starX + 10, topY + 8, '⭐', { fontSize: '15px' });
-    const starText = this.add.text(starX + 28, topY + 9, `${save.stars}/30`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
-      fontStyle: '900',
-      color: '#ffd700'
-    });
-
-    // --- Right: 🗺️ Stage Codex & Loot Almanac Button ---
-    const codexW = 110;
-    const codexX = starX - 6 - codexW;
-
-    const codexBg = this.add.graphics();
-    codexBg.fillStyle(0x191833, 0.92);
-    codexBg.fillRoundedRect(codexX, topY, codexW, compH, 19);
-    codexBg.lineStyle(1.5, 0xffd700, 0.95);
-    codexBg.strokeRoundedRect(codexX, topY, codexW, compH, 19);
-
-    const codexTxt = this.add.text(codexX + codexW / 2, topY + compH / 2, '🗺️ 100 MÀN', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      fontStyle: '900',
-      color: '#ffd700'
-    }).setOrigin(0.5);
-
-    const codexHit = this.add.zone(codexX, topY, codexW, compH)
-      .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true });
-
-    codexHit.on('pointerdown', () => {
-      this.audio.playSelect();
-      this.haptic.light();
-      this.openStageLootCodexModal(1);
-    });
-
-    codexHit.on('pointerover', () => {
-      codexBg.fillStyle(0x2d1f4d, 1);
-      codexBg.fillRoundedRect(codexX, topY, codexW, compH, 19);
-    });
-    codexHit.on('pointerout', () => {
-      codexBg.fillStyle(0x191833, 0.92);
-      codexBg.fillRoundedRect(codexX, topY, codexW, compH, 19);
-    });
-
-    // --- Center: Theme Switcher Capsule (Quick Prev/Next & Gallery Modal) ---
-    const centerAreaX = (shopX + shopW + codexX) / 2;
-    this.createThemeSwitcher(container, centerAreaX, topY + compH / 2, currentTheme);
 
     container.add([
       compBg, avItem, compText, changeBg, changeTag, compHit,
       coinsBg, coinIcon, coinText, plusCircle, plusTxt, coinHit,
       diaBg, diaIcon, diaText, diaHit,
       shopBg, shopTxt, shopHit,
-      starsBg, starIcon, starText,
       codexBg, codexTxt, codexHit,
+      starsBg, starIcon, starText,
       ruleBg, ruleTxt, ruleHit,
-      audioBg, audioIcon, audioHit
+      audioBg, audioIcon, audioHit,
+      setBg, setIcon, setHit
     ]);
   }
 
@@ -965,25 +956,26 @@ export class MainMenuScene extends Phaser.Scene {
     // Mascot Buff Banner (Clickable!)
     const buffBg = this.add.graphics();
     buffBg.fillStyle(0x111024, 0.92);
-    buffBg.fillRoundedRect(leftCenterX - 188, daisY + 91, 376, 42, 15);
+    buffBg.fillRoundedRect(leftCenterX - 188, daisY + 91, 376, 40, 15);
     buffBg.lineStyle(1.5, companion.themeColor, 0.85);
-    buffBg.strokeRoundedRect(leftCenterX - 188, daisY + 91, 376, 42, 15);
+    buffBg.strokeRoundedRect(leftCenterX - 188, daisY + 91, 376, 40, 15);
 
-    const buffTxt = this.add.text(leftCenterX - 8, daisY + 112, `${companion.icon} ${companion.name}: ${companion.skillName} (Buff)`, {
+    const buffTxt = this.add.text(leftCenterX - 10, daisY + 111, `${companion.icon} ${companion.name}: ${companion.skillName} (Buff)`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '13px',
       fontStyle: '800',
-      color: '#ffffff'
+      color: '#ffffff',
+      wordWrap: { width: 300 }
     }).setOrigin(0.5);
 
-    const buffArrow = this.add.text(leftCenterX + 165, daisY + 112, '›', {
+    const buffArrow = this.add.text(leftCenterX + 164, daisY + 111, '›', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '22px',
       fontStyle: '900',
       color: `#${companion.themeColor.toString(16).padStart(6, '0')}`
     }).setOrigin(0.5);
 
-    const buffZone = this.add.zone(leftCenterX, daisY + 112, 376, 42)
+    const buffZone = this.add.zone(leftCenterX, daisY + 111, 376, 40)
       .setInteractive({ useHandCursor: true });
 
     buffZone.on('pointerdown', () => {
@@ -994,16 +986,16 @@ export class MainMenuScene extends Phaser.Scene {
       });
     });
 
-    // 4. Left Bottom Card: Quick Collection Album & Rules Summary (Two-Column Non-Overlapping Layout)
-    const albumCardW = 416;
-    const albumCardH = 120;
+    // 4. Left Bottom Card: Universal Encyclopedia Codex Album
+    const albumCardW = 420;
+    const albumCardH = 122;
     const albumCardX = leftCenterX;
     const albumCardY = 530;
 
     const albumContainer = this.add.container(albumCardX, albumCardY);
 
     const aBg = this.add.graphics();
-    aBg.fillStyle(0x101224, 0.88);
+    aBg.fillStyle(0x101224, 0.9);
     aBg.fillRoundedRect(-albumCardW / 2, -albumCardH / 2, albumCardW, albumCardH, 16);
     aBg.lineStyle(2, 0x00f5d4, 0.95);
     aBg.strokeRoundedRect(-albumCardW / 2, -albumCardH / 2, albumCardW, albumCardH, 16);
@@ -1013,59 +1005,59 @@ export class MainMenuScene extends Phaser.Scene {
     // Glowing Tome Book Icon & Blue Aura Glow
     const bookGlow = this.add.graphics();
     bookGlow.fillStyle(0x00f5d4, 0.2);
-    bookGlow.fillCircle(-albumCardW / 2 + 50, 0, 36);
+    bookGlow.fillCircle(-albumCardW / 2 + 48, 0, 36);
 
     let bookItem: Phaser.GameObjects.GameObject;
     if (this.textures.exists('album_book_icon')) {
-      const bookImg = this.add.image(-albumCardW / 2 + 50, 0, 'album_book_icon');
-      bookImg.setDisplaySize(68, 68);
+      const bookImg = this.add.image(-albumCardW / 2 + 48, 0, 'album_book_icon');
+      bookImg.setDisplaySize(64, 64);
       bookItem = bookImg;
     } else {
-      bookItem = this.add.text(-albumCardW / 2 + 35, 0, '📜', { fontSize: '32px' }).setOrigin(0.5);
+      bookItem = this.add.text(-albumCardW / 2 + 48, 0, '📜', { fontSize: '32px' }).setOrigin(0.5);
     }
 
-    // Left Column Content: Constrained within 200px width (starts at x = -albumCardW / 2 + 96)
-    const contentLeft = -albumCardW / 2 + 96;
+    // Left Column Content: Starts at contentLeft with strict safe width
+    const contentLeft = -albumCardW / 2 + 90;
 
-    const aTitle = this.add.text(contentLeft, -38, 'BỘ SƯU TẬP LINH THÚ', {
+    const aTitle = this.add.text(contentLeft, -36, '🌐 BÁCH KHOA VẠN GIỚI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17px',
+      fontSize: '15.5px',
       fontStyle: '900',
       color: '#00f5d4'
     });
 
-    const aDesc = this.add.text(contentLeft, -14, `Đã mở: ${discoveredCount}/198 Linh thú • 3 Thần thoại`, {
+    const aDesc = this.add.text(contentLeft, -14, `Đã mở: ${discoveredCount}/495 Sinh linh (10 Cõi Giới)`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '12.5px',
       fontStyle: 'bold',
       color: '#e2e8f0'
     });
 
     // Visual Progress Bar Track & Fill
-    const barW = 185;
+    const barW = 180;
     const barH = 5;
-    const barY = 10;
+    const barY = 8;
     const pBarBg = this.add.graphics();
     pBarBg.fillStyle(0x232138, 1);
     pBarBg.fillRoundedRect(contentLeft, barY, barW, barH, 3);
 
-    const fillRatio = Math.max(0.04, Math.min(1, discoveredCount / 198));
+    const fillRatio = Math.max(0.04, Math.min(1, discoveredCount / 495));
     const pBarFill = this.add.graphics();
     pBarFill.fillStyle(0x00f5d4, 1);
     pBarFill.fillRoundedRect(contentLeft, barY, barW * fillRatio, barH, 3);
 
-    const aRuleMini = this.add.text(contentLeft, 26, '⚡ Cổ Điển: 10 Mạng ❤️ • +2s/cặp', {
+    const aRuleMini = this.add.text(contentLeft, 24, '⚡ 10 Cõi Thần Thoại • 16 Cự Trùm', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '11.5px',
       fontStyle: '800',
       color: '#ffd166'
     });
 
-    // Right Action Column: Dedicated Docked Button (Zero Overlap)
-    const btnW = 94;
-    const btnH = 42;
-    const btnX = albumCardW / 2 - 58; // Center X
-    const btnY = 0;   // Center Y
+    // Right Action Button (Spaced cleanly with 0 overlap)
+    const btnW = 86;
+    const btnH = 38;
+    const btnX = albumCardW / 2 - 54;
+    const btnY = 0;
 
     const aBtnBg = this.add.graphics();
     aBtnBg.fillStyle(0x00f5d4, 1);
@@ -1075,7 +1067,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const aBtnTxt = this.add.text(btnX, btnY, 'XEM ➔', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '14px',
       fontStyle: '900',
       color: '#052c24'
     }).setOrigin(0.5);
@@ -1102,7 +1094,7 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   /**
-   * Right Section: Primary Play CTA, 2x2 Game Mode Cards & Stats
+   * Right Section: Primary Play CTA, 2x2 Game Mode Cards & Stats Dashboard
    */
   private createGameHub(save: any): void {
     const hubX = 765;
@@ -1117,7 +1109,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const heroBg = this.add.graphics();
     // Dark Ruby Glass Base
-    heroBg.fillStyle(0x1a0c16, 0.88);
+    heroBg.fillStyle(0x1a0c16, 0.9);
     heroBg.fillRoundedRect(-hubW / 2, -heroH / 2, hubW, heroH, 18);
     // Inner Warm Radiant Tint
     heroBg.fillStyle(0xd90429, 0.22);
@@ -1140,30 +1132,34 @@ export class MainMenuScene extends Phaser.Scene {
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    const heroTitle = this.add.text(-hubW / 2 + 86, -14, `CHƠI TIẾP • MÀN ${currentLvl}`, {
+    const heroTitle = this.add.text(-hubW / 2 + 82, -14, `CHƠI TIẾP • MÀN ${currentLvl}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '23px',
+      fontSize: '21px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0, 0.5);
 
-    const heroSub = this.add.text(-hubW / 2 + 86, 15, `Khám phá hướng dồn • 10 Mạng ❤️ • Săn 3 Sao ⭐`, {
+    const heroSub = this.add.text(-hubW / 2 + 82, 14, `Màn ${currentLvl}/100 • 10 Mạng ❤️ • Thử thách 3★`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '13px',
       fontStyle: 'bold',
-      color: '#fff0f3'
+      color: '#ffccd5'
     }).setOrigin(0, 0.5);
 
     // Right Gold Pill Button: [ VÀO TRẬN ➔ ]
+    const goBadgeW = 114;
+    const goBadgeH = 38;
+    const goBadgeX = hubW / 2 - 14 - goBadgeW / 2; // Sits neatly 14px inside right border
+
     const goBadgeBg = this.add.graphics();
     goBadgeBg.fillStyle(0xffbe0b, 1);
-    goBadgeBg.fillRoundedRect(hubW / 2 - 134, -21, 122, 42, 21);
+    goBadgeBg.fillRoundedRect(goBadgeX - goBadgeW / 2, -goBadgeH / 2, goBadgeW, goBadgeH, 19);
     goBadgeBg.lineStyle(1.5, 0xffe6a7, 0.9);
-    goBadgeBg.strokeRoundedRect(hubW / 2 - 134, -21, 122, 42, 21);
+    goBadgeBg.strokeRoundedRect(goBadgeX - goBadgeW / 2, -goBadgeH / 2, goBadgeW, goBadgeH, 19);
 
-    const goBadgeTxt = this.add.text(hubW / 2 - 73, 0, 'VÀO TRẬN ➔', {
+    const goBadgeTxt = this.add.text(goBadgeX, 0, 'VÀO TRẬN ➔', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15.5px',
+      fontSize: '14px',
       fontStyle: '900',
       color: '#161426'
     }).setOrigin(0.5);
@@ -1194,9 +1190,9 @@ export class MainMenuScene extends Phaser.Scene {
 
     // --- 2. 2x2 Modern Game Modes Grid ---
     const gridStartY = 235;
-    const cardW = 255;
-    const cardH = 122;
-    const colSpacing = 275;
+    const cardW = 258;
+    const cardH = 124;
+    const colSpacing = 272;
     const rowSpacing = 135;
 
     const col1X = hubX - colSpacing / 2;
@@ -1216,7 +1212,7 @@ export class MainMenuScene extends Phaser.Scene {
       icon: '🗺️',
       title: 'CHỌN MÀN (1 - 100)',
       sub: '10 Chương viễn chinh đa vũ trụ',
-      badge: `Màn cao: ${save.highestLevel}/100  •  ⭐ ${save.stars}/300`,
+      badge: `Màn ${save.highestLevel}/100`,
       actionTxt: 'BẢN ĐỒ ➔',
       primaryColor: 0x0e172a,
       accentColor: 0x3a86ff,
@@ -1235,7 +1231,7 @@ export class MainMenuScene extends Phaser.Scene {
       icon: '❄️',
       title: 'SINH TỒN BÃO TUYẾT',
       sub: 'Băng dâng mỗi 10s kiểu Tetris',
-      badge: `Kỷ lục: ${survivalRecord.maxWaves} Đợt (${survivalRecord.highScore} PTS)`,
+      badge: `Kỷ lục: ${survivalRecord.maxWaves} Đợt`,
       actionTxt: 'SỐNG CÒN ➔',
       primaryColor: 0x091e2b,
       accentColor: 0x00f5d4,
@@ -1254,7 +1250,7 @@ export class MainMenuScene extends Phaser.Scene {
       icon: '🌸',
       title: 'THIỀN ĐỊNH (ZEN)',
       sub: 'Vô hạn giờ • Không sợ thua cuộc',
-      badge: `Kỷ lục: ${save.zenHighScore || 0} PTS`,
+      badge: `Kỷ lục: ${save.zenHighScore || 0}đ`,
       actionTxt: 'THƯ GIÃN ➔',
       primaryColor: 0x0a2219,
       accentColor: 0x06d6a0,
@@ -1272,8 +1268,8 @@ export class MainMenuScene extends Phaser.Scene {
       height: cardH,
       icon: '👑',
       title: 'ĐẤU TRƯỜNG 16 BOSS',
-      sub: '16 Đại Trùm Cổ Đại • 16 Chủ Đề',
-      badge: 'Thần Xà • Cự Long • 16 Trùm',
+      sub: '16 Cự Trùm • 16 Thế Giới',
+      badge: '16 Đại Cự Trùm',
       actionTxt: 'THÁCH ĐẤU ➔',
       primaryColor: 0x240046,
       accentColor: 0xff4d6d,
@@ -1283,43 +1279,79 @@ export class MainMenuScene extends Phaser.Scene {
       }
     });
 
-    // --- 3. Bottom Player Stats & Summary Bar ---
+    // --- 3. Bottom Player Stats & Summary Bar (3-Column HUD Dashboard) ---
     const statsY = 530;
-    const statsH = 70;
+    const statsH = 76;
     const statsContainer = this.add.container(hubX, statsY);
 
     const sBg = this.add.graphics();
-    sBg.fillStyle(0x101224, 0.88);
+    sBg.fillStyle(0x101224, 0.9);
     sBg.fillRoundedRect(-hubW / 2, -statsH / 2, hubW, statsH, 16);
-    sBg.lineStyle(1.5, 0x3a86ff, 0.75);
+    sBg.lineStyle(1.5, 0x3a86ff, 0.85);
     sBg.strokeRoundedRect(-hubW / 2, -statsH / 2, hubW, statsH, 16);
 
-    const sTitle = this.add.text(0, -17, '🏆 THÀNH TÍCH NGƯỜI CHƠI', {
+    const sTitle = this.add.text(0, -22, '🏆 THÀNH TÍCH CHIẾN DỊCH VẠN GIỚI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
-    const sLine1 = this.add.text(0, 4, `📊 Màn cao: Màn ${save.highestLevel}/100   ⭐ ${save.stars} Sao   💰 ${save.coins} Xu`, {
+    // Subtle vertical column dividers
+    const sDivider = this.add.graphics();
+    sDivider.lineStyle(1, 0x334155, 0.6);
+    sDivider.lineBetween(-hubW / 6, -8, -hubW / 6, 26);
+    sDivider.lineBetween(hubW / 6, -8, hubW / 6, 26);
+
+    // Column 1: Campaign
+    const col1StatsX = -hubW / 3;
+    const c1Label = this.add.text(col1StatsX, -2, '🗺️ CHIẾN DỊCH', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15.5px',
+      fontSize: '10px',
+      fontStyle: '800',
+      color: '#94a3b8'
+    }).setOrigin(0.5);
+    const c1Value = this.add.text(col1StatsX, 15, `Màn ${save.highestLevel}/100 • ⭐ ${save.stars}`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    const sLine2 = this.add.text(0, 23, `❄️ Sinh Tồn: ${survivalRecord.maxWaves} Đợt (${survivalRecord.highScore} PTS)   🌸 Zen: ${save.zenHighScore || 0} PTS`, {
+    // Column 2: Survival
+    const c2Label = this.add.text(0, -2, '❄️ SINH TỒN', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
-      fontStyle: 'bold',
+      fontSize: '10px',
+      fontStyle: '800',
+      color: '#94a3b8'
+    }).setOrigin(0.5);
+    const c2Value = this.add.text(0, 15, `${survivalRecord.maxWaves} Đợt (${survivalRecord.highScore}đ)`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(0.5);
 
-    statsContainer.add([sBg, sTitle, sLine1, sLine2]);
+    // Column 3: Zen
+    const col3StatsX = hubW / 3;
+    const c3Label = this.add.text(col3StatsX, -2, '🌸 THIỀN ĐỊNH', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10px',
+      fontStyle: '800',
+      color: '#94a3b8'
+    }).setOrigin(0.5);
+    const c3Value = this.add.text(col3StatsX, 15, `Kỷ lục: ${save.zenHighScore || 0}đ`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '900',
+      color: '#ffd166'
+    }).setOrigin(0.5);
+
+    statsContainer.add([sBg, sTitle, sDivider, c1Label, c1Value, c2Label, c2Value, c3Label, c3Value]);
   }
 
   /**
-   * Helper to create sleek, modern Game Mode cards matching Image 3
+   * Helper to create sleek, modern Game Mode cards with guaranteed 0 overlap
    */
   private createModeCard(opts: {
     x: number;
@@ -1338,62 +1370,72 @@ export class MainMenuScene extends Phaser.Scene {
     const container = this.add.container(opts.x, opts.y);
 
     const bg = this.add.graphics();
-    // Glass base
-    bg.fillStyle(0x101224, 0.85);
+    bg.fillStyle(0x101224, 0.9);
     bg.fillRoundedRect(-opts.width / 2, -opts.height / 2, opts.width, opts.height, 16);
-    // Inner theme tint
     bg.fillStyle(opts.accentColor, 0.12);
     bg.fillRoundedRect(-opts.width / 2 + 2, -opts.height / 2 + 2, opts.width - 4, opts.height - 4, 14);
-    // Neon border
     bg.lineStyle(2, opts.accentColor, 0.95);
     bg.strokeRoundedRect(-opts.width / 2, -opts.height / 2, opts.width, opts.height, 16);
 
-    const icon = this.add.text(-opts.width / 2 + 26, -opts.height / 2 + 28, opts.icon, {
-      fontSize: '28px'
+    // Top: Icon + Title
+    const icon = this.add.text(-opts.width / 2 + 20, -opts.height / 2 + 26, opts.icon, {
+      fontSize: '22px'
     }).setOrigin(0.5);
 
-    const title = this.add.text(-opts.width / 2 + 48, -opts.height / 2 + 28, opts.title, {
+    const title = this.add.text(-opts.width / 2 + 38, -opts.height / 2 + 26, opts.title, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17px',
+      fontSize: '14.5px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0, 0.5);
 
-    const sub = this.add.text(-opts.width / 2 + 18, 0, opts.sub, {
+    // Middle: Subtitle
+    const sub = this.add.text(-opts.width / 2 + 16, -opts.height / 2 + 54, opts.sub, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '12px',
       fontStyle: 'bold',
-      color: '#e2e8f0'
+      color: '#94a3b8'
     }).setOrigin(0, 0.5);
 
-    // Bottom Badge text (Left) - Compact to avoid any overlap
-    const badgeTxt = this.add.text(-opts.width / 2 + 18, opts.height / 2 - 20, opts.badge, {
+    // Bottom Left: Micro Status Badge (Dedicated pill, strictly bounded)
+    const badgeW = 106;
+    const badgeH = 24;
+    const badgeX = -opts.width / 2 + 14 + badgeW / 2;
+    const badgeY = opts.height / 2 - 20;
+
+    const badgeBg = this.add.graphics();
+    badgeBg.fillStyle(0x191833, 0.9);
+    badgeBg.fillRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 12);
+    badgeBg.lineStyle(1.2, opts.accentColor, 0.7);
+    badgeBg.strokeRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 12);
+
+    const badgeTxt = this.add.text(badgeX, badgeY, opts.badge, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '11px',
       fontStyle: '800',
       color: `#${opts.accentColor.toString(16).padStart(6, '0')}`
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0.5);
 
-    // Right Action Pill Button (Glass capsule with neon stroke)
-    const btnW = 96;
-    const btnH = 30;
-    const btnX = opts.width / 2 - 16 - btnW / 2;
+    // Bottom Right: Action Button (Docked with 30px+ clearance from badge)
+    const btnW = 86;
+    const btnH = 26;
+    const btnX = opts.width / 2 - 14 - btnW / 2;
     const btnY = opts.height / 2 - 20;
 
     const btnBg = this.add.graphics();
-    btnBg.fillStyle(0x101224, 0.9);
-    btnBg.fillRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 14);
+    btnBg.fillStyle(0x161426, 0.95);
+    btnBg.fillRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 13);
     btnBg.lineStyle(1.5, opts.accentColor, 0.95);
-    btnBg.strokeRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 14);
+    btnBg.strokeRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 13);
 
     const actionPill = this.add.text(btnX, btnY, opts.actionTxt, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '11.5px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    container.add([bg, icon, title, sub, badgeTxt, btnBg, actionPill]);
+    container.add([bg, icon, title, sub, badgeBg, badgeTxt, btnBg, actionPill]);
     container.setSize(opts.width, opts.height).setInteractive({ useHandCursor: true });
 
     container.on('pointerover', () => {
@@ -1404,7 +1446,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     container.on('pointerout', () => {
       this.tweens.add({ targets: container, scale: 1.0, duration: 90 });
-      btnBg.fillStyle(0x101224, 0.9);
+      btnBg.fillStyle(0x161426, 0.95);
       btnBg.fillRoundedRect(btnX - btnW / 2, btnY - btnH / 2, btnW, btnH, 13);
     });
 
