@@ -152,11 +152,26 @@ export class BootScene extends Phaser.Scene {
       'byakko_tiger', 'genbu_tortoise', 'kirin_sacred',
       'raiju_thunder', 'yatagarasu_crow', 'nekomata_cat', 'orochi_serpent'
     ];
+    const compArtMap: Record<string, string> = {
+      inari_kitsune: '/assets/companion/inari_3d/inari_3d_00.png',
+      ryujin_pearl: '/assets/companion/ryujin_3d/ryujin_3d_00.png',
+      hi_no_tori: '/assets/companion/hinotori_3d/hinotori_3d_00.png',
+      byakko_tiger: '/assets/companion/byakko_tiger/byakko_tiger.png',
+      genbu_tortoise: '/assets/companion/genbu_tortoise/genbu_tortoise.png',
+      kirin_sacred: '/assets/companion/kirin_sacred/kirin_sacred.png',
+      raiju_thunder: '/assets/companion/raiju_thunder/raiju_thunder.png',
+      nekomata_cat: '/assets/companion/nekomata_cat/nekomata_cat.png',
+      yatagarasu_crow: '/assets/companion/yatagarasu_crow/yatagarasu_crow.png',
+      orochi_serpent: '/assets/companion/orochi_serpent/orochi_serpent.png'
+    };
     for (const compId of all10Companions) {
       const charPath = resolveAsset(`/assets/characters/${compId}.png`);
       this.load.image(`char_${compId}`, charPath);
       this.load.image(`avatar_${compId}`, charPath);
       this.load.image(`comp_${compId}`, charPath);
+      if (compArtMap[compId]) {
+        this.load.image(`comp_art_${compId}`, resolveAsset(compArtMap[compId]));
+      }
     }
 
     // Preload HD Booster Button Sprites (matching mockup)

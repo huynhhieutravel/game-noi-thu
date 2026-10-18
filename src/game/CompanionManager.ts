@@ -902,7 +902,7 @@ export class CompanionManager {
 
   public static getTierInfo(companionId: string, tier: number): CompanionTierInfo {
     const validTier = Math.max(1, Math.min(3, tier));
-    const compTiers = COMPANION_TIERS[companionId];
+    const compTiers = COMPANION_TIERS[companionId] || (companionId === 'genbu_tortoise' ? COMPANION_TIERS['genbu_turtle'] : undefined);
     if (compTiers && compTiers[validTier]) {
       return compTiers[validTier];
     }

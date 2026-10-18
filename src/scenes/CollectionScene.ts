@@ -6,8 +6,9 @@ import { CompanionModal } from '../game/CompanionModal';
 import { TextureGenerator } from '../game/TextureGenerator';
 import { AudioSystem } from '../systems/AudioSystem';
 import { SaveSystem } from '../systems/SaveSystem';
-import { CharacterData } from '../types';
+import { CharacterData, ElementType, Rarity } from '../types';
 import levelsData from '../data/levels.json';
+import bossesData from '../data/bosses.json';
 import relicsData from '../data/relics.json';
 import { RelicManager } from '../game/RelicManager';
 import { LevelManager } from '../game/LevelManager';
@@ -17,17 +18,61 @@ export class CollectionScene extends Phaser.Scene {
   private save!: SaveSystem;
   private modalContainer: Phaser.GameObjects.Container | null = null;
 
-  public readonly THEMES_CONFIG = {
-    yokai: {
-      id: 'yokai',
-      name: 'Bách Quỷ Đồ Thư',
-      kanji: '百鬼図鑑',
-      icon: '⛩️',
-      tabLabel: '⛩️ NHẬT BẢN',
-      total: 108,
+  public readonly REALMS_CONFIG: Record<string, {
+    id: string;
+    icon: string;
+    shortLabel: string;
+    name: string;
+    kanji: string;
+    sub: string;
+    chapterNum: number;
+    startLevel: number;
+    endLevel: number;
+    collections: string[];
+    themeColor: number;
+    accentColor: string;
+    subChapters: { name: string; sub: string }[];
+  }> = {
+    all: {
+      id: 'all',
+      icon: '🌐',
+      shortLabel: 'TẤT CẢ',
+      name: 'Bách Khoa Vạn Giới',
+      kanji: '万界図鑑',
+      sub: 'Toàn Thư 10 Thế Giới • 495 Sinh Linh',
+      chapterNum: 0,
+      startLevel: 1,
+      endLevel: 100,
+      collections: ['yokai', 'egypt', 'greece', 'wuxia', 'korea', 'india', 'sea', 'pirate', 'underwater', 'dinosaur', 'monster', 'fantasy', 'space', 'robot', 'animal', 'plant'],
       themeColor: 0xd90429,
       accentColor: '#ffd700',
-      chapters: [
+      subChapters: [
+        { name: 'Nhật Bản • Bách Quỷ', sub: 'Màn 1 - 10' },
+        { name: 'Ai Cập • Sa Mạc & Nile', sub: 'Màn 11 - 20' },
+        { name: 'Hy Lạp • Đỉnh Olympus', sub: 'Màn 21 - 30' },
+        { name: 'Tam Giới • Tiên Ma Á Đông', sub: 'Màn 31 - 40' },
+        { name: 'Nam Á • Sử Thi Sông Hằng', sub: 'Màn 41 - 50' },
+        { name: 'Biển Cả • Hải Tặc & Thủy Cung', sub: 'Màn 51 - 60' },
+        { name: 'Tiền Sử • Hỏa Diệm Khủng Long', sub: 'Màn 61 - 70' },
+        { name: 'Tương Lai • Hạm Đội Cơ Giáp', sub: 'Màn 71 - 80' },
+        { name: 'Hỗn Độn • Đại Loạn Đấu', sub: 'Màn 81 - 90' },
+        { name: 'Tối Thượng • 16 Cự Trùm', sub: 'Màn 91 - 100' }
+      ]
+    },
+    yokai: {
+      id: 'yokai',
+      icon: '⛩️',
+      shortLabel: 'NHẬT BẢN',
+      name: 'Nhật Bản • Bách Quỷ Khởi Nguyên',
+      kanji: '百鬼図鑑',
+      sub: 'Khởi Nguyên Huyền Bí Xứ Phù Tang (108 Yêu Quái)',
+      chapterNum: 1,
+      startLevel: 1,
+      endLevel: 10,
+      collections: ['yokai'],
+      themeColor: 0xd90429,
+      accentColor: '#ffd700',
+      subChapters: [
         { name: 'LINH GIỚI', sub: 'Classic Spirits' },
         { name: 'THỦY QUÁI', sub: 'Ocean Yokai' },
         { name: 'DẠ QUỶ', sub: 'Night Spirits' },
@@ -44,232 +89,199 @@ export class CollectionScene extends Phaser.Scene {
     },
     egypt: {
       id: 'egypt',
-      name: 'Thần Thoại Ai Cập',
-      kanji: 'エジプト神話',
       icon: '🏺',
-      tabLabel: '🏺 AI CẬP',
-      total: 45,
+      shortLabel: 'AI CẬP',
+      name: 'Ai Cập • Sa Mạc & Sông Nile',
+      kanji: 'エジプト神話',
+      sub: 'Chư Thần Sông Nile & Sa Mạc Cổ Đại (90 Sinh Linh)',
+      chapterNum: 2,
+      startLevel: 11,
+      endLevel: 20,
+      collections: ['egypt', 'animal'],
       themeColor: 0xe76f51,
       accentColor: '#f4a261',
-      chapters: [
+      subChapters: [
         { name: 'SÔNG NILE', sub: 'Nile Deities' },
-        { name: 'VŨ TRỤ', sub: 'Cosmos & Wisdom' },
+        { name: 'VŨ TRỤ & TRÍ TUỆ', sub: 'Cosmos & Wisdom' },
         { name: 'MINH GIỚI', sub: 'Underworld & Eternity' },
-        { name: 'THẦN THÚ', sub: 'Mythic Guardians' },
-        { name: 'SA MẠC', sub: 'Desert Spirits' }
+        { name: 'THẦN THÚ AI CẬP', sub: 'Mythic Guardians' },
+        { name: 'SA MẠC SAHARA', sub: 'Desert Spirits' },
+        { name: 'THẢO NGUYÊN SAVANNA', sub: 'African Savanna' },
+        { name: 'THÚ CƯNG LINH THIÊNG', sub: 'Sacred Pets' },
+        { name: 'NÔNG TRẠI CHÂU PHI', sub: 'Happy Delta Farm' },
+        { name: 'HOANG DÃ NGUYÊN SINH', sub: 'Wild Wilderness' }
       ]
     },
     greece: {
       id: 'greece',
-      name: 'Thần Thoại Hy Lạp',
-      kanji: 'ギリシャ神話',
       icon: '🏛️',
-      tabLabel: '🏛️ HY LẠP',
-      total: 45,
+      shortLabel: 'HY LẠP',
+      name: 'Hy Lạp • Đỉnh Núi Olympus',
+      kanji: 'ギリシャ神話',
+      sub: 'Lôi Đình Chư Thần & Kỳ Thú Thần Thoại (63 Kỳ Thú)',
+      chapterNum: 3,
+      startLevel: 21,
+      endLevel: 30,
+      collections: ['greece', 'fantasy'],
       themeColor: 0x3a86ff,
       accentColor: '#ffd166',
-      chapters: [
+      subChapters: [
         { name: 'THỜI ĐẠI TITAN', sub: 'Titans & Primordial' },
         { name: 'ANH HÙNG SỬ THI', sub: 'Heroes & Legends' },
         { name: 'CHƯ THẦN OLYMPUS', sub: 'Olympian Deities' },
         { name: 'QUÁI THÚ THẦN THOẠI', sub: 'Mythical Monsters' },
-        { name: 'MINH GIỚI & ĐỊNH MỆNH', sub: 'Fate & Eternity' }
+        { name: 'MINH GIỚI & ĐỊNH MỆNH', sub: 'Fate & Tartarus' },
+        { name: 'ĐỘI QUÂN HOÀNG GIA', sub: 'Royal Crusaders' },
+        { name: 'HUYỀN THOẠI VIỄN CHINH', sub: 'Mythic Crusade' }
       ]
     },
     wuxia: {
       id: 'wuxia',
-      name: 'Võ Hiệp Tiên Cảnh',
-      kanji: '仙侠神话',
       icon: '🗡️',
-      tabLabel: '🗡️ VÕ HIỆP',
-      total: 18,
+      shortLabel: 'TAM GIỚI',
+      name: 'Tam Giới • Tiên Ma Á Đông',
+      kanji: '仙侠神话',
+      sub: 'Phi Kiếm Tiên Hiệp & Phong Tục Joseon (36 Tiên Ma)',
+      chapterNum: 4,
+      startLevel: 31,
+      endLevel: 40,
+      collections: ['wuxia', 'korea'],
       themeColor: 0xd00000,
       accentColor: '#ffb703',
-      chapters: [
+      subChapters: [
         { name: 'PHONG VÂN GIANG HỒ', sub: 'Jianghu Legends' },
-        { name: 'TIÊN CẢNH DIỆU PHÁP', sub: 'Celestial Realm' }
-      ]
-    },
-    korea: {
-      id: 'korea',
-      name: 'Thần Thoại Triều Tiên',
-      kanji: '조선 신화',
-      icon: '🐯',
-      tabLabel: '🐯 HÀN QUỐC',
-      total: 18,
-      themeColor: 0x2a9d8f,
-      accentColor: '#ffd166',
-      chapters: [
+        { name: 'TIÊN CẢNH DIỆU PHÁP', sub: 'Celestial Realm' },
         { name: 'PHONG TỤC DÂN GIAN', sub: 'Folklore Customs' },
         { name: 'THẦN THÚ & TIÊN GIỚI', sub: 'Mythic Deities' }
       ]
     },
     india: {
       id: 'india',
-      name: 'Thần Thoại Ấn Độ',
-      kanji: 'भारतीय पौराणिक कथा',
-      icon: '🐘',
-      tabLabel: '🐘 ẤN ĐỘ',
-      total: 18,
-      themeColor: 0xe76f51,
+      icon: '🕉️',
+      shortLabel: 'NAM Á',
+      name: 'Nam Á • Sử Thi Sông Hằng',
+      kanji: 'भारतीय पौराणिक',
+      sub: 'Sử Thi Ramayana & Tinh Linh Rừng Thiêng (36 Linh Thần)',
+      chapterNum: 5,
+      startLevel: 41,
+      endLevel: 50,
+      collections: ['india', 'plant'],
+      themeColor: 0xfb5607,
       accentColor: '#ffd166',
-      chapters: [
+      subChapters: [
         { name: 'CHƯ THẦN & LINH THÚ', sub: 'Divine Deities' },
-        { name: 'LỄ HỘI ÁNH SÁNG', sub: 'Sacred Festivals' }
+        { name: 'LỄ HỘI ÁNH SÁNG', sub: 'Sacred Festivals' },
+        { name: 'HOA THƠM & TRÁI NGỌT', sub: 'Blossom Garden' },
+        { name: 'KỲ HOA & THẦN RỪNG', sub: 'Mystic Flora' }
       ]
     },
     sea: {
       id: 'sea',
-      name: 'Huyền Thoại Đông Nam Á',
-      kanji: '東南アジア神話',
-      icon: '🌴',
-      tabLabel: '🌴 ĐÔNG NAM Á',
-      total: 18,
-      themeColor: 0x2a9d8f,
-      accentColor: '#52b788',
-      chapters: [
-        { name: 'LINH THÚ RỪNG THIÊNG', sub: 'Mythic Beasts' },
-        { name: 'LỄ HỘI NHIỆT ĐỚI', sub: 'Tropical Festivals' }
-      ]
-    },
-    pirate: {
-      id: 'pirate',
-      name: 'Hải Tặc Đại Dương',
-      kanji: '海賊の航海',
-      icon: '🏴‍☠️',
-      tabLabel: '🏴‍☠️ HẢI TẶC',
-      total: 18,
+      icon: '⚓',
+      shortLabel: 'BIỂN CẢ',
+      name: 'Vùng Biển Chết • Hải Tặc & Thủy Cung',
+      kanji: '海底王国',
+      sub: 'Hạm Đội Bóng Ma & Vực Thẳm Đại Dương (90 Thủy Thú)',
+      chapterNum: 6,
+      startLevel: 51,
+      endLevel: 60,
+      collections: ['pirate', 'underwater', 'sea'],
       themeColor: 0x0077b6,
       accentColor: '#4cc9f0',
-      chapters: [
+      subChapters: [
         { name: 'BĂNG HẢI TẶC NẮNG VÀNG', sub: 'Jolly Pirates' },
-        { name: 'LỜI NGUYỀN BIỂN SÂU', sub: 'Cursed Depths' }
-      ]
-    },
-    underwater: {
-      id: 'underwater',
-      name: 'Thủy Cung Huyền Bí',
-      kanji: '海底王国',
-      icon: '🌊',
-      tabLabel: '🌊 THỦY CUNG',
-      total: 54,
-      themeColor: 0x00b4d8,
-      accentColor: '#90e0ef',
-      chapters: [
+        { name: 'LỜI NGUYỀN BIỂN SÂU', sub: 'Cursed Depths' },
         { name: 'HOÀNG TRIỀU THỦY CUNG', sub: 'Royal Court' },
-        { name: 'LỄ HỘI SAN HÔ & ÂM NHẠC', sub: 'Coral Carnival' },
-        { name: 'HỘ PHÁP CỔ ĐẠI & DI TÍCH', sub: 'Ancient Guardians' },
+        { name: 'LỄ HỘI SAN HÔ', sub: 'Coral Carnival' },
+        { name: 'HỘ PHÁP CỔ ĐẠI', sub: 'Ancient Guardians' },
         { name: 'HẢI LƯU THẦN TỐC', sub: 'Swift Currents' },
         { name: 'KỲ QUAN PHÁT QUANG', sub: 'Luminous Abyss' },
-        { name: 'ĐẾ VƯƠNG BIỂN SÂU', sub: 'Abyssal Sovereigns' }
+        { name: 'ĐẾ VƯƠNG BIỂN SÂU', sub: 'Abyssal Sovereigns' },
+        { name: 'LINH XÀ NHIỆT ĐỚI', sub: 'Tropical Serpents' }
       ]
     },
     dinosaur: {
       id: 'dinosaur',
-      name: 'Thế Giới Khủng Long',
-      kanji: '恐竜ワールド',
       icon: '🦖',
-      tabLabel: '🦖 KHỦNG LONG',
-      total: 18,
+      shortLabel: 'TIỀN SỬ',
+      name: 'Tiền Sử • Hỏa Diệm Khủng Long',
+      kanji: '恐竜ワールド',
+      sub: 'Bạo Chúa T-Rex & Cự Quái Nguyên Thủy (36 Khủng Long)',
+      chapterNum: 7,
+      startLevel: 61,
+      endLevel: 70,
+      collections: ['dinosaur', 'monster'],
       themeColor: 0x52b788,
       accentColor: '#ffd166',
-      chapters: [
+      subChapters: [
         { name: 'THUNG LŨNG JURA', sub: 'Jurassic Valley' },
-        { name: 'HỎA SƠN & BĂNG HÀ', sub: 'Volcanic & Ice Age' }
-      ]
-    },
-    monster: {
-      id: 'monster',
-      name: 'Quái Thú Đáng Yêu',
-      kanji: 'モンスターワールド',
-      icon: '👾',
-      tabLabel: '👾 QUÁI THÚ',
-      total: 18,
-      themeColor: 0x9b5de5,
-      accentColor: '#f15bb5',
-      chapters: [
+        { name: 'HỎA SƠN & BĂNG HÀ', sub: 'Volcanic & Ice Age' },
         { name: 'HẦM NGỤC TÍ HON', sub: 'Playful Dungeon' },
         { name: 'THÂM UYÊN HẮC ÁM', sub: 'Abyssal Relics' }
       ]
     },
-    fantasy: {
-      id: 'fantasy',
-      name: 'Thế Giới Fantasy',
-      kanji: 'クラシックファンタジー',
-      icon: '🏰',
-      tabLabel: '🏰 FANTASY',
-      total: 18,
-      themeColor: 0x4361ee,
-      accentColor: '#ffd166',
-      chapters: [
-        { name: 'ĐỘI QUÂN HOÀNG GIA', sub: 'Royal Party' },
-        { name: 'HUYỀN THOẠI VIỄN CHINH', sub: 'Mythic Crusade' }
-      ]
-    },
     space: {
       id: 'space',
-      name: 'Thiên Hà Vũ Trụ',
-      kanji: 'スペース・ギャラクシー',
-      icon: '🚀',
-      tabLabel: '🚀 VŨ TRỤ',
-      total: 18,
+      icon: '🌌',
+      shortLabel: 'TƯƠNG LAI',
+      name: 'Tương Lai • Hạm Đội Cơ Giáp',
+      kanji: '未来宇宙',
+      sub: 'Vũ Trụ Vô Cực & Binh Đoàn Robot (36 Cơ Giáp)',
+      chapterNum: 8,
+      startLevel: 71,
+      endLevel: 80,
+      collections: ['space', 'robot'],
       themeColor: 0x7209b7,
       accentColor: '#4cc9f0',
-      chapters: [
+      subChapters: [
         { name: 'TRẠM THÁM HIỂM', sub: 'Space Station' },
-        { name: 'TINH VÂN HUYỀN BÍ', sub: 'Nebula Wonders' }
-      ]
-    },
-    robot: {
-      id: 'robot',
-      name: 'Xưởng Robot',
-      kanji: 'ロボット工場',
-      icon: '🤖',
-      tabLabel: '🤖 ROBOT',
-      total: 18,
-      themeColor: 0xffa200,
-      accentColor: '#ffd166',
-      chapters: [
+        { name: 'TINH VÂN HUYỀN BÍ', sub: 'Nebula Wonders' },
         { name: 'ĐỘI THỢ MÁY NHÍ', sub: 'Workshop Crew' },
         { name: 'DÂY CHUYỀN TỰ ĐỘNG', sub: 'Heavy Assembly' }
       ]
     },
-    animal: {
-      id: 'animal',
-      name: 'Thế Giới Động Vật',
-      kanji: '動物王国',
-      icon: '🐾',
-      tabLabel: '🐾 ĐỘNG VẬT',
-      total: 45,
-      themeColor: 0x2a9d8f,
-      accentColor: '#ffd166',
-      chapters: [
-        { name: 'THÚ CƯNG ĐÁNG YÊU', sub: 'Cute Pets' },
-        { name: 'THẢO NGUYÊN SAVANNA', sub: 'African Savanna' },
-        { name: 'NÔNG TRẠI THÂN THƯƠNG', sub: 'Happy Farm' },
-        { name: 'RỪNG RẬM NHIỆT ĐỚI', sub: 'Tropical Jungle' },
-        { name: 'BĂNG TUYẾT BẮC CỰC', sub: 'Arctic Wonderland' }
+    chaos: {
+      id: 'chaos',
+      icon: '🌀',
+      shortLabel: 'HỖN ĐỘN',
+      name: 'Hỗn Độn • Đại Loạn Đấu Vạn Giới',
+      kanji: '混沌の境',
+      sub: 'Vết Nứt Đa Chiều & Cuộc Chiến Xuyên Không (Quái Thú Đa Vũ Trụ)',
+      chapterNum: 9,
+      startLevel: 81,
+      endLevel: 90,
+      collections: ['monster', 'fantasy', 'space', 'egypt', 'greece', 'yokai'],
+      themeColor: 0x9b5de5,
+      accentColor: '#f15bb5',
+      subChapters: [
+        { name: 'VẾT NỨT ĐA CHIỀU', sub: 'Dimension Rift' },
+        { name: 'MA THÚ NGUYÊN SINH', sub: 'Primordial Fiends' },
+        { name: 'TINH ANH HẮC ÁM', sub: 'Dark Elite' },
+        { name: 'CUỘC CHIẾN VÔ TẬN', sub: 'Eternal Clash' }
       ]
     },
-    plant: {
-      id: 'plant',
-      name: 'Vương Quốc Thực Vật',
-      kanji: '植物王国',
-      icon: '🌱',
-      tabLabel: '🌱 THỰC VẬT',
-      total: 18,
-      themeColor: 0x2d6a4f,
-      accentColor: '#52b788',
-      chapters: [
-        { name: 'HOA THƠM & TRÁI NGỌT', sub: 'Blossom Garden' },
-        { name: 'KỲ HOA & THẦN RỪNG', sub: 'Mystic Flora' }
+    bosses: {
+      id: 'bosses',
+      icon: '👑',
+      shortLabel: 'TỐI THƯỢNG',
+      name: 'Tối Thượng • 16 Cự Trùm Tối Cao',
+      kanji: '最高覇王',
+      sub: 'Vương Toạ Thần Thoại & Hộ Vệ Tối Cao (16 Đại Trùm)',
+      chapterNum: 10,
+      startLevel: 91,
+      endLevel: 100,
+      collections: ['all'],
+      themeColor: 0xffd166,
+      accentColor: '#ffffff',
+      subChapters: [
+        { name: 'BÁT ĐẠI MA THẦN', sub: 'Trùm Màn 1 - 50' },
+        { name: 'BÁT ĐẠI TỐI THƯỢNG', sub: 'Trùm Màn 51 - 100' }
       ]
     }
   };
 
-  public currentThemeId: 'yokai' | 'egypt' | 'greece' | 'wuxia' | 'korea' | 'india' | 'sea' | 'pirate' | 'underwater' | 'dinosaur' | 'monster' | 'fantasy' | 'space' | 'robot' | 'animal' | 'plant' = 'yokai';
+  public currentRealmId: string = 'all';
   public currentTab: number = 0;
-  private currentActiveFilter: string = 'all';
   private currentSidebarTab: string = 'yokai_library';
 
   // Containers
@@ -279,20 +291,22 @@ export class CollectionScene extends Phaser.Scene {
   private chapterNavContainer!: Phaser.GameObjects.Container;
   private gridContainer!: Phaser.GameObjects.Container;
 
+  // Header Elements
+  private mainTitleText!: Phaser.GameObjects.Text;
+  private subTitleText!: Phaser.GameObjects.Text;
+
   constructor() {
     super('CollectionScene');
   }
 
-  public init(data?: { themeId?: 'yokai' | 'egypt' | 'greece' | 'wuxia' | 'korea' | 'india' | 'sea' | 'pirate' | 'underwater' | 'dinosaur' | 'monster' | 'fantasy' | 'space' | 'robot' | 'animal' | 'plant' }): void {
-    const save = SaveSystem.getInstance();
-    const activeTheme = (data && data.themeId) || (save ? save.getSelectedTheme() : 'yokai');
-    if (this.THEMES_CONFIG[activeTheme as keyof typeof this.THEMES_CONFIG]) {
-      this.currentThemeId = activeTheme as any;
+  public init(data?: { realmId?: string; themeId?: string }): void {
+    const targetRealm = (data && (data.realmId || data.themeId)) || 'all';
+    if (this.REALMS_CONFIG[targetRealm]) {
+      this.currentRealmId = targetRealm;
     } else {
-      this.currentThemeId = 'yokai';
+      this.currentRealmId = 'all';
     }
     this.currentTab = 0;
-    this.currentActiveFilter = 'all';
     this.currentSidebarTab = 'yokai_library';
   }
 
@@ -332,7 +346,7 @@ export class CollectionScene extends Phaser.Scene {
     this.sidebarContainer = this.add.container(0, 0);
     this.renderSidebar();
 
-    // 4. Sub-Filter Pills Row (Horizontal Category Chips)
+    // 4. Realm / World Filter Pills Row (Horizontal Category Chips)
     this.filterBarContainer = this.add.container(0, 0);
     this.renderFilterBar();
 
@@ -389,12 +403,12 @@ export class CollectionScene extends Phaser.Scene {
     });
 
     // 2. Grand Calligraphic Center Title
-    const cfg = this.THEMES_CONFIG[this.currentThemeId];
+    const realm = this.REALMS_CONFIG[this.currentRealmId] || this.REALMS_CONFIG['all'];
     const titleY = 24;
 
-    const mainTitle = this.add.text(width / 2, titleY, cfg.name, {
+    this.mainTitleText = this.add.text(width / 2, titleY, realm.name, {
       fontFamily: 'Zen Maru Gothic, Plus Jakarta Sans, sans-serif',
-      fontSize: '26px',
+      fontSize: '25px',
       fontStyle: '900',
       color: '#ffffff',
       stroke: '#c1121f',
@@ -410,9 +424,13 @@ export class CollectionScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Decorative Subtitle
-    this.add.text(width / 2, titleY + 22, `✦  🌸  ${cfg.kanji}  🌸  ✦`, {
+    const subStr = realm.id === 'all'
+      ? '✦  🌸  万界図鑑 • TOÀN THƯ SINH LINH VẠN GIỚI  🌸  ✦'
+      : `✦  🌸  ${realm.kanji}  •  ${realm.sub}  🌸  ✦`;
+
+    this.subTitleText = this.add.text(width / 2, titleY + 22, subStr, {
       fontFamily: 'Zen Maru Gothic, serif',
-      fontSize: '13px',
+      fontSize: '12.5px',
       fontStyle: 'bold',
       color: '#ffccd5'
     }).setOrigin(0.5);
@@ -492,13 +510,27 @@ export class CollectionScene extends Phaser.Scene {
   }
 
   /**
-   * Left Sidebar Navigation matching Image 2
+   * Dynamically update title and subtitle when realm changes
+   */
+  private updateHeaderTitle(): void {
+    const realm = this.REALMS_CONFIG[this.currentRealmId] || this.REALMS_CONFIG['all'];
+    if (!this.mainTitleText || !this.subTitleText) return;
+
+    this.mainTitleText.setText(realm.name);
+    const subStr = realm.id === 'all'
+      ? '✦  🌸  万界図鑑 • TOÀN THƯ SINH LINH VẠN GIỚI  🌸  ✦'
+      : `✦  🌸  ${realm.kanji}  •  ${realm.sub}  🌸  ✦`;
+    this.subTitleText.setText(subStr);
+  }
+
+  /**
+   * Left Sidebar Navigation
    */
   private renderSidebar(): void {
     this.sidebarContainer.removeAll(true);
 
     const tabs = [
-      { id: 'yokai_library', icon: '⛩️', label: 'Thư Viện Yokai' },
+      { id: 'yokai_library', icon: '🌐', label: 'Thư Viện Vạn Giới' },
       { id: 'relics', icon: '🏺', label: 'Thần Khí Cổ Vật' },
       { id: 'badges', icon: '🎖️', label: 'Huy Hiệu Quái' },
       { id: 'companions', icon: '🦊', label: 'Linh Thú' },
@@ -521,24 +553,20 @@ export class CollectionScene extends Phaser.Scene {
       const bg = this.add.graphics();
 
       if (isAct) {
-        // Red / Coral Radiant Glowing Pill
         bg.fillStyle(0xd90429, 0.95);
         bg.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
         bg.lineStyle(1.8, 0xffd166, 0.95);
         bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
 
-        // Little gold indicator dot on right with clean padding
         bg.fillStyle(0xffd700, 1);
         bg.fillCircle(tabW / 2 - 10, 0, 3.5);
       } else {
-        // Dark Translucent Glass Pill
         bg.fillStyle(0x131124, 0.85);
         bg.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
         bg.lineStyle(1.2, 0x3d3a54, 0.65);
         bg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 12);
       }
 
-      // Icon & Label
       const iconTxt = this.add.text(-tabW / 2 + 10, 0, tabItem.icon, {
         fontSize: '17px'
       }).setOrigin(0, 0.5);
@@ -602,56 +630,59 @@ export class CollectionScene extends Phaser.Scene {
   }
 
   /**
-   * Top Sub-Filter Pills (Horizontal Category Chips) matching Image 2
+   * Top 11 Realm / World Filter Pills
    */
   private renderFilterBar(): void {
     this.filterBarContainer.removeAll(true);
 
-    const categories = [
-      { id: 'all', icon: '🪟', label: 'TẤT CẢ' },
-      { id: 'spirit', icon: '🕊️', label: 'LINH GIỚI' },
-      { id: 'yokai', icon: '🔥', label: 'YÊU QUÁI' },
-      { id: 'mythic', icon: '👑', label: 'THẦN THOẠI' },
-      { id: 'phantom', icon: '👹', label: 'PHẢN QUÁI' },
-      { id: 'ally', icon: '👥', label: 'ĐỒNG NỘI' },
-      { id: 'dark', icon: '🌑', label: 'HẮC ÁM' },
-      { id: 'guardian', icon: '🛡️', label: 'THỦ HỘ' },
-      { id: 'legend', icon: '🌟', label: 'TRUYỀN THUYẾT' },
-      { id: 'fantasy', icon: '🪽', label: 'FANTASY' },
-      { id: 'other', icon: '✢', label: 'KHÁC' }
+    const realmsList = [
+      this.REALMS_CONFIG['all'],
+      this.REALMS_CONFIG['yokai'],
+      this.REALMS_CONFIG['egypt'],
+      this.REALMS_CONFIG['greece'],
+      this.REALMS_CONFIG['wuxia'],
+      this.REALMS_CONFIG['india'],
+      this.REALMS_CONFIG['sea'],
+      this.REALMS_CONFIG['dinosaur'],
+      this.REALMS_CONFIG['space'],
+      this.REALMS_CONFIG['chaos'],
+      this.REALMS_CONFIG['bosses']
     ];
 
     const contentLeft = 185;
     const contentW = 875;
     const barY = 82;
     const pillH = 30;
-    const pillSpacing = Math.floor(contentW / categories.length);
+    const pillSpacing = Math.floor(contentW / realmsList.length);
+    const highestLevel = this.save.getHighestLevel();
 
-    categories.forEach((cat, idx) => {
-      const isAct = cat.id === this.currentActiveFilter;
+    realmsList.forEach((realm, idx) => {
+      const isAct = realm.id === this.currentRealmId;
       const pillX = contentLeft + idx * pillSpacing + pillSpacing / 2;
-      const pillW = pillSpacing - 5;
+      const pillW = pillSpacing - 4;
+      const isLevelLocked = realm.id !== 'all' && highestLevel < realm.startLevel;
 
       const pillBtn = this.add.container(pillX, barY);
       const bg = this.add.graphics();
 
       if (isAct) {
-        bg.fillStyle(0xd90429, 0.95);
-        bg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 10);
-        bg.lineStyle(1.5, 0xffd166, 0.95);
-        bg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 10);
+        bg.fillStyle(realm.themeColor || 0xd90429, 0.95);
+        bg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 9);
+        bg.lineStyle(1.6, 0xffd166, 0.95);
+        bg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 9);
       } else {
         bg.fillStyle(0x131124, 0.85);
-        bg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 10);
+        bg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 9);
         bg.lineStyle(1, 0x3a3652, 0.6);
-        bg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 10);
+        bg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 9);
       }
 
-      const txt = this.add.text(0, 0, `${cat.icon} ${cat.label}`, {
+      const lockPrefix = isLevelLocked ? '🔒 ' : '';
+      const txt = this.add.text(0, 0, `${lockPrefix}${realm.icon} ${realm.shortLabel}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12.5px',
+        fontSize: '10.5px',
         fontStyle: '900',
-        color: isAct ? '#ffffff' : '#ced4da'
+        color: isAct ? '#ffffff' : (isLevelLocked ? '#8d99ae' : '#ced4da')
       }).setOrigin(0.5);
 
       pillBtn.add([bg, txt]);
@@ -659,8 +690,12 @@ export class CollectionScene extends Phaser.Scene {
 
       pillBtn.on('pointerdown', () => {
         this.audio.playSelect();
-        this.currentActiveFilter = cat.id;
+        this.currentRealmId = realm.id;
+        this.currentTab = 0;
+        this.updateHeaderTitle();
         this.renderFilterBar();
+        this.renderProgressCard();
+        this.renderChapterNav();
         this.renderCurrentTabGrid();
       });
 
@@ -669,22 +704,129 @@ export class CollectionScene extends Phaser.Scene {
   }
 
   /**
-   * Collection Progress Bar Row matching Image 2
+   * Helper to get boss characters from bosses.json mapped to CharacterData
+   */
+  private getBossCharacters(): CharacterData[] {
+    const list = bossesData as any[];
+    return list.map(b => ({
+      id: b.id,
+      name: b.name,
+      japaneseName: b.native_name || b.title,
+      collection: 'bosses',
+      chapter: 10,
+      chapterId: 'chapter_10_bosses',
+      rarity: 'legendary' as Rarity,
+      element: (b.element || 'spirit') as ElementType,
+      description: b.desc || `Đại Cự Trùm ${b.name} ngự trị tại ${b.title}.`,
+      palette: {
+        bg: '#181428',
+        primary: '#ffd700',
+        accent: '#e63946',
+        glow: '#ffb703'
+      },
+      symbol: b.symbol || '👑'
+    }));
+  }
+
+  /**
+   * Helper to retrieve characters for the active tab/sub-chapter
+   */
+  private getCharactersForActiveTab(): CharacterData[] {
+    const realm = this.REALMS_CONFIG[this.currentRealmId] || this.REALMS_CONFIG['all'];
+    const allCharacters = CharacterRegistry.getAll();
+
+    if (realm.id === 'all') {
+      const chIdx = this.currentTab; // 0 to 9
+      const chNum = chIdx + 1;
+      const chConfig = LevelManager.CHAPTERS[chIdx];
+      if (chConfig) {
+        if (chConfig.worldId === 'underwater' && chNum === 10) {
+          return this.getBossCharacters().slice(0, 10);
+        }
+        let chChars: CharacterData[] = [];
+        if (chConfig.primaryCollection === 'all') {
+          chChars = allCharacters.filter(c => chConfig.sisterCollections.includes(c.collection));
+        } else {
+          chChars = allCharacters.filter(c => c.collection === chConfig.primaryCollection || chConfig.sisterCollections.includes(c.collection));
+        }
+        return chChars.slice(0, 10);
+      }
+      return allCharacters.slice(this.currentTab * 10, (this.currentTab + 1) * 10);
+    }
+
+    if (realm.id === 'bosses') {
+      const bosses = this.getBossCharacters();
+      const start = this.currentTab * 8;
+      return bosses.slice(start, start + 8);
+    }
+
+    if (realm.id === 'chaos') {
+      const chaosPool = allCharacters.filter(c =>
+        ['monster', 'fantasy', 'space', 'egypt', 'greece', 'yokai'].includes(c.collection) &&
+        (c.rarity === 'epic' || c.rarity === 'legendary' || c.rarity === 'rare')
+      );
+      const start = this.currentTab * 10;
+      return chaosPool.slice(start, start + 10);
+    }
+
+    if (realm.id === 'yokai') {
+      const chNum = this.currentTab + 1;
+      return allCharacters.filter(c => c.collection === 'yokai' && c.chapter === chNum);
+    }
+
+    const realmCharacters = allCharacters.filter(c => realm.collections.includes(c.collection));
+    const start = this.currentTab * 10;
+    return realmCharacters.slice(start, start + 10);
+  }
+
+  /**
+   * Helper to determine exact level requirement for a character
+   */
+  private getCharacterLevelRequirement(char: CharacterData, realm: any): { startLevel: number; endLevel: number } {
+    if (realm.id === 'bosses' || char.collection === 'bosses') return { startLevel: 91, endLevel: 100 };
+    if (realm.id === 'chaos') return { startLevel: 81, endLevel: 90 };
+    if (char.collection === 'yokai') return { startLevel: 1, endLevel: 10 };
+    if (char.collection === 'egypt' || char.collection === 'animal') return { startLevel: 11, endLevel: 20 };
+    if (char.collection === 'greece' || char.collection === 'fantasy') return { startLevel: 21, endLevel: 30 };
+    if (char.collection === 'wuxia' || char.collection === 'korea') return { startLevel: 31, endLevel: 40 };
+    if (char.collection === 'india' || char.collection === 'plant') return { startLevel: 41, endLevel: 50 };
+    if (char.collection === 'pirate' || char.collection === 'underwater' || char.collection === 'sea') return { startLevel: 51, endLevel: 60 };
+    if (char.collection === 'dinosaur' || char.collection === 'monster') return { startLevel: 61, endLevel: 70 };
+    if (char.collection === 'space' || char.collection === 'robot') return { startLevel: 71, endLevel: 80 };
+    return { startLevel: realm.startLevel || 1, endLevel: realm.endLevel || 10 };
+  }
+
+  /**
+   * Collection Progress Bar Row
    */
   private renderProgressCard(): void {
     this.progressContainer.removeAll(true);
 
-    const cfg = this.THEMES_CONFIG[this.currentThemeId];
+    const realm = this.REALMS_CONFIG[this.currentRealmId] || this.REALMS_CONFIG['all'];
     const allCharacters = CharacterRegistry.getAll();
-    const themeCharacters = allCharacters.filter(c => c.collection === this.currentThemeId);
     const discovered = this.save.getData().discoveredCharacters;
+    const highestLevel = this.save.getHighestLevel();
+
+    let targetCharacters: CharacterData[] = [];
+    if (realm.id === 'all') {
+      targetCharacters = allCharacters;
+    } else if (realm.id === 'bosses') {
+      targetCharacters = this.getBossCharacters();
+    } else if (realm.id === 'chaos') {
+      targetCharacters = allCharacters.filter(c =>
+        ['monster', 'fantasy', 'space', 'egypt', 'greece', 'yokai'].includes(c.collection) &&
+        (c.rarity === 'epic' || c.rarity === 'legendary' || c.rarity === 'rare')
+      );
+    } else {
+      targetCharacters = allCharacters.filter(c => realm.collections.includes(c.collection));
+    }
 
     let discoveredCount = 0;
-    themeCharacters.forEach(c => {
+    targetCharacters.forEach(c => {
       if (discovered[c.id]) discoveredCount++;
     });
 
-    const totalCount = themeCharacters.length || cfg.total;
+    const totalCount = targetCharacters.length || 1;
     const completionPct = Math.round((discoveredCount / totalCount) * 100);
 
     const cardY = 114;
@@ -699,30 +841,41 @@ export class CollectionScene extends Phaser.Scene {
     pBg.lineStyle(1, 0x38344e, 0.6);
     pBg.strokeRoundedRect(-cardW / 2, -14, cardW, 28, 10);
 
-    const pLabel = this.add.text(-cardW / 2 + 18, 0, `TIẾN ĐỘ THU PHỤC ${cfg.id.toUpperCase()}:`, {
+    const pLabel = this.add.text(-cardW / 2 + 18, 0, `TIẾN ĐỘ THU PHỤC ${realm.shortLabel}:`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '12px',
       fontStyle: '800',
       color: '#adb5bd'
     }).setOrigin(0, 0.5);
 
-    const pValue = this.add.text(cardW / 2 - 18, 0, `${discoveredCount} / ${totalCount} (${completionPct}%)`, {
+    let rightStatusText = `${discoveredCount} / ${totalCount} (${completionPct}%)`;
+    if (realm.id !== 'all') {
+      const isLevelUnlocked = highestLevel >= realm.startLevel;
+      const statusPill = isLevelUnlocked
+        ? `✓ Mở (Màn ${realm.startLevel}-${realm.endLevel})`
+        : `🔒 Cần Màn ${realm.startLevel}`;
+      rightStatusText = `${statusPill}   •   ${discoveredCount}/${totalCount} (${completionPct}%)`;
+    } else {
+      rightStatusText = `Màn cao nhất: ${highestLevel}/100   •   ${discoveredCount}/${totalCount} (${completionPct}%)`;
+    }
+
+    const pValue = this.add.text(cardW / 2 - 18, 0, rightStatusText, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(1, 0.5);
 
     // Glowing Progress Bar in Middle
-    const barX = -cardW / 2 + 230;
-    const barW = cardW - 390;
+    const barX = -cardW / 2 + 205;
+    const barW = cardW - 530;
     const pFillBg = this.add.graphics();
     pFillBg.fillStyle(0x1a192e, 1);
     pFillBg.fillRoundedRect(barX, -3.5, barW, 7, 3.5);
 
     const pFill = this.add.graphics();
     const fillWidth = barW * Math.min(1, discoveredCount / totalCount);
-    pFill.fillStyle(0xe63946, 1);
+    pFill.fillStyle(realm.themeColor || 0xd90429, 1);
     pFill.fillRoundedRect(barX, -3.5, Math.max(6, fillWidth), 7, 3.5);
 
     pCard.add([pBg, pLabel, pValue, pFillBg, pFill]);
@@ -730,19 +883,20 @@ export class CollectionScene extends Phaser.Scene {
   }
 
   /**
-   * Chapter Navigation Bar & Jump Pills matching Image 2
+   * Chapter Navigation Bar & Jump Pills
    */
   public renderChapterNav(): void {
     this.chapterNavContainer.removeAll(true);
 
-    const cfg = this.THEMES_CONFIG[this.currentThemeId];
-    const chapters = cfg.chapters;
+    const realm = this.REALMS_CONFIG[this.currentRealmId] || this.REALMS_CONFIG['all'];
+    const subChapters = realm.subChapters;
+    const highestLevel = this.save.getHighestLevel();
 
-    if (this.currentTab >= chapters.length) {
+    if (this.currentTab >= subChapters.length) {
       this.currentTab = 0;
     }
 
-    const currentCh = chapters[this.currentTab];
+    const currentSub = subChapters[this.currentTab];
     const contentLeft = 185;
     const barW = 875;
     const barCenterX = contentLeft + barW / 2;
@@ -771,20 +925,11 @@ export class CollectionScene extends Phaser.Scene {
     prevBtn.setSize(28, 20).setInteractive({ useHandCursor: true });
     prevBtn.on('pointerdown', () => {
       this.audio.playSelect();
-      this.currentTab = (this.currentTab - 1 + chapters.length) % chapters.length;
+      this.currentTab = (this.currentTab - 1 + subChapters.length) % subChapters.length;
       this.renderChapterNav();
       this.renderCurrentTabGrid();
     });
     this.chapterNavContainer.add(prevBtn);
-
-    // Chapter Title
-    const titleText = this.add.text(barCenterX, barY, `CHƯƠNG ${this.currentTab + 1}/${chapters.length}: ⛩️ ${currentCh.name}  •  ${currentCh.sub.toUpperCase()}`, {
-      fontFamily: 'Zen Maru Gothic, sans-serif',
-      fontSize: '14px',
-      fontStyle: '900',
-      color: '#ffffff'
-    }).setOrigin(0.5);
-    this.chapterNavContainer.add(titleText);
 
     // Next Button ▶
     const nextBtn = this.add.container(barCenterX + barW / 2 - 22, barY);
@@ -801,25 +946,56 @@ export class CollectionScene extends Phaser.Scene {
     nextBtn.setSize(28, 20).setInteractive({ useHandCursor: true });
     nextBtn.on('pointerdown', () => {
       this.audio.playSelect();
-      this.currentTab = (this.currentTab + 1) % chapters.length;
+      this.currentTab = (this.currentTab + 1) % subChapters.length;
       this.renderChapterNav();
       this.renderCurrentTabGrid();
     });
     this.chapterNavContainer.add(nextBtn);
 
-    // Row of Chapter Numbers [ 1 ] [ 2 ] ... [ 12 ]
+    // Center Title Text
+    let titleString = '';
+    if (realm.id === 'all') {
+      const chIdx = this.currentTab;
+      const chLvlStart = chIdx * 10 + 1;
+      const chLvlEnd = (chIdx + 1) * 10;
+      const isChUnlocked = highestLevel >= chLvlStart;
+      const lockIndicator = isChUnlocked ? '✓ ĐÃ MỞ' : `🔒 CẦN VƯỢT MÀN ${chLvlStart - 1}`;
+      titleString = `CHƯƠNG ${chIdx + 1}/10: ${currentSub.name.toUpperCase()} (MÀN ${chLvlStart} - ${chLvlEnd}) • ${lockIndicator}`;
+    } else {
+      const isRealmUnlocked = highestLevel >= realm.startLevel;
+      const lockIndicator = isRealmUnlocked ? '✓ ĐÃ MỞ' : `🔒 CẦN VƯỢT MÀN ${realm.startLevel - 1}`;
+      titleString = `TRANG ${this.currentTab + 1}/${subChapters.length}: ${realm.icon} ${currentSub.name.toUpperCase()} • ${currentSub.sub.toUpperCase()} (MÀN ${realm.startLevel} - ${realm.endLevel}) • ${lockIndicator}`;
+    }
+
+    const titleText = this.add.text(barCenterX, barY, titleString, {
+      fontFamily: 'Zen Maru Gothic, sans-serif',
+      fontSize: '13px',
+      fontStyle: '900',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    this.chapterNavContainer.add(titleText);
+
+    // Row of Chapter / Page Number Pills [ 1 ] [ 2 ] ... [ N ]
     const chipsY = 180;
-    const chipSpacing = Math.min(54, Math.floor(barW / chapters.length));
-    const totalChipsW = chapters.length * chipSpacing;
+    const chipSpacing = Math.min(54, Math.floor(barW / subChapters.length));
+    const totalChipsW = subChapters.length * chipSpacing;
     const chipStartX = barCenterX - totalChipsW / 2 + chipSpacing / 2;
 
-    chapters.forEach((ch, idx) => {
+    subChapters.forEach((_, idx) => {
       const chip = this.add.container(chipStartX + idx * chipSpacing, chipsY);
       const isAct = idx === this.currentTab;
 
+      let isLocked = false;
+      if (realm.id === 'all') {
+        const startLvl = idx * 10 + 1;
+        isLocked = highestLevel < startLvl;
+      } else {
+        isLocked = highestLevel < realm.startLevel;
+      }
+
       const cBg = this.add.graphics();
       if (isAct) {
-        cBg.fillStyle(0xd90429, 1);
+        cBg.fillStyle(realm.themeColor || 0xd90429, 1);
         cBg.fillRoundedRect(-chipSpacing / 2 + 3, -10, chipSpacing - 6, 20, 6);
         cBg.lineStyle(1.5, 0xffd700, 1);
         cBg.strokeRoundedRect(-chipSpacing / 2 + 3, -10, chipSpacing - 6, 20, 6);
@@ -830,11 +1006,12 @@ export class CollectionScene extends Phaser.Scene {
         cBg.strokeRoundedRect(-chipSpacing / 2 + 3, -10, chipSpacing - 6, 20, 6);
       }
 
-      const cTxt = this.add.text(0, 0, `${idx + 1}`, {
+      const labelText = isLocked && realm.id === 'all' ? `🔒${idx + 1}` : `${idx + 1}`;
+      const cTxt = this.add.text(0, 0, labelText, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12.5px',
+        fontSize: '12px',
         fontStyle: '900',
-        color: isAct ? '#ffffff' : '#8d99ae'
+        color: isAct ? '#ffffff' : (isLocked ? '#6c757d' : '#adb5bd')
       }).setOrigin(0.5);
 
       chip.add([cBg, cTxt]);
@@ -853,40 +1030,22 @@ export class CollectionScene extends Phaser.Scene {
   }
 
   /**
-   * Render 10 Cards in 2 Rows x 5 Columns matching Image 2
+   * Render 10 Cards in 2 Rows x 5 Columns
    */
   public renderCurrentTabGrid(): void {
     this.gridContainer.removeAll(true);
 
-    const allCharacters = CharacterRegistry.getAll();
+    const realm = this.REALMS_CONFIG[this.currentRealmId] || this.REALMS_CONFIG['all'];
+    const tabCharacters = this.getCharactersForActiveTab();
     const discovered = this.save.getData().discoveredCharacters;
-
-    // Filter characters strictly by active collection and chapter number
-    const chapterNum = this.currentTab + 1;
-    let tabCharacters = allCharacters.filter(c => c.collection === this.currentThemeId && c.chapter === chapterNum);
-
-    // Apply sub-filter if active
-    if (this.currentActiveFilter !== 'all') {
-      tabCharacters = tabCharacters.filter(c => {
-        if (this.currentActiveFilter === 'spirit') return c.element === 'wind' || c.element === 'spirit';
-        if (this.currentActiveFilter === 'yokai') return c.rarity === 'common' || c.rarity === 'uncommon';
-        if (this.currentActiveFilter === 'mythic') return c.rarity === 'legendary' || c.rarity === 'epic';
-        if (this.currentActiveFilter === 'phantom') return c.element === 'thunder' || c.element === 'spirit';
-        if (this.currentActiveFilter === 'ally') return !!COMPANIONS[c.id];
-        return true;
-      });
-    }
 
     const contentLeft = 185;
     const cardW = 160;
     const cardH = 195;
     const gapX = 16;
-    const gapY = 14;
-
     const row0Y = 305;
     const row1Y = 514;
 
-    // Render real characters per chapter (5 cards in Row 0, 4 cards centered symmetrically in Row 1)
     const totalCols = 5;
     const row0Count = Math.min(5, tabCharacters.length);
     const row1Count = Math.max(0, tabCharacters.length - row0Count);
@@ -895,7 +1054,6 @@ export class CollectionScene extends Phaser.Scene {
       const isSecondRow = slot >= 5;
       const col = isSecondRow ? slot - 5 : slot;
 
-      // Symmetrically center row 1 cards under row 0's 5 cards
       const rowOffsetX = isSecondRow && row1Count < totalCols
         ? ((totalCols - row1Count) * (cardW + gapX)) / 2
         : 0;
@@ -904,13 +1062,14 @@ export class CollectionScene extends Phaser.Scene {
       const posY = isSecondRow ? row1Y : row0Y;
 
       const isDiscovered = !!discovered[char.id];
-      const card = this.createCharacterCard(posX, posY, cardW, cardH, char, isDiscovered);
+      const lvlReq = this.getCharacterLevelRequirement(char, realm);
+      const card = this.createCharacterCard(posX, posY, cardW, cardH, char, isDiscovered, realm, lvlReq);
       this.gridContainer.add(card);
     });
   }
 
   /**
-   * Create an authentic Character Card matching Image 2
+   * Create an authentic Character Card with clear level requirement
    */
   private createCharacterCard(
     x: number,
@@ -918,14 +1077,15 @@ export class CollectionScene extends Phaser.Scene {
     w: number,
     h: number,
     char: CharacterData,
-    isDiscovered: boolean
+    isDiscovered: boolean,
+    realm: any,
+    lvlReq: { startLevel: number; endLevel: number }
   ): Phaser.GameObjects.Container {
     const container = this.add.container(x, y);
     const bg = this.add.graphics();
     const rarityColor = CharacterRegistry.getRarityColor(char.rarity);
 
     if (isDiscovered) {
-      // Unlocked Translucent Glass Card
       bg.fillStyle(0x141326, 0.88);
       bg.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
       bg.lineStyle(1.8, rarityColor, 0.95);
@@ -960,18 +1120,18 @@ export class CollectionScene extends Phaser.Scene {
         color: '#ffffff'
       }).setOrigin(0.5);
 
-      // Kanji Japanese Name
-      const kanji = this.add.text(0, 58, char.japaneseName, {
+      // Kanji / Subtitle
+      const kanji = this.add.text(0, 58, char.japaneseName || '', {
         fontFamily: 'Zen Maru Gothic, sans-serif',
-        fontSize: '12.5px',
+        fontSize: '12px',
         fontStyle: 'bold',
         color: '#ced4da'
       }).setOrigin(0.5);
 
-      // Rarity Label
-      const rarityBadge = this.add.text(0, 77, CharacterRegistry.getRarityName(char.rarity), {
+      // Footer: Rarity & Level Span
+      const rarityBadge = this.add.text(0, 77, `${CharacterRegistry.getRarityName(char.rarity)} • Màn ${lvlReq.startLevel}-${lvlReq.endLevel}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '11px',
         fontStyle: '900',
         color: `#${rarityColor.toString(16).padStart(6, '0')}`
       }).setOrigin(0.5);
@@ -993,10 +1153,10 @@ export class CollectionScene extends Phaser.Scene {
 
       container.on('pointerdown', () => {
         this.audio.playSelect();
-        this.showCharacterModal(char);
+        this.showCharacterModal(char, true, realm, lvlReq);
       });
     } else {
-      // Locked Card with Grayscale Black-and-White Art (màu xám trắng đen & làm mờ)
+      // Locked Card with Grayscale Black-and-White Art & Blur
       bg.fillStyle(0x101117, 0.94);
       bg.fillRoundedRect(-w / 2, -h / 2, w, h, 14);
       bg.lineStyle(1.4, 0x414552, 0.65);
@@ -1013,7 +1173,7 @@ export class CollectionScene extends Phaser.Scene {
         fontSize: '11px'
       }).setOrigin(1, 0).setAlpha(0.5);
 
-      // Center Character Sprite Image - Pure Grayscale / Black & White + Soft Blur/Alpha
+      // Center Character Sprite Image - Grayscale
       const grayKey = TextureGenerator.ensureGrayscaleCharacterTexture(this, char.id);
       let charVisual: Phaser.GameObjects.GameObject;
       if (this.textures.exists(grayKey)) {
@@ -1039,20 +1199,20 @@ export class CollectionScene extends Phaser.Scene {
         color: '#ced4da'
       }).setOrigin(0.5);
 
-      // Kanji Japanese Name (Subtle gray)
-      const kanji = this.add.text(0, 58, char.japaneseName, {
+      // Subtitle
+      const kanji = this.add.text(0, 58, char.japaneseName || '', {
         fontFamily: 'Zen Maru Gothic, sans-serif',
-        fontSize: '12px',
+        fontSize: '11.5px',
         fontStyle: 'bold',
         color: '#6c757d'
       }).setOrigin(0.5);
 
-      // Rarity Label with Lock Status (Monochrome Slate)
-      const rarityBadge = this.add.text(0, 77, `🔒 ${CharacterRegistry.getRarityName(char.rarity)} • Khóa`, {
+      // Explicit Level Requirement Footer
+      const rarityBadge = this.add.text(0, 77, `🔒 Mở tại Màn ${lvlReq.startLevel}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '10.5px',
+        fontSize: '11px',
         fontStyle: 'bold',
-        color: '#718096'
+        color: '#ffd166'
       }).setOrigin(0.5);
 
       container.add([bg, lockBadge, elemTxt, charVisual, name, kanji, rarityBadge]);
@@ -1072,7 +1232,7 @@ export class CollectionScene extends Phaser.Scene {
 
       container.on('pointerdown', () => {
         this.audio.playSelect();
-        this.showCharacterModal(char, false);
+        this.showCharacterModal(char, false, realm, lvlReq);
       });
     }
 
@@ -1124,14 +1284,20 @@ export class CollectionScene extends Phaser.Scene {
       case 'earth': return '🌿';
       case 'thunder': return '⚡';
       case 'spirit': return '🔮';
+      case 'dark': return '🌑';
       default: return '✦';
     }
   }
 
   /**
-   * Character Detailed Modal (Supports inspecting locked cards and companions!)
+   * Character Detailed Modal with Campaign Stage Direct Jump
    */
-  private showCharacterModal(char: CharacterData, isDiscovered: boolean = true): void {
+  private showCharacterModal(
+    char: CharacterData,
+    isDiscovered: boolean = true,
+    realm: any = this.REALMS_CONFIG['all'],
+    lvlReq: { startLevel: number; endLevel: number } = { startLevel: 1, endLevel: 10 }
+  ): void {
     if (this.modalContainer) {
       this.modalContainer.destroy();
       this.modalContainer = null;
@@ -1140,6 +1306,7 @@ export class CollectionScene extends Phaser.Scene {
     const width = GAME_WIDTH;
     const height = GAME_HEIGHT;
     const { width: screenW } = getScreenDimensions();
+    const highestLevel = this.save.getHighestLevel();
 
     this.modalContainer = this.add.container(width / 2, height / 2).setDepth(200);
 
@@ -1155,77 +1322,92 @@ export class CollectionScene extends Phaser.Scene {
     const card = this.add.graphics();
     const rarityColor = CharacterRegistry.getRarityColor(char.rarity);
     card.fillStyle(0x161426, 0.96);
-    card.fillRoundedRect(-280, -200, 560, 400, 20);
+    card.fillRoundedRect(-290, -210, 580, 420, 20);
     card.lineStyle(2.5, rarityColor, 1);
-    card.strokeRoundedRect(-280, -200, 560, 400, 20);
+    card.strokeRoundedRect(-290, -210, 580, 420, 20);
 
     // Left side: Large character portrait
     TextureGenerator.ensureCharacterTexture(this, char.id);
     const texKey = `char_${char.id}`;
     let portrait: Phaser.GameObjects.GameObject;
     if (this.textures.exists(texKey)) {
-      portrait = this.add.image(-150, -20, texKey).setDisplaySize(180, 180);
+      portrait = this.add.image(-155, -20, texKey).setDisplaySize(185, 185);
     } else {
-      portrait = this.add.text(-150, -20, char.symbol, { fontSize: '80px' }).setOrigin(0.5);
+      portrait = this.add.text(-155, -20, char.symbol, { fontSize: '80px' }).setOrigin(0.5);
     }
 
     // Right side: Info and lore
-    const kanji = this.add.text(120, -130, char.japaneseName, {
+    const kanji = this.add.text(125, -145, char.japaneseName || '', {
       fontFamily: 'Zen Maru Gothic, sans-serif',
-      fontSize: '24px',
+      fontSize: '22px',
       color: '#ffd700',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    const name = this.add.text(120, -95, char.name, {
+    const name = this.add.text(125, -112, char.name, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '22px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    const rarityBadge = this.add.text(120, -65, `[ ${CharacterRegistry.getRarityName(char.rarity)} • Hệ ${char.element.toUpperCase()} ]`, {
+    const rarityBadge = this.add.text(125, -82, `[ ${CharacterRegistry.getRarityName(char.rarity)} • Hệ ${char.element.toUpperCase()} ]`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '13px',
       fontStyle: 'bold',
       color: `#${rarityColor.toString(16).padStart(6, '0')}`
     }).setOrigin(0.5);
 
     const compData = COMPANIONS[char.id];
-    const desc = this.add.text(120, compData ? 0 : 15, char.description, {
+    const descY = compData ? -15 : -10;
+    const desc = this.add.text(125, descY, char.description, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '12.5px',
       color: '#ced4da',
-      wordWrap: { width: 270 },
+      wordWrap: { width: 275 },
       align: 'center',
-      lineSpacing: 4
+      lineSpacing: 3
+    }).setOrigin(0.5);
+
+    // Location & Unlock Stage Banner
+    const isLevelUnlocked = highestLevel >= lvlReq.startLevel;
+    const locationY = compData ? 45 : 55;
+    const locationBox = this.add.text(125, locationY,
+      `📍 Xuất hiện: ${realm.name} (Màn ${lvlReq.startLevel} - ${lvlReq.endLevel})\n` +
+      `✨ Thu phục: Nối các cặp ô ${char.name} trong màn chơi`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: isLevelUnlocked ? '#00f5d4' : '#ffd166',
+      align: 'center',
+      wordWrap: { width: 275 },
+      lineSpacing: 3
     }).setOrigin(0.5);
 
     let skillDescText: Phaser.GameObjects.Text | null = null;
     let equipBtn: Phaser.GameObjects.Container | null = null;
 
     if (compData) {
-      skillDescText = this.add.text(120, 75, `⚡ TUYỆT CHIÊU: ${compData.skillName}\n(${compData.skillDesc})`, {
+      skillDescText = this.add.text(125, 100, `⚡ TUYỆT CHIÊU: ${compData.skillName} (${compData.skillDesc})`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '11px',
         fontStyle: 'bold',
         color: '#ffd700',
-        wordWrap: { width: 270 },
-        align: 'center',
-        lineSpacing: 3
+        wordWrap: { width: 275 },
+        align: 'center'
       }).setOrigin(0.5);
 
       const isEquipped = this.save.getSelectedCompanion() === char.id;
       const isUnlocked = this.save.isCompanionUnlocked(char.id);
-      equipBtn = this.add.container(45, 140);
+      equipBtn = this.add.container(40, 155);
       const eqBg = this.add.graphics();
       let btnColor = compData.themeColor;
-      let btnLabel = '🦊 CHỌN ĐỒNG HÀNH';
+      let btnLabel = '🦊 ĐỒNG HÀNH';
       let btnTxtColor = '#000000';
 
       if (isEquipped) {
         btnColor = 0x2a9d8f;
-        btnLabel = '✓ ĐANG ĐỒNG HÀNH';
+        btnLabel = '✓ ĐANG CHỌN';
         btnTxtColor = '#ffffff';
       } else if (!isUnlocked) {
         btnColor = 0xffd166;
@@ -1234,15 +1416,15 @@ export class CollectionScene extends Phaser.Scene {
       }
 
       eqBg.fillStyle(btnColor, 1);
-      eqBg.fillRoundedRect(-85, -18, 170, 36, 10);
+      eqBg.fillRoundedRect(-70, -16, 140, 32, 8);
       const eqTxt = this.add.text(0, 0, btnLabel, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12.5px',
+        fontSize: '11.5px',
         fontStyle: '900',
         color: btnTxtColor
       }).setOrigin(0.5);
       equipBtn.add([eqBg, eqTxt]);
-      equipBtn.setSize(170, 36).setInteractive({ useHandCursor: true });
+      equipBtn.setSize(140, 32).setInteractive({ useHandCursor: true });
 
       equipBtn.on('pointerdown', () => {
         if (isEquipped) return;
@@ -1251,8 +1433,8 @@ export class CollectionScene extends Phaser.Scene {
           this.audio.playVictory();
           eqBg.clear();
           eqBg.fillStyle(0x2a9d8f, 1);
-          eqBg.fillRoundedRect(-85, -18, 170, 36, 10);
-          eqTxt.setText('✓ ĐANG ĐỒNG HÀNH');
+          eqBg.fillRoundedRect(-70, -16, 140, 32, 8);
+          eqTxt.setText('✓ ĐANG CHỌN');
           eqTxt.setColor('#ffffff');
         } else {
           if (this.save.getCoins() >= compData.cost) {
@@ -1262,8 +1444,8 @@ export class CollectionScene extends Phaser.Scene {
             this.audio.playVictory();
             eqBg.clear();
             eqBg.fillStyle(0x2a9d8f, 1);
-            eqBg.fillRoundedRect(-85, -18, 170, 36, 10);
-            eqTxt.setText('✓ ĐANG ĐỒNG HÀNH');
+            eqBg.fillRoundedRect(-70, -16, 140, 32, 8);
+            eqTxt.setText('✓ ĐANG CHỌN');
             eqTxt.setColor('#ffffff');
           } else {
             this.audio.playError();
@@ -1272,30 +1454,62 @@ export class CollectionScene extends Phaser.Scene {
       });
     }
 
+    // Direct Play Stage Button
+    const playBtnX = compData ? 145 : 60;
+    const playBtnW = compData ? 100 : 150;
+    const playBtn = this.add.container(playBtnX, 155);
+    const playBg = this.add.graphics();
+    const targetPlayLevel = isLevelUnlocked ? lvlReq.startLevel : highestLevel;
+    const playBtnColor = isLevelUnlocked ? 0x00f5d4 : 0x4361ee;
+    playBg.fillStyle(playBtnColor, 1);
+    playBg.fillRoundedRect(-playBtnW / 2, -16, playBtnW, 32, 8);
+
+    const playLabel = isLevelUnlocked ? `🎮 VÀO MÀN ${lvlReq.startLevel}` : `▶ CHƠI MÀN ${highestLevel}`;
+    const playTxt = this.add.text(0, 0, playLabel, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11.5px',
+      fontStyle: '900',
+      color: '#052c24'
+    }).setOrigin(0.5);
+    playBtn.add([playBg, playTxt]);
+    playBtn.setSize(playBtnW, 32).setInteractive({ useHandCursor: true });
+
+    playBtn.on('pointerdown', () => {
+      this.audio.playSelect();
+      this.modalContainer?.destroy();
+      this.modalContainer = null;
+      this.scene.start('GameScene', {
+        levelNumber: targetPlayLevel,
+        difficulty: 'easy'
+      });
+    });
+
     // Close button
-    const closeBtnX = compData ? 190 : 120;
-    const closeBtnW = compData ? 100 : 160;
-    const closeBtn = this.add.container(closeBtnX, 140);
+    const closeBtnX = compData ? 225 : 185;
+    const closeBtnW = compData ? 60 : 80;
+    const closeBtn = this.add.container(closeBtnX, 155);
     const clBg = this.add.graphics();
     clBg.fillStyle(0xd90429, 1);
-    clBg.fillRoundedRect(-closeBtnW / 2, -18, closeBtnW, 36, 10);
+    clBg.fillRoundedRect(-closeBtnW / 2, -16, closeBtnW, 32, 8);
     const clTxt = this.add.text(0, 0, 'ĐÓNG', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
     closeBtn.add([clBg, clTxt]);
-    closeBtn.setSize(closeBtnW, 36).setInteractive({ useHandCursor: true });
+    closeBtn.setSize(closeBtnW, 32).setInteractive({ useHandCursor: true });
     closeBtn.on('pointerdown', () => {
       this.modalContainer?.destroy();
       this.modalContainer = null;
     });
 
-    const modalElements: Phaser.GameObjects.GameObject[] = [overlay, card, portrait, kanji, name, rarityBadge, desc, closeBtn];
+    const modalElements: Phaser.GameObjects.GameObject[] = [
+      overlay, card, portrait, kanji, name, rarityBadge, desc, locationBox, playBtn, closeBtn
+    ];
 
     if (!isDiscovered) {
-      const lockBanner = this.add.text(-150, -120, '🔒 CHƯA THU THẬP', {
+      const lockBanner = this.add.text(-155, -125, '🔒 CHƯA THU THẬP', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '11px',
         fontStyle: '900',
@@ -1304,18 +1518,6 @@ export class CollectionScene extends Phaser.Scene {
         padding: { x: 8, y: 4 }
       }).setOrigin(0.5);
       modalElements.push(lockBanner);
-
-      if (!compData) {
-        const unlockGuide = this.add.text(120, 80, `🎯 CÁCH MỞ KHÓA: Nối các cặp ô ${char.name} trong các màn chơi để thu thập vào Đồ Thư!`, {
-          fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '11.5px',
-          fontStyle: 'bold',
-          color: '#00f5d4',
-          wordWrap: { width: 270 },
-          align: 'center'
-        }).setOrigin(0.5);
-        modalElements.push(unlockGuide);
-      }
     }
 
     if (skillDescText) modalElements.push(skillDescText);
