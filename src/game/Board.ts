@@ -10,7 +10,7 @@ import { ObstacleInfoModal } from './ObstacleInfoModal';
 export interface BoardEvents {
   onTileSelected?: (tile: TileState) => void;
   onTileDeselected?: () => void;
-  onMatchSuccess?: (t1: TileState, t2: TileState, path: GridPoint[]) => void;
+  onMatchSuccess?: (t1: TileState, t2: TileState, path: GridPoint[], isAutoClear?: boolean) => void;
   onMatchFailed?: (t1: TileState, t2: TileState, reason: 'different_char' | 'blocked_path') => void;
   onBoardCleared?: () => void;
   onBoardReshuffled?: (isAuto: boolean) => void;
@@ -26,6 +26,9 @@ export class BoardManager {
 
   private boardContainer: Phaser.GameObjects.Container;
   private lineGraphics: Phaser.GameObjects.Graphics;
+  private hintGraphics: Phaser.GameObjects.Graphics;
+  private hintPulseTween: Phaser.Tweens.Tween | null = null;
+  private hintAutoClearTimer: Phaser.Time.TimerEvent | null = null;
 
   private selectedTile: TileState | null = null;
   private currentHint: { p1: GridPoint; p2: GridPoint } | null = null;
@@ -41,6 +44,10 @@ export class BoardManager {
     return this.isProcessingMatch;
   }
 
+  public getSelectedTile(): TileState | null {
+    return this.selectedTile;
+  }
+
   public setProcessingMatch(val: boolean): void {
     this.isProcessingMatch = val;
     if (this.processingMatchWatchdog) {
@@ -48,18 +55,37 @@ export class BoardManager {
       this.processingMatchWatchdog = null;
     }
     if (val) {
-      // 🛡️ Watchdog: Tự động giải phóng lock sau 1400ms nếu animation gặp sự cố hoặc drop
-      this.processingMatchWatchdog = this.scene.time.delayedCall(1400, () => {
+      // 🛡️ Watchdog: Tự động giải phóng lock sau 750ms nếu animation gặp sự cố hoặc drop
+      this.processingMatchWatchdog = this.scene.time.delayedCall(750, () => {
         if (this.isProcessingMatch) {
           console.warn('[Board] isProcessingMatch watchdog auto-released!');
           this.isProcessingMatch = false;
           this.processingMatchWatchdog = null;
-          this.clearSelection();
           this.clearHint();
           this.checkBoardStatus();
         }
       });
     }
+  }
+
+  // 🐯 Companion Mechanics Support (Byakko Gravity Lock & Fast Resolve)
+  private isGravityLocked: boolean = false;
+  private resolveSpeedMultiplier: number = 1.0;
+
+  public setGravityLocked(locked: boolean): void {
+    this.isGravityLocked = locked;
+  }
+
+  public isGravityCurrentlyLocked(): boolean {
+    return this.isGravityLocked;
+  }
+
+  public setResolveSpeedMultiplier(mult: number): void {
+    this.resolveSpeedMultiplier = Math.max(0.5, Math.min(3.0, mult));
+  }
+
+  public getResolveSpeedMultiplier(): number {
+    return this.resolveSpeedMultiplier;
   }
 
   // ⛩️ Board Frame Container (Japanese Shrine Roof and Backing)
@@ -92,9 +118,11 @@ export class BoardManager {
     this.cols = config.columns;
     this.events = events;
 
-    this.boardContainer = scene.add.container(0, 0);
+    this.boardContainer = scene.add.container(0, 0).setDepth(10);
     this.lineGraphics = scene.add.graphics();
     this.lineGraphics.setDepth(100);
+    this.hintGraphics = scene.add.graphics();
+    this.hintGraphics.setDepth(80);
 
     this.initBoard();
   }
@@ -203,7 +231,9 @@ export class BoardManager {
 
     const maxTileW = Math.floor(availableWidth / this.cols);
     const maxTileH = Math.floor(availableHeight / this.rows);
-    this.tileSize = Math.min(maxTileW, maxTileH, this.rows >= 6 ? 70 : 74);
+    // Dynamic Tile Scaling: prominent, tactile tiles on mobile for smaller grids (4x6, 6x6, 6x8)
+    const maxCap = this.rows <= 4 ? 92 : (this.rows <= 6 && this.cols <= 8) ? 84 : (this.rows <= 6 ? 76 : 70);
+    this.tileSize = Math.min(maxTileW, maxTileH, maxCap);
 
     const boardWidth = this.cols * this.tileSize;
     const boardHeight = this.rows * this.tileSize;
@@ -514,8 +544,8 @@ export class BoardManager {
     overlay.on('pointerdown', closeModal);
 
     // Card background
-    const cardW = 500;
-    const cardH = 430;
+    const cardW = 580;
+    const cardH = 470;
     const card = this.scene.add.graphics();
     card.fillStyle(0x151224, 0.98);
     card.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
@@ -524,16 +554,16 @@ export class BoardManager {
     modal.add(card);
 
     // Header Title
-    const title = this.scene.add.text(0, -180, '⛩️ CỔNG KHÔNG GIAN TORII (PORTAL A ⇄ B)', {
+    const title = this.scene.add.text(0, -205, '⛩️ CỔNG KHÔNG GIAN TORII (PORTAL A ⇄ B)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17px',
+      fontSize: '20px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
-    const subtitle = this.scene.add.text(0, -156, 'CƠ CHẾ ĐẶC BIỆT: NỐI XUYÊN KHÔNG GIAN (PAC-MAN STYLE)', {
+    const subtitle = this.scene.add.text(0, -178, 'CƠ CHẾ ĐẶC BIỆT: NỐI XUYÊN KHÔNG GIAN (PAC-MAN STYLE)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13.5px',
       fontStyle: '800',
       color: '#00f5d4'
     }).setOrigin(0.5);
@@ -541,9 +571,9 @@ export class BoardManager {
     modal.add([title, subtitle]);
 
     // Visual Flow Diagram Box
-    const diagW = 450;
-    const diagH = 76;
-    const diagY = -100;
+    const diagW = 520;
+    const diagH = 82;
+    const diagY = -118;
     const diagBg = this.scene.add.graphics();
     diagBg.fillStyle(0x211a36, 0.95);
     diagBg.fillRoundedRect(-diagW / 2, diagY - diagH / 2, diagW, diagH, 12);
@@ -551,24 +581,24 @@ export class BoardManager {
     diagBg.strokeRoundedRect(-diagW / 2, diagY - diagH / 2, diagW, diagH, 12);
     modal.add(diagBg);
 
-    const leftTile = this.scene.add.text(-160, diagY, '🦊 Linh Thú\n(Cạnh Trái)', {
+    const leftTile = this.scene.add.text(-185, diagY, '🦊 Linh Thú\n(Cạnh Trái)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#ffffff',
       align: 'center'
     }).setOrigin(0.5);
 
-    const arrow1 = this.scene.add.text(-96, diagY, '➔', {
+    const arrow1 = this.scene.add.text(-110, diagY, '➔', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16px',
+      fontSize: '18px',
       fontStyle: '900',
       color: '#e63946'
     }).setOrigin(0.5);
 
-    const portalAText = this.scene.add.text(-52, diagY, '⛩️ CỔNG A\n(Đỏ)', {
+    const portalAText = this.scene.add.text(-60, diagY, '⛩️ CỔNG A\n(Đỏ)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13px',
       fontStyle: '900',
       color: '#ff758f',
       align: 'center'
@@ -576,30 +606,30 @@ export class BoardManager {
 
     const wormholeText = this.scene.add.text(0, diagY, '🌀\nXUYÊN KHÔNG', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '9px',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#00f5d4',
       align: 'center'
     }).setOrigin(0.5);
 
-    const portalBText = this.scene.add.text(52, diagY, '⛩️ CỔNG B\n(Xanh)', {
+    const portalBText = this.scene.add.text(60, diagY, '⛩️ CỔNG B\n(Xanh)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13px',
       fontStyle: '900',
       color: '#48cae4',
       align: 'center'
     }).setOrigin(0.5);
 
-    const arrow2 = this.scene.add.text(96, diagY, '➔', {
+    const arrow2 = this.scene.add.text(110, diagY, '➔', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16px',
+      fontSize: '18px',
       fontStyle: '900',
       color: '#3a86ff'
     }).setOrigin(0.5);
 
-    const rightTile = this.scene.add.text(160, diagY, '🦊 Linh Thú\n(Cạnh Phải)', {
+    const rightTile = this.scene.add.text(185, diagY, '🦊 Linh Thú\n(Cạnh Phải)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#ffffff',
       align: 'center'
@@ -608,44 +638,44 @@ export class BoardManager {
     modal.add([leftTile, arrow1, portalAText, wormholeText, portalBText, arrow2, rightTile]);
 
     // Explanation Points (3 clean structured points)
-    const bulletX = -215;
-    const descWidth = 430;
+    const bulletX = -255;
+    const descWidth = 510;
 
-    const b1Title = this.scene.add.text(bulletX, -45, '🌀 1. Xuyên thấu mép bàn cờ (Wormhole Portal):', {
+    const b1Title = this.scene.add.text(bulletX, -60, '🌀 1. Xuyên thấu mép bàn cờ (Wormhole Portal):', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#ffd700'
     });
-    const b1Desc = this.scene.add.text(bulletX + 12, -26, 'Đường laser chui vào Cổng A sẽ tự động bay xuyên không gian phóng ra từ Cổng B (như Pac-Man đi xuyên từ cạnh trái sang cạnh phải).', {
+    const b1Desc = this.scene.add.text(bulletX + 12, -38, 'Đường laser chui vào Cổng A sẽ tự động bay xuyên không gian phóng ra từ Cổng B (như Pac-Man đi xuyên từ cạnh trái sang cạnh phải).', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13.5px',
       color: '#e0e1dd',
       wordWrap: { width: descWidth - 12 }
     });
 
-    const b2Title = this.scene.add.text(bulletX, 15, '⚡ 2. Cứu nguy khi giữa bàn cờ bị bít kín 100%:', {
+    const b2Title = this.scene.add.text(bulletX, 10, '⚡ 2. Cứu nguy khi giữa bàn cờ bị bít kín 100%:', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#00f5d4'
     });
-    const b2Desc = this.scene.add.text(bulletX + 12, 34, 'Giúp bạn nối được 2 con thú giống nhau ở 2 góc xa bàn cờ dù toàn bộ khu vực trung tâm đang bị chặn đặc không lối thoát!', {
+    const b2Desc = this.scene.add.text(bulletX + 12, 32, 'Giúp bạn nối được 2 con thú giống nhau ở 2 góc xa bàn cờ dù toàn bộ khu vực trung tâm đang bị chặn đặc không lối thoát!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13.5px',
       color: '#e0e1dd',
       wordWrap: { width: descWidth - 12 }
     });
 
-    const b3Title = this.scene.add.text(bulletX, 75, '📐 3. Quy tắc đường đi tối đa 1 khúc gấp:', {
+    const b3Title = this.scene.add.text(bulletX, 80, '📐 3. Quy tắc đường đi tối đa 1 khúc gấp:', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#c77dff'
     });
-    const b3Desc = this.scene.add.text(bulletX + 12, 94, 'Chỉ cần ô bên trái đi tối đa 1 khúc cua tới Cổng A, và ô bên phải đi tối đa 1 khúc cua tới Cổng B là đường nối hợp lệ!', {
+    const b3Desc = this.scene.add.text(bulletX + 12, 102, 'Chỉ cần ô bên trái đi tối đa 1 khúc cua tới Cổng A, và ô bên phải đi tối đa 1 khúc cua tới Cổng B là đường nối hợp lệ!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
+      fontSize: '13.5px',
       color: '#e0e1dd',
       wordWrap: { width: descWidth - 12 }
     });
@@ -653,22 +683,22 @@ export class BoardManager {
     modal.add([b1Title, b1Desc, b2Title, b2Desc, b3Title, b3Desc]);
 
     // Action Close Button
-    const closeBtn = this.scene.add.container(0, 165);
+    const closeBtn = this.scene.add.container(0, 185);
     const btnBg = this.scene.add.graphics();
     btnBg.fillStyle(0xe63946, 1);
-    btnBg.fillRoundedRect(-120, -19, 240, 38, 12);
-    btnBg.lineStyle(1.5, 0xff758f, 0.9);
-    btnBg.strokeRoundedRect(-120, -19, 240, 38, 12);
+    btnBg.fillRoundedRect(-140, -23, 280, 46, 14);
+    btnBg.lineStyle(1.8, 0xff758f, 0.95);
+    btnBg.strokeRoundedRect(-140, -23, 280, 46, 14);
 
     const btnTxt = this.scene.add.text(0, 0, 'ĐÃ HIỂU, TIẾP TỤC CHƠI! ➔', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: '800',
+      fontSize: '16px',
+      fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
 
     closeBtn.add([btnBg, btnTxt]);
-    closeBtn.setSize(240, 38);
+    closeBtn.setSize(280, 46);
     closeBtn.setInteractive({ useHandCursor: true });
     closeBtn.on('pointerdown', closeModal);
 
@@ -698,9 +728,12 @@ export class BoardManager {
   }
 
   public handleTileClick(r: number, c: number): void {
-    if (this.isProcessingMatch) return;
+    if (this.isProcessingMatch) {
+      return;
+    }
 
-    const tile = this.grid[r][c];
+    const tile = this.grid[r]?.[c];
+    if (!tile) return;
     if (tile.modifier === 'stone') {
       const lvl = tile.modifierLevel || 1;
       this.tileViews[r][c]?.playObstacleFeedback(`🪨 ĐÁ (CÒN ${lvl} HIT)`);
@@ -778,16 +811,15 @@ export class BoardManager {
       return;
     }
 
-    // Second tile clicked -> attempt match
+    // Second tile clicked -> if different character, switch selection smoothly!
     const firstTile = this.selectedTile;
     const secondTile = tile;
 
-    // Must be identical character
     if (firstTile.characterId !== secondTile.characterId) {
-      this.tileViews[firstTile.r][firstTile.c]?.setSelected(false);
-      this.tileViews[secondTile.r][secondTile.c]?.playShake();
-      this.selectedTile = null;
-      this.events.onMatchFailed?.(firstTile, secondTile, 'different_char');
+      this.tileViews[firstTile.r]?.[firstTile.c]?.setSelected(false);
+      this.selectedTile = secondTile;
+      this.tileViews[secondTile.r]?.[secondTile.c]?.setSelected(true);
+      this.events.onTileSelected?.(secondTile);
       return;
     }
 
@@ -822,9 +854,9 @@ export class BoardManager {
 
     if (!matchPath) {
       // Path blocked -> shake both
-      this.tileViews[firstTile.r][firstTile.c]?.setSelected(false);
-      this.tileViews[firstTile.r][firstTile.c]?.playShake();
-      this.tileViews[secondTile.r][secondTile.c]?.playShake();
+      this.tileViews[firstTile.r]?.[firstTile.c]?.setSelected(false);
+      this.tileViews[firstTile.r]?.[firstTile.c]?.playShake();
+      this.tileViews[secondTile.r]?.[secondTile.c]?.playShake();
       this.selectedTile = null;
       this.events.onMatchFailed?.(firstTile, secondTile, 'blocked_path');
       return;
@@ -837,7 +869,7 @@ export class BoardManager {
 
     // Draw connecting laser path
     this.drawMatchPath(matchPath, () => {
-      this.processClearedTiles(firstTile, secondTile, matchPath.points);
+      this.processClearedTiles(firstTile, secondTile, matchPath.points, false);
     });
   }
 
@@ -929,7 +961,7 @@ export class BoardManager {
     });
   }
 
-  private processClearedTiles(t1: TileState, t2: TileState, path: GridPoint[]): void {
+  private processClearedTiles(t1: TileState, t2: TileState, path: GridPoint[], isAutoClear: boolean = false): void {
     const v1 = this.tileViews[t1.r]?.[t1.c];
     const v2 = this.tileViews[t2.r]?.[t2.c];
 
@@ -969,7 +1001,7 @@ export class BoardManager {
     // 💥 Shockwave damage to adjacent obstacles (Stone, Thorn, Web, Barricade)
     this.damageAdjacentObstacles(t1, t2, path);
 
-    this.events.onMatchSuccess?.(t1, t2, path);
+    this.events.onMatchSuccess?.(t1, t2, path, isAutoClear);
 
     // 🍃 Morph trigger: morphs every 5s OR after every 2 successful moves!
     this.movesSinceMorph++;
@@ -999,16 +1031,18 @@ export class BoardManager {
     }
 
     // Check Board Movement (gravity) if applicable
-    if (this.config.movement && this.config.movement !== 'none') {
+    if (this.config.movement && this.config.movement !== 'none' && !this.isGravityLocked) {
       this.clearSelection();
-      this.scene.time.delayedCall(220, () => {
+      const delay = Math.round(220 / this.resolveSpeedMultiplier);
+      this.scene.time.delayedCall(delay, () => {
         this.clearSelection();
         BoardModifiers.applyMovement(this.grid, this.rows, this.cols, this.config.movement);
         this.syncViewsAfterMovement();
         this.checkBoardStatus();
       });
     } else {
-      this.scene.time.delayedCall(200, () => {
+      const delay = Math.round(100 / this.resolveSpeedMultiplier);
+      this.scene.time.delayedCall(delay, () => {
         this.checkBoardStatus();
       });
     }
@@ -1257,7 +1291,110 @@ export class BoardManager {
         } else if (view) {
           view.updateState(state, this.tileSize);
         }
+
+        // 🛡️ Preserve visual selection glow if this tile is currently selected!
+        if (view && this.selectedTile && this.selectedTile.r === r && this.selectedTile.c === c && !state.isCleared) {
+          view.setSelected(true);
+        }
       }
+    }
+  }
+
+  /**
+   * 🌪️ Animate boss tile swap with smooth arc and whirlwind dust effect
+   */
+  public animateTileSwaps(pairs: { t1: TileState; t2: TileState }[], onComplete?: () => void): void {
+    if (!pairs || pairs.length === 0) {
+      this.syncViewsAfterMovement();
+      onComplete?.();
+      return;
+    }
+
+    this.clearHint();
+    this.setProcessingMatch(true);
+
+    let completed = 0;
+    const total = pairs.length;
+    let isFinished = false;
+
+    const finishSwap = () => {
+      if (isFinished) return;
+      isFinished = true;
+      this.syncViewsAfterMovement();
+      this.setProcessingMatch(false);
+      onComplete?.();
+    };
+
+    // 🛡️ Watchdog: tự động giải phóng lock sau 480ms nếu tween gặp sự cố
+    this.scene.time.delayedCall(480, finishSwap);
+
+    for (const { t1, t2 } of pairs) {
+      const v1 = this.tileViews[t1.r]?.[t1.c];
+      const v2 = this.tileViews[t2.r]?.[t2.c];
+
+      if (!v1 || !v2) {
+        completed += 2;
+        if (completed >= total * 2) {
+          finishSwap();
+        }
+        continue;
+      }
+
+      // Whirlwind dust particle / gust
+      const midX = (v1.x + v2.x) / 2;
+      const midY = (v1.y + v2.y) / 2;
+      const gust = this.scene.add.text(midX, midY, '🌪️', { fontSize: '24px' }).setOrigin(0.5).setDepth(30);
+      this.scene.tweens.add({
+        targets: gust,
+        angle: 360,
+        scaleX: 1.5,
+        scaleY: 1.5,
+        alpha: 0,
+        duration: 400,
+        onComplete: () => gust.destroy()
+      });
+
+      // Arc fly swap tween
+      const p1 = { x: v1.x, y: v1.y };
+      const p2 = { x: v2.x, y: v2.y };
+
+      this.scene.tweens.add({
+        targets: v1,
+        x: p2.x,
+        y: p2.y,
+        scaleX: 1.15,
+        scaleY: 1.15,
+        duration: 350,
+        ease: 'Quad.easeInOut',
+        onComplete: () => {
+          v1.setScale(1);
+          v1.x = p1.x;
+          v1.y = p1.y;
+          completed++;
+          if (completed >= total * 2) {
+            finishSwap();
+          }
+        }
+      });
+
+      this.scene.tweens.add({
+        targets: v2,
+        x: p1.x,
+        y: p1.y,
+        scaleX: 1.15,
+        scaleY: 1.15,
+        duration: 350,
+        ease: 'Quad.easeInOut',
+        onComplete: () => {
+          v2.setScale(1);
+          v2.x = p2.x;
+          v2.y = p2.y;
+          completed++;
+          if (completed >= total * 2) {
+            finishSwap();
+          }
+        }
+      });
     }
   }
 
@@ -1329,17 +1466,25 @@ export class BoardManager {
 
         const candidate = activeTiles.find(t => t.characterId === charB && !t.isShapeshifter);
         if (candidate) {
+          if (this.selectedTile && this.selectedTile === candidate) {
+            this.clearSelection();
+          }
           candidate.characterId = charA;
           const view = this.tileViews[candidate.r]?.[candidate.c];
           view?.updateState(candidate, this.tileSize);
           view?.playMorph(charA, this.tileSize);
         }
       }
-    } else if (oddCharacters.length === 1 && activeTiles.length % 2 !== 0) {
-      // Chỉ có 1 con bị lẻ (tổng số ô active là lẻ): xóa ô đơn lẻ này
-      const oddChar = oddCharacters[0];
+    }
+
+    // Nếu vẫn còn 1 con lẻ sót lại (tổng số ô active trên bàn cờ là lẻ): xóa ô đơn lẻ này
+    if (oddCharacters.length % 2 !== 0) {
+      const oddChar = oddCharacters[oddCharacters.length - 1];
       const solitary = activeTiles.find(t => t.characterId === oddChar);
       if (solitary) {
+        if (this.selectedTile && this.selectedTile === solitary) {
+          this.clearSelection();
+        }
         solitary.isCleared = true;
         solitary.characterId = null;
         solitary.modifier = 'none';
@@ -1438,7 +1583,10 @@ export class BoardManager {
             match = {
               p1: { r: activeTiles[i].r, c: activeTiles[i].c },
               p2: { r: activeTiles[j].r, c: activeTiles[j].c },
-              path: []
+              path: [
+                { r: activeTiles[i].r, c: activeTiles[i].c },
+                { r: activeTiles[j].r, c: activeTiles[j].c }
+              ]
             };
             break;
           }
@@ -1452,13 +1600,86 @@ export class BoardManager {
     this.clearHint();
     this.currentHint = { p1: match.p1, p2: match.p2 };
 
+    // 1. Play celestial hint chime
+    try {
+      const audio = (this.scene as any).audio;
+      audio?.playHint?.();
+    } catch (_) {}
+
+    // 2. Activate subtle, elegant golden breathing on the two hinted tiles (no harsh dimming of other tiles)
     this.tileViews[match.p1.r]?.[match.p1.c]?.setHinted(true);
     this.tileViews[match.p2.r]?.[match.p2.c]?.setHinted(true);
+
+    // 3. Draw sleek, elegant golden tracer line along match.path
+    if (match.path && match.path.length >= 2) {
+      this.drawHintPath(match.path);
+    }
+
+    // 4. Auto-clear timer: automatically restore after 10s if player stays idle
+    this.hintAutoClearTimer = this.scene.time.delayedCall(10000, () => {
+      this.clearHint();
+    });
 
     return true;
   }
 
+  private drawHintPath(path: GridPoint[]): void {
+    if (!this.hintGraphics || path.length < 2) return;
+    this.hintGraphics.clear();
+
+    const worldCoords = path.map(p => this.gridToWorld(p.r, p.c));
+
+    // Sleek golden glow tracer (clean 4.5px width)
+    this.hintGraphics.lineStyle(4.5, 0xffbe0b, 0.8);
+    this.hintGraphics.beginPath();
+    this.hintGraphics.moveTo(worldCoords[0].x, worldCoords[0].y);
+    for (let i = 1; i < worldCoords.length; i++) {
+      this.hintGraphics.lineTo(worldCoords[i].x, worldCoords[i].y);
+    }
+    this.hintGraphics.strokePath();
+
+    // Inner bright white laser core (1.8px width)
+    this.hintGraphics.lineStyle(1.8, 0xffffff, 0.95);
+    this.hintGraphics.beginPath();
+    this.hintGraphics.moveTo(worldCoords[0].x, worldCoords[0].y);
+    for (let i = 1; i < worldCoords.length; i++) {
+      this.hintGraphics.lineTo(worldCoords[i].x, worldCoords[i].y);
+    }
+    this.hintGraphics.strokePath();
+
+    // Subtle small glowing nodes at turns & endpoints
+    for (const pt of worldCoords) {
+      this.hintGraphics.fillStyle(0xffd166, 0.9);
+      this.hintGraphics.fillCircle(pt.x, pt.y, 4.5);
+      this.hintGraphics.fillStyle(0xffffff, 1.0);
+      this.hintGraphics.fillCircle(pt.x, pt.y, 2.2);
+    }
+
+    // Gentle breathing pulse
+    this.hintPulseTween = this.scene.tweens.add({
+      targets: this.hintGraphics,
+      alpha: { from: 0.65, to: 1.0 },
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
   public clearHint(): void {
+    if (this.hintAutoClearTimer) {
+      this.hintAutoClearTimer.remove(false);
+      this.hintAutoClearTimer = null;
+    }
+    if (this.hintPulseTween) {
+      this.hintPulseTween.stop();
+      this.hintPulseTween = null;
+    }
+    if (this.hintGraphics) {
+      this.hintGraphics.clear();
+      this.hintGraphics.setAlpha(1.0);
+    }
+
     if (this.currentHint) {
       this.tileViews[this.currentHint.p1.r]?.[this.currentHint.p1.c]?.setHinted(false);
       this.tileViews[this.currentHint.p2.r]?.[this.currentHint.p2.c]?.setHinted(false);
@@ -1510,15 +1731,18 @@ export class BoardManager {
 
     if (!match) return false;
 
-    this.clearSelection();
-    this.clearHint();
     const t1 = this.grid[match.p1.r]?.[match.p1.c];
     const t2 = this.grid[match.p2.r]?.[match.p2.c];
     if (!t1 || !t2 || t1.isCleared || t2.isCleared) return false;
 
+    if (this.selectedTile && (this.selectedTile === t1 || this.selectedTile === t2)) {
+      this.clearSelection();
+    }
+    this.clearHint();
+
     this.setProcessingMatch(true);
     this.drawMatchPath(match.path, () => {
-      this.processClearedTiles(t1, t2, match.path);
+      this.processClearedTiles(t1, t2, match.path, true);
       // 💣 Bomb radial shockwave: extra blast deals 1 hit to all obstacles within 2 tiles
       for (let r = 1; r <= this.rows; r++) {
         for (let c = 1; c <= this.cols; c++) {
@@ -1538,14 +1762,96 @@ export class BoardManager {
   }
 
   /**
-   * ⚡ Trigger secondary pair clear (used by Lightning Duo chain arc)
+   * 🔍 Safe available match lookup on the current board
+   */
+  public findAvailableMatch(): { p1: GridPoint; p2: GridPoint } | null {
+    return BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, this.getPortals());
+  }
+
+  /**
+   * ✨ Safely clear multiple auto-matches in strict sequential order.
+   * Waits for each pair clear & gravity animation to fully settle before finding & clearing the next pair.
+   */
+  public executeSequentialAutoMatches(
+    count: number,
+    onPairCleared?: (p1: GridPoint, p2: GridPoint, index: number) => void,
+    onComplete?: (totalMatched: number) => void
+  ): void {
+    let matched = 0;
+
+    const tryNext = () => {
+      if ((this.scene as any)?.isGameOver || (this.scene as any)?.isVictory) {
+        onComplete?.(matched);
+        return;
+      }
+
+      if (matched >= count) {
+        onComplete?.(matched);
+        return;
+      }
+
+      // If board is currently processing (e.g. tile animations or gravity), wait for it to settle
+      if (this.isProcessingMatch) {
+        this.scene.time.delayedCall(120, tryNext);
+        return;
+      }
+
+      let match = this.findAvailableMatch();
+      if (!match) {
+        // Check if there are playable tiles left
+        let playableCount = 0;
+        for (let r = 1; r <= this.rows; r++) {
+          for (let c = 1; c <= this.cols; c++) {
+            const cell = this.grid[r][c];
+            if (!cell.isCleared && cell.characterId && cell.modifier !== 'stone') {
+              playableCount++;
+            }
+          }
+        }
+        if (playableCount >= 2) {
+          this.performShuffle(true);
+          match = this.findAvailableMatch();
+        }
+      }
+
+      if (!match) {
+        onComplete?.(matched);
+        return;
+      }
+
+      const curMatch = match;
+      matched++;
+      onPairCleared?.(curMatch.p1, curMatch.p2, matched - 1);
+      this.triggerPairClear(curMatch.p1, curMatch.p2);
+
+      // Wait a short moment after this pair starts processing, then poll for board to settle
+      this.scene.time.delayedCall(320, tryNext);
+    };
+
+    tryNext();
+  }
+
+  /**
+   * ⚡ Trigger secondary pair clear (used by Lightning Duo chain arc, Companion skills, Relics)
    */
   public triggerPairClear(p1: GridPoint, p2: GridPoint): void {
     const t1 = this.grid[p1.r]?.[p1.c];
     const t2 = this.grid[p2.r]?.[p2.c];
     if (!t1 || !t2 || t1.isCleared || t2.isCleared) return;
 
-    this.clearSelection();
+    if (this.isProcessingMatch) {
+      // Re-queue safely once current match finishes
+      this.scene.time.delayedCall(150, () => {
+        if (!(this.scene as any)?.isGameOver && !(this.scene as any)?.isVictory) {
+          this.triggerPairClear(p1, p2);
+        }
+      });
+      return;
+    }
+
+    if (this.selectedTile && (this.selectedTile === t1 || this.selectedTile === t2)) {
+      this.clearSelection();
+    }
     this.clearHint();
     this.setProcessingMatch(true);
 
@@ -1569,7 +1875,7 @@ export class BoardManager {
     const pathOrPoints = matchPath || [p1, p2];
     this.drawMatchPath(pathOrPoints, () => {
       const points = Array.isArray(pathOrPoints) ? pathOrPoints : pathOrPoints.points;
-      this.processClearedTiles(t1, t2, points);
+      this.processClearedTiles(t1, t2, points, true);
     });
   }
 
@@ -1578,7 +1884,6 @@ export class BoardManager {
    */
   private morphShapeshifters(): void {
     if (this.isProcessingMatch) return;
-    this.clearSelection();
 
     const shifters: { state: TileState; view: TileView }[] = [];
     for (let r = 1; r <= this.rows; r++) {
@@ -1592,6 +1897,11 @@ export class BoardManager {
     }
 
     if (shifters.length === 0) return;
+
+    // 🛡️ Chỉ hủy lựa chọn nếu ô người chơi đang chọn CHÍNH LÀ một trong các ô biến hình Tanuki!
+    if (this.selectedTile && (this.selectedTile.isShapeshifter || this.selectedTile.modifier === 'shapeshifter')) {
+      this.clearSelection();
+    }
 
     // CRITICAL: If only 1 shapeshifter remains, its twin was cleared!
     // It MUST NOT morph alone because that breaks the parity of the board!
@@ -1726,8 +2036,8 @@ export class BoardManager {
       }
     }
 
-    if (clearedCount > 0 && this.config.movement && this.config.movement !== 'none') {
-      this.scene.time.delayedCall(120, () => {
+    if (clearedCount > 0 && this.config.movement && this.config.movement !== 'none' && !this.isGravityLocked) {
+      this.scene.time.delayedCall(Math.round(120 / this.resolveSpeedMultiplier), () => {
         BoardModifiers.applyMovement(this.grid, this.rows, this.cols, this.config.movement);
         this.syncViewsAfterMovement();
         this.checkBoardStatus();
@@ -1735,6 +2045,206 @@ export class BoardManager {
     }
 
     return clearedCount;
+  }
+
+  /**
+   * 🐯 Byakko: Tìm 1 cặp ô có thể nối thẳng hàng (0 khúc cua: turns === 0)
+   */
+  public findStraightLineMatch(): { p1: GridPoint; p2: GridPoint } | null {
+    const activeTiles: TileState[] = [];
+    for (let r = 1; r <= this.rows; r++) {
+      for (let c = 1; c <= this.cols; c++) {
+        const tile = this.grid[r][c];
+        if (!tile.isCleared && tile.characterId && !tile.isLocked && tile.modifier !== 'thorn' && tile.modifier !== 'barricade' && tile.modifier !== 'stone' && tile.modifier !== 'ice' && tile.modifier !== 'web') {
+          activeTiles.push(tile);
+        }
+      }
+    }
+
+    const boardGridAdapter = {
+      rows: this.rows,
+      cols: this.cols,
+      isEmpty: (r: number, c: number) => {
+        if (r <= 0 || r > this.rows || c <= 0 || c > this.cols) return true;
+        const cell = this.grid[r]?.[c];
+        return !!(cell && cell.isCleared && cell.modifier !== 'stone');
+      }
+    };
+
+    for (let i = 0; i < activeTiles.length; i++) {
+      const t1 = activeTiles[i];
+      for (let j = i + 1; j < activeTiles.length; j++) {
+        const t2 = activeTiles[j];
+        if (t1.characterId === t2.characterId && (t1.r === t2.r || t1.c === t2.c)) {
+          const path = PathFinder.findPath(boardGridAdapter, { r: t1.r, c: t1.c }, { r: t2.r, c: t2.c }, null);
+          if (path && path.turns === 0) {
+            return { p1: { r: t1.r, c: t1.c }, p2: { r: t2.r, c: t2.c } };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * ⚡ Raiju: Tìm cặp ô có thể kết nối ở khoảng cách xa nhất trên bàn cờ
+   */
+  public findFarthestMatch(): { p1: GridPoint; p2: GridPoint } | null {
+    const activeTiles: TileState[] = [];
+    for (let r = 1; r <= this.rows; r++) {
+      for (let c = 1; c <= this.cols; c++) {
+        const tile = this.grid[r][c];
+        if (!tile.isCleared && tile.characterId && !tile.isLocked && tile.modifier !== 'thorn' && tile.modifier !== 'barricade' && tile.modifier !== 'stone' && tile.modifier !== 'ice' && tile.modifier !== 'web') {
+          activeTiles.push(tile);
+        }
+      }
+    }
+
+    const boardGridAdapter = {
+      rows: this.rows,
+      cols: this.cols,
+      isEmpty: (r: number, c: number) => {
+        if (r <= 0 || r > this.rows || c <= 0 || c > this.cols) return true;
+        const cell = this.grid[r]?.[c];
+        return !!(cell && cell.isCleared && cell.modifier !== 'stone');
+      }
+    };
+
+    let bestPair: { p1: GridPoint; p2: GridPoint; dist: number } | null = null;
+    for (let i = 0; i < activeTiles.length; i++) {
+      const t1 = activeTiles[i];
+      for (let j = i + 1; j < activeTiles.length; j++) {
+        const t2 = activeTiles[j];
+        if (t1.characterId === t2.characterId) {
+          const path = PathFinder.findPath(boardGridAdapter, { r: t1.r, c: t1.c }, { r: t2.r, c: t2.c }, this.getPortals());
+          if (path) {
+            const dist = Math.abs(t1.r - t2.r) + Math.abs(t1.c - t2.c);
+            if (!bestPair || dist > bestPair.dist) {
+              bestPair = { p1: { r: t1.r, c: t1.c }, p2: { r: t2.r, c: t2.c }, dist };
+            }
+          }
+        }
+      }
+    }
+    return bestPair ? { p1: bestPair.p1, p2: bestPair.p2 } : null;
+  }
+
+  /**
+   * 🦅 Yatagarasu: Xua tan toàn bộ sương mù / bóng tối trên bàn cờ
+   */
+  public clearAllFog(): number {
+    let cleared = 0;
+    for (let r = 1; r <= this.rows; r++) {
+      for (let c = 1; c <= this.cols; c++) {
+        const t = this.grid[r][c];
+        if (t.isFogged || t.modifier === 'fog') {
+          t.isFogged = false;
+          if (t.modifier === 'fog') t.modifier = 'none';
+          this.tileViews[r]?.[c]?.updateState(t, this.tileSize);
+          cleared++;
+        }
+      }
+    }
+    return cleared;
+  }
+
+  /**
+   * 🐢 Genbu / Orochi: Phá hủy chướng ngại vật theo danh sách chỉ định
+   */
+  public destroyObstaclesOfType(types: string[], maxCount: number = 1): number {
+    let count = 0;
+    for (let r = 1; r <= this.rows; r++) {
+      for (let c = 1; c <= this.cols; c++) {
+        const t = this.grid[r][c];
+        if (!t.isCleared && (types.includes(t.modifier) || (types.includes('lock') && t.isLocked))) {
+          if (t.modifier === 'stone') {
+            t.modifier = 'none';
+            t.modifierLevel = 0;
+            t.isCleared = true;
+            t.characterId = null;
+            this.tileViews[r]?.[c]?.playPopAndClear();
+          } else {
+            t.modifier = 'none';
+            t.isLocked = false;
+            t.iceLayers = 0;
+            t.modifierLevel = 0;
+            this.tileViews[r]?.[c]?.updateState(t, this.tileSize);
+            this.tileViews[r]?.[c]?.playBounceIn();
+          }
+          count++;
+          if (count >= maxCount) return count;
+        }
+      }
+    }
+    return count;
+  }
+
+  /**
+   * 🐾 Nekomata: Hoán đổi 1 ô bị kẹt sâu ra ngoài rìa để lập tức mở đường
+   */
+  public swapDeepTileToPerimeter(): boolean {
+    let deepTile: TileState | null = null;
+    let maxDistFromEdge = -1;
+
+    for (let r = 2; r <= this.rows - 1; r++) {
+      for (let c = 2; c <= this.cols - 1; c++) {
+        const t = this.grid[r][c];
+        if (!t.isCleared && t.characterId && !t.isLocked && t.modifier === 'none') {
+          const dist = Math.min(r - 1, this.rows - r, c - 1, this.cols - c);
+          if (dist > maxDistFromEdge) {
+            maxDistFromEdge = dist;
+            deepTile = t;
+          }
+        }
+      }
+    }
+
+    if (!deepTile) return false;
+
+    // Tìm ô rỗng ở viền biên ngoài
+    let targetCell: GridPoint | null = null;
+    for (let r = 1; r <= this.rows; r++) {
+      if (this.grid[r][1].isCleared) { targetCell = { r, c: 1 }; break; }
+      if (this.grid[r][this.cols].isCleared) { targetCell = { r, c: this.cols }; break; }
+    }
+    if (!targetCell) {
+      for (let c = 1; c <= this.cols; c++) {
+        if (this.grid[1][c].isCleared) { targetCell = { r: 1, c }; break; }
+        if (this.grid[this.rows][c].isCleared) { targetCell = { r: this.rows, c }; break; }
+      }
+    }
+
+    if (targetCell) {
+      if (this.selectedTile && (this.selectedTile === deepTile || (this.selectedTile.r === targetCell.r && this.selectedTile.c === targetCell.c))) {
+        this.clearSelection();
+      }
+      const targetState = this.grid[targetCell.r][targetCell.c];
+      targetState.isCleared = false;
+      targetState.characterId = deepTile.characterId;
+      targetState.modifier = 'none';
+
+      deepTile.isCleared = true;
+      deepTile.characterId = null;
+      deepTile.modifier = 'none';
+
+      this.syncViewsAfterMovement();
+      this.tileViews[targetCell.r]?.[targetCell.c]?.playBounceIn();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 🦌 Kirin Lv.5: Biến 1 cặp ô hiểm hóc thành Thánh Hoa kết nối dễ dàng
+   */
+  public createHolyBlossomPair(): boolean {
+    const match = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, this.getPortals());
+    if (match) {
+      this.tileViews[match.p1.r]?.[match.p1.c]?.playBounceIn();
+      this.tileViews[match.p2.r]?.[match.p2.c]?.playBounceIn();
+      return true;
+    }
+    return false;
   }
 
   public setPiercingLaser(active: boolean): void {
@@ -1775,11 +2285,11 @@ export class BoardManager {
     let isDanger = false;
     for (let c = 1; c <= this.cols; c++) {
       const topTile = this.grid[1]?.[c];
-      if (topTile && !topTile.isCleared && topTile.characterId) {
+      if (topTile && !topTile.isCleared && (topTile.characterId || topTile.modifier !== 'none')) {
         isOverflow = true;
       }
       const warnTile = this.grid[2]?.[c];
-      if (warnTile && !warnTile.isCleared && warnTile.characterId) {
+      if (warnTile && !warnTile.isCleared && (warnTile.characterId || warnTile.modifier !== 'none')) {
         isDanger = true;
       }
     }
@@ -1794,7 +2304,7 @@ export class BoardManager {
     // 1. Check if row 1 has any active tile -> OVERFLOW / GAME OVER
     for (let c = 1; c <= this.cols; c++) {
       const topTile = this.grid[1]?.[c];
-      if (topTile && !topTile.isCleared && topTile.characterId) {
+      if (topTile && !topTile.isCleared && (topTile.characterId || topTile.modifier !== 'none')) {
         return false;
       }
     }
@@ -1859,7 +2369,7 @@ export class BoardManager {
       for (let r = 1; r <= this.rows; r++) {
         for (let c = 1; c <= this.cols; c++) {
           const state = this.grid[r][c];
-          if (!state.isCleared && state.characterId) {
+          if (!state.isCleared && (state.characterId || state.modifier !== 'none')) {
             const worldPos = this.gridToWorld(r, c);
             const view = new TileView(this.scene, worldPos.x, worldPos.y, this.tileSize, state);
             view.on('pointerdown', () => this.handleTileClick(r, c));
@@ -1918,6 +2428,7 @@ export class BoardManager {
     if (this.portalContainerB) this.portalContainerB.destroy();
     this.clearViews();
     this.lineGraphics.destroy();
+    this.hintGraphics.destroy();
     this.boardContainer.destroy();
   }
 }

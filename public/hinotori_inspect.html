@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Hinotori 3D Inspector</title>
+  <style>
+    body { background: #0b0c16; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; max-width: 1200px; margin: 20px auto; }
+    .card { background: #1c151c; border: 1px solid #4a2020; border-radius: 8px; padding: 8px; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+    .card:hover { transform: scale(1.05); border-color: #ff595e; }
+    .card img { width: 100%; height: auto; display: block; }
+    .card span { font-size: 12px; font-weight: bold; color: #ffbe0b; margin-top: 6px; display: block; word-break: break-all; }
+    #turntable { width: 320px; height: 320px; margin: 20px auto; border: 2px solid #ff595e; border-radius: 16px; background: radial-gradient(circle, #3d1515 0%, #0d0f17 70%); box-shadow: 0 0 25px rgba(255, 89, 94, 0.4); position: relative; overflow: hidden; }
+    #tt-img { width: 100%; height: 100%; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <h2 style="color: #ff595e;">🔥 Hi-no-tori 3D Turntable Inspector (All 18 Processed Frames)</h2>
+  
+  <div id="turntable">
+    <img id="tt-img" src="assets/companion/hinotori_3d/proc/S3_R0_C0_proc.png" />
+  </div>
+  <p id="cur-info" style="color: #ffd700; font-size: 15px;">Click any card to preview in turntable, or drag turntable horizontally.</p>
+
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const sheets = [
+      'S1_R0_C0', 'S1_R0_C1', 'S1_R0_C2', 'S1_R1_C0', 'S1_R1_C1', 'S1_R1_C2',
+      'S2_R0_C0', 'S2_R0_C1', 'S2_R0_C2', 'S2_R1_C0', 'S2_R1_C1', 'S2_R1_C2',
+      'S3_R0_C0', 'S3_R0_C1', 'S3_R0_C2', 'S3_R1_C0', 'S3_R1_C1', 'S3_R1_C2'
+    ];
+
+    const grid = document.getElementById('grid');
+    const ttImg = document.getElementById('tt-img');
+    const curInfo = document.getElementById('cur-info');
+
+    sheets.forEach((s, idx) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<img src="assets/companion/hinotori_3d/proc/${s}_proc.png"><span>${s} (#${idx})</span>`;
+      card.onclick = () => {
+        ttImg.src = `assets/companion/hinotori_3d/proc/${s}_proc.png`;
+        curInfo.innerText = `Selected: ${s} (index ${idx})`;
+      };
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>

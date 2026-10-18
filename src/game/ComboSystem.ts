@@ -9,7 +9,8 @@ export class ComboSystem {
   private comboCount: number = 0;
   private maxCombo: number = 0;
   private timer: number = 0;
-  private readonly comboWindow: number = 3.5; // seconds to keep combo alive
+  private readonly baseComboWindow: number = 3.5; // seconds to keep combo alive
+  private bonusComboWindow: number = 0;
   private isFeverMode: boolean = false;
   private handlers: ComboEventHandlers;
 
@@ -17,12 +18,20 @@ export class ComboSystem {
     this.handlers = handlers;
   }
 
+  public setBonusComboWindow(seconds: number): void {
+    this.bonusComboWindow = Math.max(0, seconds);
+  }
+
+  public getEffectiveComboWindow(): number {
+    return this.baseComboWindow + this.bonusComboWindow;
+  }
+
   public registerMatch(): { combo: number; multiplier: number; isFever: boolean } {
     this.comboCount++;
     if (this.comboCount > this.maxCombo) {
       this.maxCombo = this.comboCount;
     }
-    this.timer = this.comboWindow;
+    this.timer = this.getEffectiveComboWindow();
 
     const previousFever = this.isFeverMode;
     if (this.comboCount >= 5) {
@@ -89,6 +98,6 @@ export class ComboSystem {
 
   public getTimerProgress(): number {
     if (this.comboCount === 0) return 0;
-    return Math.max(0, this.timer / this.comboWindow);
+    return Math.max(0, this.timer / this.getEffectiveComboWindow());
   }
 }

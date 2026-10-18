@@ -4,6 +4,9 @@ import { ObstacleInfoModal } from './ObstacleInfoModal';
 import { TextureGenerator } from './TextureGenerator';
 
 export class TileView extends Phaser.GameObjects.Container {
+  public static readonly BASE_DEPTH: number = 5;
+  public static readonly SELECTED_DEPTH: number = 10;
+
   public gridR: number;
   public gridC: number;
   public tileState: TileState;
@@ -18,6 +21,9 @@ export class TileView extends Phaser.GameObjects.Container {
   private selectionGlow: Phaser.GameObjects.Image;
   private isTileSelected: boolean = false;
   private hintTween: Phaser.Tweens.Tween | null = null;
+  private hintScaleTween: Phaser.Tweens.Tween | null = null;
+  private selectionTween: Phaser.Tweens.Tween | null = null;
+  private tileSize: number;
 
   constructor(scene: Phaser.Scene, x: number, y: number, tileSize: number, state: TileState) {
     super(scene, x, y);
@@ -25,13 +31,16 @@ export class TileView extends Phaser.GameObjects.Container {
     this.gridR = state.r;
     this.gridC = state.c;
     this.tileState = state;
+    this.tileSize = tileSize;
 
     this.setSize(tileSize, tileSize);
+    this.setDepth(TileView.BASE_DEPTH);
 
     // 1. Base Background
     const isObstacle = state.modifier === 'stone' || state.modifier === 'thorn' || state.modifier === 'barricade';
+    const isStone = state.modifier === 'stone';
     this.bgSprite = scene.add.image(0, 0, 'tile_base').setDisplaySize(tileSize, tileSize);
-    this.bgSprite.setVisible(!isObstacle);
+    this.bgSprite.setVisible(true);
     this.add(this.bgSprite);
 
     // 2. Selection Glow
@@ -53,26 +62,51 @@ export class TileView extends Phaser.GameObjects.Container {
     }
     this.charSprite = scene.add.image(0, 0, charKey)
       .setDisplaySize(tileSize * 0.94, tileSize * 0.94)
-      .setVisible(!isObstacle && !!state.characterId);
+      .setVisible(!isStone && !!state.characterId);
     this.add(this.charSprite);
 
     // 4. Modifier Overlays
     this.updateModifierVisual(tileSize);
 
-    // Enable interactive input (not-allowed cursor for hard blockers / cages)
-    if (isObstacle) {
-      this.setInteractive({ cursor: 'not-allowed' });
-    } else {
-      this.setInteractive({ useHandCursor: true });
-    }
+    // Enable interactive input with correctly centered bounds covering all quadrants
+    this.setupInteractiveHitArea(isObstacle);
 
     scene.add.existing(this);
   }
 
+  private setupInteractiveHitArea(isObstacle: boolean): void {
+    // In Phaser 3, Container displayOrigin is (width/2, height/2).
+    // pointWithinHitArea adds displayOrigin, transforming [-w/2, w/2] into [0, w].
+    // Therefore hitArea MUST be [0, 0, width, height] for exact 100% tile coverage without overlap.
+    const hitRect = new Phaser.Geom.Rectangle(
+      0,
+      0,
+      this.tileSize,
+      this.tileSize
+    );
+
+    if (this.input) {
+      this.input.hitArea = hitRect;
+      this.input.hitAreaCallback = Phaser.Geom.Rectangle.Contains;
+      this.input.cursor = isObstacle ? 'not-allowed' : 'pointer';
+      this.input.enabled = true;
+    } else {
+      this.setInteractive(hitRect, Phaser.Geom.Rectangle.Contains);
+      const io = this.input as any;
+      if (io) {
+        io.cursor = isObstacle ? 'not-allowed' : 'pointer';
+      }
+    }
+  }
+
   public updateState(state: TileState, tileSize: number): void {
     this.tileState = state;
+    this.tileSize = tileSize;
     this.gridR = state.r;
     this.gridC = state.c;
+    this.setSize(tileSize, tileSize);
+    this.bgSprite.setDisplaySize(tileSize, tileSize);
+    this.selectionGlow.setDisplaySize(tileSize, tileSize);
     const isObstacle = state.modifier === 'stone' || state.modifier === 'thorn' || state.modifier === 'barricade';
 
     if (state.isCleared || (!state.characterId && !isObstacle)) {
@@ -91,32 +125,27 @@ export class TileView extends Phaser.GameObjects.Container {
     this.isTileSelected = false;
     this.selectionGlow.setVisible(false);
 
-    if (isObstacle) {
-      this.setInteractive({ cursor: 'not-allowed' });
-    } else {
-      this.setInteractive({ useHandCursor: true });
-    }
-    if (this.input) {
-      this.input.enabled = true;
-    }
+    // Ensure interactive hit area is perfectly centered and enabled
+    this.setupInteractiveHitArea(isObstacle);
 
-    if (isObstacle) {
-      this.bgSprite.setVisible(false);
+    const isStone = state.modifier === 'stone';
+    this.bgSprite.setVisible(true);
+
+    if (isStone || !state.characterId) {
       this.charSprite.setVisible(false);
-      this.updateModifierVisual(tileSize);
-      return;
+    } else {
+      let charKey = `char_${state.characterId}`;
+      if (!this.scene.textures.exists(charKey)) {
+        TextureGenerator.ensureCharacterTexture(this.scene, state.characterId);
+      }
+      if (!this.scene.textures.exists(charKey)) {
+        charKey = 'tile_base';
+      }
+      this.charSprite.setTexture(charKey)
+        .setDisplaySize(tileSize * 0.94, tileSize * 0.94)
+        .setVisible(true);
     }
 
-    let charKey = state.characterId ? `char_${state.characterId}` : 'tile_base';
-    if (state.characterId && !this.scene.textures.exists(charKey)) {
-      TextureGenerator.ensureCharacterTexture(this.scene, state.characterId);
-    }
-    if (!this.scene.textures.exists(charKey)) {
-      charKey = 'tile_base';
-    }
-    this.charSprite.setTexture(charKey)
-      .setDisplaySize(tileSize * 0.94, tileSize * 0.94)
-      .setVisible(true);
     this.updateModifierVisual(tileSize);
   }
 
@@ -142,39 +171,40 @@ export class TileView extends Phaser.GameObjects.Container {
       this.obstacleBadgeContainer = null;
     }
 
-    const isObstacle = this.tileState.modifier === 'stone' || this.tileState.modifier === 'thorn' || this.tileState.modifier === 'barricade';
-    this.bgSprite.setVisible(!isObstacle);
-    this.charSprite.setVisible(!isObstacle && !!this.tileState.characterId);
+    const isStone = this.tileState.modifier === 'stone';
+    const isObstacle = isStone || this.tileState.modifier === 'thorn' || this.tileState.modifier === 'barricade';
+    this.bgSprite.setVisible(true);
+    this.charSprite.setVisible(!isStone && !!this.tileState.characterId);
 
     if (this.tileState.modifier === 'ice') {
-      this.modSprite = this.scene.add.image(0, 0, 'mod_ice').setDisplaySize(tileSize, tileSize);
+      this.modSprite = this.scene.add.image(0, 0, 'mod_ice').setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     } else if (this.tileState.modifier === 'stone') {
       const lvl = this.tileState.modifierLevel || 3;
       const key = lvl === 1 ? 'stone_lv1' : lvl === 2 ? 'stone_lv2' : 'stone_lv3';
       const texKey = this.scene.textures.exists(key) ? key : 'mod_stone';
-      this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 1.08, tileSize * 1.08);
+      this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     } else if (this.tileState.modifier === 'thorn') {
       const lvl = this.tileState.modifierLevel || 3;
       const key = lvl === 1 ? 'thorn_lv1' : lvl === 2 ? 'thorn_lv2' : 'thorn_lv3';
       const texKey = this.scene.textures.exists(key) ? key : 'mod_lock';
-      this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 1.08, tileSize * 1.08);
+      this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     } else if (this.tileState.modifier === 'web') {
       const lvl = this.tileState.modifierLevel || 2;
       const key = lvl === 1 ? 'web_lv1' : 'web_lv2';
       const texKey = this.scene.textures.exists(key) ? key : 'mod_ice';
-      this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 1.04, tileSize * 1.04);
+      this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     } else if (this.tileState.modifier === 'barricade') {
       const lvl = this.tileState.modifierLevel || 3;
       const key = lvl === 1 ? 'barricade_lv1' : lvl === 2 ? 'barricade_lv2' : 'barricade_lv3';
       const texKey = this.scene.textures.exists(key) ? key : 'mod_lock';
-      this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 1.08, tileSize * 1.08);
+      this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     } else if (this.tileState.modifier === 'lock') {
-      this.modSprite = this.scene.add.image(0, 0, 'mod_lock').setDisplaySize(tileSize, tileSize);
+      this.modSprite = this.scene.add.image(0, 0, 'mod_lock').setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     }
 
@@ -222,8 +252,8 @@ export class TileView extends Phaser.GameObjects.Container {
         themeHex = '#ff595e';
       }
 
-      const badgeW = 38;
-      const badgeH = 16;
+      const badgeW = 48;
+      const badgeH = 22;
       const badgeX = tileSize / 2 - badgeW / 2 - 2;
       const badgeY = -tileSize / 2 + badgeH / 2 + 3;
 
@@ -231,17 +261,17 @@ export class TileView extends Phaser.GameObjects.Container {
 
       const pillBg = this.scene.add.graphics();
       pillBg.fillStyle(0x0a0d18, 0.94);
-      pillBg.fillRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 6);
-      pillBg.lineStyle(1.4, themeColor, 0.95);
-      pillBg.strokeRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 6);
+      pillBg.fillRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 7);
+      pillBg.lineStyle(1.5, themeColor, 0.95);
+      pillBg.strokeRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 7);
 
       const pillText = this.scene.add.text(0, 0, `${icon}${lvlStr}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '8.5px',
+        fontSize: '12px',
         fontStyle: '900',
         color: themeHex,
         stroke: '#000000',
-        strokeThickness: 2
+        strokeThickness: 2.2
       }).setOrigin(0.5);
 
       this.obstacleBadgeContainer.add([pillBg, pillText]);
@@ -297,13 +327,13 @@ export class TileView extends Phaser.GameObjects.Container {
       this.add(this.specialBadge);
 
       const timeLeft = Math.ceil(this.tileState.luckyPotTimeLeft !== undefined ? this.tileState.luckyPotTimeLeft : 10);
-      this.luckyTimerText = this.scene.add.text(tileSize / 2 - 8, -tileSize / 2 + 8, `${timeLeft}s`, {
+      this.luckyTimerText = this.scene.add.text(tileSize / 2 - 6, -tileSize / 2 + 8, `${timeLeft}s`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '10px',
+        fontSize: '14px',
         fontStyle: '900',
         color: '#ffd700',
         stroke: '#000000',
-        strokeThickness: 3
+        strokeThickness: 3.5
       }).setOrigin(1, 0.5);
       this.add(this.luckyTimerText);
     } else if (this.tileState.isShapeshifter || this.tileState.modifier === 'shapeshifter') {
@@ -417,26 +447,38 @@ export class TileView extends Phaser.GameObjects.Container {
 
   public setSelected(selected: boolean): void {
     this.isTileSelected = selected;
+    if (this.scene.textures.exists('tile_selected')) {
+      this.selectionGlow.setTexture('tile_selected');
+    }
+    this.selectionGlow.setDisplaySize(this.tileSize, this.tileSize);
     this.selectionGlow.setVisible(selected);
 
+    if (this.selectionTween) {
+      this.selectionTween.stop();
+      this.selectionTween = null;
+      this.selectionGlow.setAlpha(1);
+    }
+
+    this.scene.tweens.killTweensOf(this);
+    this.scene.tweens.killTweensOf(this.selectionGlow);
+
     if (selected) {
-      this.scene.tweens.killTweensOf(this);
-      this.scene.tweens.add({
-        targets: this,
-        scaleX: 1.12,
-        scaleY: 1.12,
-        duration: 120,
-        ease: 'Back.easeOut'
+      this.setDepth(TileView.SELECTED_DEPTH);
+      this.setScale(1.0);
+
+      // Delicate, rhythmic golden pulse of the selection border (alpha only)
+      this.selectionTween = this.scene.tweens.add({
+        targets: this.selectionGlow,
+        alpha: { from: 0.6, to: 1.0 },
+        duration: 380,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
       });
     } else {
-      this.scene.tweens.killTweensOf(this);
-      this.scene.tweens.add({
-        targets: this,
-        scaleX: 1.0,
-        scaleY: 1.0,
-        duration: 120,
-        ease: 'Quad.easeOut'
-      });
+      this.setDepth(TileView.BASE_DEPTH);
+      this.setScale(1.0);
+      this.selectionGlow.setAlpha(1.0);
     }
   }
 
@@ -445,22 +487,55 @@ export class TileView extends Phaser.GameObjects.Container {
       this.hintTween.stop();
       this.hintTween = null;
     }
+    if (this.hintScaleTween) {
+      this.hintScaleTween.stop();
+      this.hintScaleTween = null;
+    }
 
     if (hinted) {
+      // Gentle depth pop above adjacent tiles
+      this.setDepth(20);
+      this.setAlpha(1.0);
+
+      // Refined golden frame texture
+      if (this.scene.textures.exists('tile_hinted')) {
+        this.selectionGlow.setTexture('tile_hinted');
+      }
+      this.selectionGlow.setDisplaySize(this.tileSize * 1.04, this.tileSize * 1.04);
       this.selectionGlow.setVisible(true);
+
+      // Smooth pulsing golden glow
       this.hintTween = this.scene.tweens.add({
-        targets: [this.selectionGlow, this],
-        alpha: { from: 1, to: 0.4 },
-        scaleX: { from: 1.08, to: 1.0 },
-        scaleY: { from: 1.08, to: 1.0 },
-        duration: 400,
+        targets: this.selectionGlow,
+        alpha: { from: 0.55, to: 1.0 },
+        duration: 380,
         yoyo: true,
-        repeat: -1
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+
+      // Subtle, organic breathing scale (1.0 -> 1.06) - clean and non-distracting
+      this.hintScaleTween = this.scene.tweens.add({
+        targets: this,
+        scaleX: 1.06,
+        scaleY: 1.06,
+        duration: 420,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
       });
     } else {
+      this.setScale(1.0);
+      this.setDepth(this.isTileSelected ? TileView.SELECTED_DEPTH : TileView.BASE_DEPTH);
+      if (this.scene.textures.exists('tile_selected')) {
+        this.selectionGlow.setTexture('tile_selected');
+      }
+      this.selectionGlow.setDisplaySize(this.tileSize, this.tileSize);
       this.selectionGlow.setVisible(this.isTileSelected);
-      this.setAlpha(1);
-      this.setScale(this.isTileSelected ? 1.12 : 1.0);
+      if (this.isTileSelected) {
+        this.selectionGlow.setAlpha(1.0);
+      }
+      this.setAlpha(1.0);
     }
   }
 
@@ -534,17 +609,17 @@ export class TileView extends Phaser.GameObjects.Container {
     }
 
     // Floating Notice Popup
-    const toast = this.scene.add.container(this.x, this.y - 8);
+    const toast = this.scene.add.container(this.x, this.y - 12);
     const bg = this.scene.add.graphics();
     bg.fillStyle(0x1a1c29, 0.96);
-    bg.fillRoundedRect(-75, -13, 150, 26, 7);
-    bg.lineStyle(1.5, 0xff595e, 0.95);
-    bg.strokeRoundedRect(-75, -13, 150, 26, 7);
+    bg.fillRoundedRect(-105, -18, 210, 36, 10);
+    bg.lineStyle(1.6, 0xff595e, 0.95);
+    bg.strokeRoundedRect(-105, -18, 210, 36, 10);
 
     const txt = this.scene.add.text(0, 0, customLabel || '⛔ VẬT CẢN (ĐÁ)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
-      fontStyle: '800',
+      fontSize: '15px',
+      fontStyle: '900',
       color: '#ff595e'
     }).setOrigin(0.5);
 
@@ -569,6 +644,10 @@ export class TileView extends Phaser.GameObjects.Container {
     if (this.hintTween) {
       this.hintTween.stop();
       this.hintTween = null;
+    }
+    if (this.hintScaleTween) {
+      this.hintScaleTween.stop();
+      this.hintScaleTween = null;
     }
     super.destroy(fromScene);
   }

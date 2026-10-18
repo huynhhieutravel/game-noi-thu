@@ -297,23 +297,26 @@ export class SettingsModal {
       }
     );
 
-    // 3. Reset Button
+    // 3. Reset Button (Reliable without browser popup)
+    let isResetArmed = false;
     createActionButton(
       '🔄 Đặt Lại Dữ Liệu (Reset)',
-      'Xóa sạch tiến trình, bắt đầu lại từ đầu',
+      'Xóa sạch tiến trình, bắt đầu lại từ màn 1',
       colY + 178,
       0x7f1d1d,
       () => {
-        const confirmReset = confirm('⚠️ Bạn có chắc chắn muốn xóa toàn bộ tiến trình để chơi lại từ màn 1 không?');
-        if (confirmReset) {
-          save.resetToDefault();
-          audio.playError();
-          showToast('🔄 Đã đặt lại dữ liệu về ban đầu!');
-          scene.time.delayedCall(1000, () => {
-            container.destroy();
-            scene.scene.restart();
-          });
+        if (!isResetArmed) {
+          isResetArmed = true;
+          showToast('⚠️ Nhấn LẦN NỮA để xác nhận xóa toàn bộ tiến trình!', true);
+          return;
         }
+        save.resetToDefault();
+        audio.playError();
+        showToast('🔄 Đã xóa sạch dữ liệu! Bắt đầu lại từ Màn 1...');
+        scene.time.delayedCall(800, () => {
+          container.destroy();
+          scene.scene.restart();
+        });
       }
     );
 

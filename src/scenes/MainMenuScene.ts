@@ -5,13 +5,18 @@ import { HapticSystem } from '../systems/HapticSystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { CompanionManager } from '../game/CompanionManager';
 import { CompanionModal } from '../game/CompanionModal';
+import { CompanionModal3D } from '../game/CompanionModal3D';
 import { TextureGenerator } from '../game/TextureGenerator';
 import bossesData from '../data/bosses.json';
 import levelsData from '../data/levels.json';
-import { LevelConfig, DifficultyLevel } from '../types';
+import { LevelConfig, DifficultyLevel, CharacterData } from '../types';
 import { LevelManager } from '../game/LevelManager';
+import { CharacterRegistry } from '../game/CharacterRegistry';
+import { RelicManager } from '../game/RelicManager';
+import { LootManager } from '../game/LootManager';
 import { QADebugPanel } from '../game/QADebugPanel';
 import { SettingsModal } from '../game/SettingsModal';
+import { ShopModal } from '../game/ShopModal';
 
 export class MainMenuScene extends Phaser.Scene {
   private saveSystem!: SaveSystem;
@@ -22,9 +27,12 @@ export class MainMenuScene extends Phaser.Scene {
   private stageDetailModalContainer: Phaser.GameObjects.Container | null = null;
   private realmModalContainer: Phaser.GameObjects.Container | null = null;
   private rulesModalContainer: Phaser.GameObjects.Container | null = null;
+  private relicsWikiModalContainer: Phaser.GameObjects.Container | null = null;
+  private lootTableModalContainer: Phaser.GameObjects.Container | null = null;
   private themeModalContainer: Phaser.GameObjects.Container | null = null;
   private bossModalContainer: Phaser.GameObjects.Container | null = null;
   private stageSelectChapter: number = 1;
+  private stageSelectDifficulty: DifficultyLevel = 'easy';
 
   public static readonly THEMES = [
     { id: 'yokai', label: 'Bách Quỷ', icon: '⛩️', tag: 'Thần Thoại Nhật', color: 0xd90429, hex: '#d90429' },
@@ -66,8 +74,18 @@ export class MainMenuScene extends Phaser.Scene {
     const currentTheme = this.saveSystem.getSelectedTheme();
     const { width: screenW, offsetX } = getScreenDimensions();
 
-    // 1. Fullscreen Cinematic Night Torii Background (Edge-to-Edge)
-    if (this.textures.exists('bg_main_torii')) {
+    // 1. Fullscreen Cinematic Background (Edge-to-Edge)
+    let mainBgKey = 'bg_main_torii';
+    if (currentTheme === 'egypt' && this.textures.exists('bg_egypt_nile')) {
+      mainBgKey = 'bg_egypt_nile';
+    } else if (this.textures.exists(`bg_main_${currentTheme}`)) {
+      mainBgKey = `bg_main_${currentTheme}`;
+    }
+
+    if (this.textures.exists(mainBgKey)) {
+      const bgImg = this.add.image(GAME_WIDTH / 2, height / 2, mainBgKey);
+      bgImg.setDisplaySize(screenW, height);
+    } else if (this.textures.exists('bg_main_torii')) {
       const bgImg = this.add.image(GAME_WIDTH / 2, height / 2, 'bg_main_torii');
       bgImg.setDisplaySize(screenW, height);
     } else {
@@ -109,13 +127,6 @@ export class MainMenuScene extends Phaser.Scene {
     // 5. Right Hub Section: Primary Play CTA & Game Mode Grid
     this.createGameHub(save);
 
-    // 6. Footer Signature
-    this.add.text(width / 2, height - 14, '⛩️ YOKAI ONET • PHIÊN BẢN MOBILE NATIVE 2026', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      fontStyle: 'bold',
-      color: '#94a3b8'
-    }).setOrigin(0.5).setAlpha(0.65);
 
     // 7. QA Debug Panel
     this.qaDebugPanel = new QADebugPanel(this);
@@ -155,9 +166,9 @@ export class MainMenuScene extends Phaser.Scene {
     // --- Left: Companion / Pet Pill ---
     const compId = this.saveSystem.getSelectedCompanion();
     const companion = CompanionManager.get(compId);
-    const compW = 216;
+    const compW = 166;
     const compH = 38;
-    const compX = 24;
+    const compX = 14;
     const topY = 16;
 
     const compBg = this.add.graphics();
@@ -172,31 +183,31 @@ export class MainMenuScene extends Phaser.Scene {
     if (this.textures.exists('avatar_inari')) {
       const avRing = this.add.graphics();
       avRing.lineStyle(2, 0xd90429, 0.9);
-      avRing.strokeCircle(compX + 22, topY + compH / 2, 16);
+      avRing.strokeCircle(compX + 20, topY + compH / 2, 14);
       container.add(avRing);
 
-      const avImg = this.add.image(compX + 22, topY + compH / 2, 'avatar_inari');
-      avImg.setDisplaySize(30, 30);
+      const avImg = this.add.image(compX + 20, topY + compH / 2, 'avatar_inari');
+      avImg.setDisplaySize(26, 26);
       avItem = avImg;
     } else {
       TextureGenerator.ensureCharacterTexture(this, companion.id);
       if (this.textures.exists(compTexKey)) {
         const avRing = this.add.graphics();
         avRing.lineStyle(2, companion.themeColor, 0.9);
-        avRing.strokeCircle(compX + 22, topY + compH / 2, 16);
+        avRing.strokeCircle(compX + 20, topY + compH / 2, 14);
         container.add(avRing);
 
-        const avImg = this.add.image(compX + 22, topY + compH / 2, compTexKey);
-        avImg.setDisplaySize(30, 30);
+        const avImg = this.add.image(compX + 20, topY + compH / 2, compTexKey);
+        avImg.setDisplaySize(26, 26);
         avItem = avImg;
       } else {
-        avItem = this.add.text(compX + 12, topY + 9, companion.icon, { fontSize: '18px' });
+        avItem = this.add.text(compX + 10, topY + 9, companion.icon, { fontSize: '16px' });
       }
     }
 
-    const compText = this.add.text(compX + 44, topY + 8, `${companion.name} ⚙`, {
+    const compText = this.add.text(compX + 38, topY + 9, `${companion.name}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16px',
+      fontSize: '14px',
       fontStyle: '800',
       color: '#ffffff'
     });
@@ -204,13 +215,13 @@ export class MainMenuScene extends Phaser.Scene {
     // Purple "ĐỔI" Button Capsule
     const changeBg = this.add.graphics();
     changeBg.fillStyle(0x7209b7, 0.95);
-    changeBg.fillRoundedRect(compX + compW - 56, topY + 6, 48, 26, 12);
+    changeBg.fillRoundedRect(compX + compW - 44, topY + 6, 38, 26, 12);
     changeBg.lineStyle(1.5, 0x9d4edd, 0.9);
-    changeBg.strokeRoundedRect(compX + compW - 56, topY + 6, 48, 26, 12);
+    changeBg.strokeRoundedRect(compX + compW - 44, topY + 6, 38, 26, 12);
 
-    const changeTag = this.add.text(compX + compW - 32, topY + 19, 'ĐỔI', {
+    const changeTag = this.add.text(compX + compW - 25, topY + 19, 'ĐỔI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '12.5px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -221,7 +232,8 @@ export class MainMenuScene extends Phaser.Scene {
 
     compHit.on('pointerdown', () => {
       this.audio.playSelect();
-      CompanionModal.open(this, (newComp) => {
+      const currentComp = this.saveSystem.getSelectedCompanion();
+      CompanionModal3D.open(this, currentComp, (newComp) => {
         this.saveSystem.setSelectedCompanion(newComp.id);
         this.audio.playVictory();
         this.haptic.medium();
@@ -230,8 +242,8 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // --- Left: Coins Pill with "+" Button ---
-    const coinW = 124;
-    const coinX = compX + compW + 10;
+    const coinW = 98;
+    const coinX = compX + compW + 8;
 
     const coinsBg = this.add.graphics();
     coinsBg.fillStyle(0x111024, 0.88);
@@ -239,10 +251,10 @@ export class MainMenuScene extends Phaser.Scene {
     coinsBg.lineStyle(1.5, 0xffd166, 0.8);
     coinsBg.strokeRoundedRect(coinX, topY, coinW, compH, 19);
 
-    const coinIcon = this.add.text(coinX + 13, topY + 8, '💰', { fontSize: '18px' });
-    const coinText = this.add.text(coinX + 40, topY + 8, `${save.coins}`, {
+    const coinIcon = this.add.text(coinX + 11, topY + 8, '💰', { fontSize: '16px' });
+    const coinText = this.add.text(coinX + 32, topY + 9, `${save.coins}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#ffd700'
     });
@@ -250,29 +262,98 @@ export class MainMenuScene extends Phaser.Scene {
     // Small "+" circle
     const plusCircle = this.add.graphics();
     plusCircle.fillStyle(0x272346, 0.9);
-    plusCircle.fillCircle(coinX + coinW - 17, topY + compH / 2, 10);
+    plusCircle.fillCircle(coinX + coinW - 13, topY + compH / 2, 9);
     plusCircle.lineStyle(1.2, 0xffd166, 0.85);
-    plusCircle.strokeCircle(coinX + coinW - 17, topY + compH / 2, 10);
+    plusCircle.strokeCircle(coinX + coinW - 13, topY + compH / 2, 9);
 
-    const plusTxt = this.add.text(coinX + coinW - 17, topY + compH / 2 - 1, '+', {
+    const plusTxt = this.add.text(coinX + coinW - 13, topY + compH / 2 - 1, '+', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '13px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
+    const coinHit = this.add.zone(coinX, topY, coinW, compH)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+    coinHit.on('pointerdown', () => {
+      this.openShopModal();
+    });
+
+    // --- Left: 💎 Diamonds Pill ---
+    const diaW = 80;
+    const diaX = coinX + coinW + 8;
+
+    const diaBg = this.add.graphics();
+    diaBg.fillStyle(0x111024, 0.88);
+    diaBg.fillRoundedRect(diaX, topY, diaW, compH, 19);
+    diaBg.lineStyle(1.5, 0x00f5d4, 0.85);
+    diaBg.strokeRoundedRect(diaX, topY, diaW, compH, 19);
+
+    const diaIcon = this.add.text(diaX + 10, topY + 8, '💎', { fontSize: '16px' });
+    const diaText = this.add.text(diaX + 30, topY + 9, `${this.saveSystem.getDiamonds()}`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '15px',
+      fontStyle: '900',
+      color: '#00f5d4'
+    });
+
+    const diaHit = this.add.zone(diaX, topY, diaW, compH)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+    diaHit.on('pointerdown', () => {
+      this.openShopModal();
+    });
+
+    // --- Left: 🏮 Tiệm Đạo Cụ (Shop) Pill Button ---
+    const shopW = 114;
+    const shopX = diaX + diaW + 8;
+
+    const shopBg = this.add.graphics();
+    shopBg.fillStyle(0x27101b, 0.92);
+    shopBg.fillRoundedRect(shopX, topY, shopW, compH, 19);
+    shopBg.lineStyle(1.8, 0xff4d6d, 0.95);
+    shopBg.strokeRoundedRect(shopX, topY, shopW, compH, 19);
+
+    const shopTxt = this.add.text(shopX + shopW / 2, topY + compH / 2, '🏮 CỬA HÀNG', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13.5px',
+      fontStyle: '900',
+      color: '#ff758f'
+    }).setOrigin(0.5);
+
+    const shopHit = this.add.zone(shopX, topY, shopW, compH)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+
+    shopHit.on('pointerdown', () => {
+      this.openShopModal();
+    });
+
+    shopHit.on('pointerover', () => {
+      shopBg.fillStyle(0xd90429, 1);
+      shopBg.fillRoundedRect(shopX, topY, shopW, compH, 19);
+      shopTxt.setColor('#ffffff');
+    });
+
+    shopHit.on('pointerout', () => {
+      shopBg.fillStyle(0x27101b, 0.92);
+      shopBg.fillRoundedRect(shopX, topY, shopW, compH, 19);
+      shopTxt.setColor('#ff758f');
+    });
+
     // --- Right: Settings Button (Circular Glass Gear Button) ---
-    const setW = 38;
-    const setX = width - 24 - setW;
+    const setW = 34;
+    const setX = width - 14 - setW;
 
     const setBg = this.add.graphics();
     setBg.fillStyle(0x111024, 0.88);
-    setBg.fillCircle(setX + setW / 2, topY + compH / 2, 19);
+    setBg.fillCircle(setX + setW / 2, topY + compH / 2, 17);
     setBg.lineStyle(1.5, 0xffd700, 0.8);
-    setBg.strokeCircle(setX + setW / 2, topY + compH / 2, 19);
+    setBg.strokeCircle(setX + setW / 2, topY + compH / 2, 17);
 
     this.add.text(setX + setW / 2, topY + compH / 2, '⚙️', {
-      fontSize: '18px'
+      fontSize: '16px'
     }).setOrigin(0.5);
 
     const setHit = this.add.zone(setX, topY, setW, compH)
@@ -286,17 +367,17 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // --- Right: Audio Toggle (Circular Glass Button) ---
-    const audioW = 38;
-    const audioX = setX - 10 - audioW;
+    const audioW = 34;
+    const audioX = setX - 6 - audioW;
 
     const audioBg = this.add.graphics();
     audioBg.fillStyle(0x111024, 0.88);
-    audioBg.fillCircle(audioX + audioW / 2, topY + compH / 2, 19);
+    audioBg.fillCircle(audioX + audioW / 2, topY + compH / 2, 17);
     audioBg.lineStyle(1.5, 0x00f5d4, 0.6);
-    audioBg.strokeCircle(audioX + audioW / 2, topY + compH / 2, 19);
+    audioBg.strokeCircle(audioX + audioW / 2, topY + compH / 2, 17);
 
     const audioIcon = this.add.text(audioX + audioW / 2, topY + compH / 2, this.audio.getEnabled() ? '🔊' : '🔇', {
-      fontSize: '18px'
+      fontSize: '16px'
     }).setOrigin(0.5);
 
     const audioHit = this.add.zone(audioX, topY, audioW, compH)
@@ -313,8 +394,8 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // --- Right: Rulebook Guide Button ---
-    const ruleW = 126;
-    const ruleX = audioX - 10 - ruleW;
+    const ruleW = 90;
+    const ruleX = audioX - 6 - ruleW;
 
     const ruleBg = this.add.graphics();
     ruleBg.fillStyle(0x111024, 0.88);
@@ -322,9 +403,9 @@ export class MainMenuScene extends Phaser.Scene {
     ruleBg.lineStyle(1.5, 0x00f5d4, 0.85);
     ruleBg.strokeRoundedRect(ruleX, topY, ruleW, compH, 19);
 
-    const ruleTxt = this.add.text(ruleX + ruleW / 2, topY + compH / 2, '📖 LUẬT CHƠI', {
+    const ruleTxt = this.add.text(ruleX + ruleW / 2, topY + compH / 2, '📖 LUẬT', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '13.5px',
       fontStyle: '800',
       color: '#00f5d4'
     }).setOrigin(0.5);
@@ -340,8 +421,8 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // --- Right: Stars Pill ---
-    const starW = 104;
-    const starX = ruleX - 10 - starW;
+    const starW = 78;
+    const starX = ruleX - 6 - starW;
 
     const starsBg = this.add.graphics();
     starsBg.fillStyle(0x111024, 0.88);
@@ -349,25 +430,75 @@ export class MainMenuScene extends Phaser.Scene {
     starsBg.lineStyle(1.5, 0xffb703, 0.8);
     starsBg.strokeRoundedRect(starX, topY, starW, compH, 19);
 
-    const starIcon = this.add.text(starX + 14, topY + 8, '⭐', { fontSize: '17px' });
-    const starText = this.add.text(starX + 40, topY + 8, `${save.stars}/30`, {
+    const starIcon = this.add.text(starX + 10, topY + 8, '⭐', { fontSize: '15px' });
+    const starText = this.add.text(starX + 28, topY + 9, `${save.stars}/30`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16.5px',
-      fontStyle: '800',
-      color: '#ffffff'
+      fontSize: '14.5px',
+      fontStyle: '900',
+      color: '#ffd700'
+    });
+
+    // --- Right: 🗺️ Stage Codex & Loot Almanac Button ---
+    const codexW = 110;
+    const codexX = starX - 6 - codexW;
+
+    const codexBg = this.add.graphics();
+    codexBg.fillStyle(0x191833, 0.92);
+    codexBg.fillRoundedRect(codexX, topY, codexW, compH, 19);
+    codexBg.lineStyle(1.5, 0xffd700, 0.95);
+    codexBg.strokeRoundedRect(codexX, topY, codexW, compH, 19);
+
+    const codexTxt = this.add.text(codexX + codexW / 2, topY + compH / 2, '🗺️ 100 MÀN', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13px',
+      fontStyle: '900',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+
+    const codexHit = this.add.zone(codexX, topY, codexW, compH)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+
+    codexHit.on('pointerdown', () => {
+      this.audio.playSelect();
+      this.haptic.light();
+      this.openStageLootCodexModal(1);
+    });
+
+    codexHit.on('pointerover', () => {
+      codexBg.fillStyle(0x2d1f4d, 1);
+      codexBg.fillRoundedRect(codexX, topY, codexW, compH, 19);
+    });
+    codexHit.on('pointerout', () => {
+      codexBg.fillStyle(0x191833, 0.92);
+      codexBg.fillRoundedRect(codexX, topY, codexW, compH, 19);
     });
 
     // --- Center: Theme Switcher Capsule (Quick Prev/Next & Gallery Modal) ---
-    const centerAreaX = (coinX + coinW + starX) / 2;
+    const centerAreaX = (shopX + shopW + codexX) / 2;
     this.createThemeSwitcher(container, centerAreaX, topY + compH / 2, currentTheme);
 
     container.add([
       compBg, avItem, compText, changeBg, changeTag, compHit,
-      coinsBg, coinIcon, coinText, plusCircle, plusTxt,
+      coinsBg, coinIcon, coinText, plusCircle, plusTxt, coinHit,
+      diaBg, diaIcon, diaText, diaHit,
+      shopBg, shopTxt, shopHit,
       starsBg, starIcon, starText,
+      codexBg, codexTxt, codexHit,
       ruleBg, ruleTxt, ruleHit,
       audioBg, audioIcon, audioHit
     ]);
+  }
+
+  /**
+   * Open Tactical Supply Depot Shop Modal
+   */
+  public openShopModal(): void {
+    this.audio.playSelect();
+    this.haptic.light();
+    ShopModal.open(this, () => {
+      this.scene.restart();
+    });
   }
 
   /**
@@ -380,11 +511,11 @@ export class MainMenuScene extends Phaser.Scene {
 
     const switcherGroup = this.add.container(centerX, centerY);
 
-    const arrowW = 34;
-    const arrowH = 34;
-    const pillW = 210;
-    const pillH = 38;
-    const gap = 8;
+    const arrowW = 26;
+    const arrowH = 26;
+    const pillW = 126;
+    const pillH = 34;
+    const gap = 4;
     const prevX = -(pillW / 2 + gap + arrowW / 2);
     const nextX = (pillW / 2 + gap + arrowW / 2);
 
@@ -398,7 +529,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const prevTxt = this.add.text(0, -1, '‹', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '24px',
+      fontSize: '18px',
       fontStyle: '900',
       color: '#adb5bd'
     }).setOrigin(0.5);
@@ -438,7 +569,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const nextTxt = this.add.text(0, -1, '›', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '24px',
+      fontSize: '18px',
       fontStyle: '900',
       color: '#adb5bd'
     }).setOrigin(0.5);
@@ -472,44 +603,36 @@ export class MainMenuScene extends Phaser.Scene {
     const centerPill = this.add.container(0, 0);
     const pillBg = this.add.graphics();
     pillBg.fillStyle(0x151426, 0.95);
-    pillBg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 19);
-    pillBg.lineStyle(2, curr.color, 0.9);
-    pillBg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 19);
+    pillBg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 17);
+    pillBg.lineStyle(1.8, curr.color, 0.9);
+    pillBg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 17);
 
     const pillInnerGlow = this.add.graphics();
     pillInnerGlow.fillStyle(curr.color, 0.12);
-    pillInnerGlow.fillRoundedRect(-pillW / 2 + 2, -pillH / 2 + 2, pillW - 4, pillH - 4, 17);
+    pillInnerGlow.fillRoundedRect(-pillW / 2 + 2, -pillH / 2 + 2, pillW - 4, pillH - 4, 15);
 
-    // Left Icon (e.g. 🏴‍☠️)
-    const iconTxt = this.add.text(-pillW / 2 + 16, 0, curr.icon, {
-      fontSize: '20px'
+    // Left Icon (e.g. ⛩️)
+    const iconTxt = this.add.text(-pillW / 2 + 10, 0, curr.icon, {
+      fontSize: '16px'
     }).setOrigin(0, 0.5);
 
     // Theme Name
-    const labelTxt = this.add.text(-pillW / 2 + 42, 0, curr.label, {
+    const labelTxt = this.add.text(-pillW / 2 + 30, 0, curr.label, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16.5px',
+      fontSize: '13px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0, 0.5);
 
-    // Counter Badge (e.g. 8/16)
-    const countTxt = this.add.text(pillW / 2 - 32, 0, `${currIdx + 1}/16`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
-      fontStyle: '800',
-      color: '#adb5bd'
-    }).setOrigin(1, 0.5);
-
     // Dropdown arrow
-    const downArrow = this.add.text(pillW / 2 - 16, 0, '▾', {
+    const downArrow = this.add.text(pillW / 2 - 12, 0, '▾', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16px',
+      fontSize: '12px',
       fontStyle: 'bold',
       color: '#ffd166'
     }).setOrigin(0.5);
 
-    centerPill.add([pillBg, pillInnerGlow, iconTxt, labelTxt, countTxt, downArrow]);
+    centerPill.add([pillBg, pillInnerGlow, iconTxt, labelTxt, downArrow]);
     centerPill.setSize(pillW, pillH).setInteractive({ useHandCursor: true });
 
     centerPill.on('pointerdown', () => {
@@ -543,7 +666,6 @@ export class MainMenuScene extends Phaser.Scene {
     let subTitleTxt = '百鬼夜行 • 妖怪コネクト';
     let mainTitleTxt = 'YOKAI ONET';
     let titleColor = '#ff758f';
-    let badgeText = '⛩️ HUYỀN THOẠI NỐI THÚ 2003 • 108 QUÁI THÚ';
     let mascotKey = 'char_inari_kitsune';
     let mascotFallback = '🦊';
 
@@ -551,105 +673,90 @@ export class MainMenuScene extends Phaser.Scene {
       subTitleTxt = 'エジプト神話 • 古代の神々';
       mainTitleTxt = 'EGYPT ONET';
       titleColor = '#f4a261';
-      badgeText = '🏺 CHƯ THẦN SÔNG NILE • 45 VỊ THẦN HUYỀN BÍ';
       mascotKey = 'char_sobek';
       mascotFallback = '🐊';
     } else if (currentTheme === 'greece') {
       subTitleTxt = 'ギリシャ神話 • オリンポス';
       mainTitleTxt = 'GREECE ONET';
       titleColor = '#90e0ef';
-      badgeText = '🏛️ ĐỈNH CAO OLYMPUS • 45 THẦN THOẠI HY LẠP';
       mascotKey = 'char_kronos';
       mascotFallback = '⚡';
     } else if (currentTheme === 'wuxia') {
       subTitleTxt = '仙侠神话 • 江湖武林';
       mainTitleTxt = 'WUXIA ONET';
       titleColor = '#ffd166';
-      badgeText = '🗡️ VÕ LÂM TIÊN HIỆP • 18 PHÁP BẢO & ĐẠI HIỆP';
       mascotKey = 'char_wuxia_swordsman';
       mascotFallback = '🗡️';
     } else if (currentTheme === 'korea') {
       subTitleTxt = '한국 설화 • 조선 신화';
       mainTitleTxt = 'KOREA ONET';
       titleColor = '#2a9d8f';
-      badgeText = '🐯 THẦN THOẠI XỨ HÀN • 18 LINH HỒN & THẦN THÚ';
       mascotKey = 'char_gumiho';
       mascotFallback = '🦊';
     } else if (currentTheme === 'india') {
       subTitleTxt = 'भारतीय पौराणिक कथा • उत्सव';
       mainTitleTxt = 'INDIA ONET';
       titleColor = '#ffb703';
-      badgeText = '🐘 THẦN THOẠI & LỄ HỘI ẤN ĐỘ • 18 CHƯ THẦN & VAHANA';
       mascotKey = 'char_lord_ganesha';
       mascotFallback = '🐘';
     } else if (currentTheme === 'sea') {
       subTitleTxt = 'เอเชียตะวันออกเฉียงใต้ • เทพนิยาย';
       mainTitleTxt = 'S.E.A ONET';
       titleColor = '#52b788';
-      badgeText = '🌴 ĐÔNG NAM Á • 18 LINH THÚ & DI TÍCH RỪNG THIÊNG';
       mascotKey = 'char_phaya_naga';
       mascotFallback = '🐍';
     } else if (currentTheme === 'pirate') {
       subTitleTxt = '海賊の航海 • 呪われた深海';
       mainTitleTxt = 'PIRATE ONET';
       titleColor = '#4cc9f0';
-      badgeText = '🏴‍☠️ HẢI TẶC ĐẠI DƯƠNG • 18 THỦY THỦ & BÓNG MA BIỂN';
       mascotKey = 'char_captain_paws';
       mascotFallback = '🏴‍☠️';
     } else if (currentTheme === 'underwater') {
       subTitleTxt = '海底王国 • アトランティス';
       mainTitleTxt = 'ATLANTIS ONET';
       titleColor = '#00b4d8';
-      badgeText = '🌊 THỦY CUNG HUYỀN BÍ • 54 LINH VẬT & ĐẾ VƯƠNG BIỂN';
       mascotKey = 'char_dolphin_prince';
       mascotFallback = '🐬';
     } else if (currentTheme === 'dinosaur') {
       subTitleTxt = '恐竜ワールド • ジュラ紀の谷';
       mainTitleTxt = 'DINO ONET';
       titleColor = '#52b788';
-      badgeText = '🦖 KỶ NGUYÊN TIỀN SỬ • 18 KHỦNG LONG & HỎA SƠN';
       mascotKey = 'char_baby_trex';
       mascotFallback = '🦖';
     } else if (currentTheme === 'monster') {
       subTitleTxt = 'ダンジョンモンスター • 冒険';
       mainTitleTxt = 'MONSTER ONET';
       titleColor = '#c77dff';
-      badgeText = '👾 QUÁI THÚ HẦM NGỤC • 18 TIỂU QUÁI & BẢO VẬT';
       mascotKey = 'char_baby_red_dragon';
       mascotFallback = '🐉';
     } else if (currentTheme === 'fantasy') {
       subTitleTxt = 'クラシックファンタジー • 冒険';
       mainTitleTxt = 'FANTASY ONET';
       titleColor = '#4cc9f0';
-      badgeText = '🏰 KỶ NGUYÊN HIỆP SĨ • 18 DŨNG SĨ & THẦN THÚ';
       mascotKey = 'char_lion_paladin';
       mascotFallback = '🦁';
     } else if (currentTheme === 'space') {
       subTitleTxt = 'スペース・ギャラクシー • 宇宙探索';
       mainTitleTxt = 'SPACE ONET';
       titleColor = '#4cc9f0';
-      badgeText = '🚀 THIÊN HÀ VŨ TRỤ • 18 PHI HÀNH GIA & THẦN THÚ SAO';
       mascotKey = 'char_starlight_kitsune';
       mascotFallback = '🦊';
     } else if (currentTheme === 'robot') {
       subTitleTxt = 'ロボット工場 • メカニック';
       mainTitleTxt = 'ROBOT ONET';
       titleColor = '#ffd166';
-      badgeText = '🤖 CÔNG XƯỞNG TƯƠNG LAI • 18 THỢ MÁY & CỖ MÁY';
       mascotKey = 'char_battery_bunny_bot';
       mascotFallback = '⚡';
     } else if (currentTheme === 'animal') {
       subTitleTxt = '動物王国 • かわいい動物たち';
       mainTitleTxt = 'ANIMAL ONET';
       titleColor = '#ffd166';
-      badgeText = '🐾 THẾ GIỚI ĐỘNG VẬT • 45 THÚ CƯNG & MUÔN THÚ';
       mascotKey = 'char_shiba_inu';
       mascotFallback = '🐕';
     } else if (currentTheme === 'plant') {
       subTitleTxt = '植物王国 • かわいい花と木';
       mainTitleTxt = 'PLANT ONET';
       titleColor = '#52b788';
-      badgeText = '🌱 VƯƠNG QUỐC THỰC VẬT • 18 KỲ HOA DỊ THẢO';
       mascotKey = 'char_sunflower_sunny';
       mascotFallback = '🌻';
     }
@@ -678,23 +785,6 @@ export class MainMenuScene extends Phaser.Scene {
         stroke: true,
         fill: true
       }
-    }).setOrigin(0.5);
-
-    // Subtitle Badge
-    const badgeW = 410;
-    const badgeH = 32;
-    const badgeBg = this.add.graphics();
-    badgeBg.fillStyle(0x120f24, 0.92);
-    badgeBg.fillRoundedRect(leftCenterX - badgeW / 2, 169, badgeW, badgeH, 16);
-    badgeBg.lineStyle(1.5, 0xffb703, 0.85);
-    badgeBg.strokeRoundedRect(leftCenterX - badgeW / 2, 169, badgeW, badgeH, 16);
-
-    const badgeTxtObj = this.add.text(leftCenterX, 185, badgeText, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
-      fontStyle: '800',
-      color: '#ffd700',
-      letterSpacing: 0.3
     }).setOrigin(0.5);
 
     // Idle title float tween
@@ -747,12 +837,114 @@ export class MainMenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut'
     });
 
-    // Mascot Sprite
+    // Companion Data & 3D Mascot Setup
+    const compId = this.saveSystem.getSelectedCompanion();
+    const companion = CompanionManager.get(compId);
+
+    // Support all 3D companions: Inari Kitsune, Ryujin Dragon & Hi-no-tori Phoenix
+    const is3DHinotori = compId === 'hi_no_tori' && this.textures.exists('hinotori_3d_00');
+    const is3DRyujin = compId === 'ryujin_pearl' && this.textures.exists('ryujin_3d_00');
+    const is3DInari = (mascotKey === 'char_inari_kitsune' || compId === 'inari_kitsune') && this.textures.exists('inari_3d_00') && !is3DRyujin && !is3DHinotori;
+    const is3DMascot = is3DHinotori || is3DRyujin || is3DInari;
+
     let mascotObj: Phaser.GameObjects.GameObject;
-    if (this.textures.exists(mascotKey)) {
+    let mascot3DContainer: Phaser.GameObjects.Container | null = null;
+
+    if (is3DMascot) {
+      mascot3DContainer = this.add.container(leftCenterX, daisY + 6);
+      let current3DFrame = 0;
+      const prefix3D = is3DHinotori ? 'hinotori_3d' : (is3DRyujin ? 'ryujin_3d' : 'inari_3d');
+      const initial3DKey = `${prefix3D}_00`;
+      const sprite3D = this.add.image(0, -6, initial3DKey);
+      sprite3D.setDisplaySize(150, 150);
+
+      mascot3DContainer.add(sprite3D);
+      mascotObj = mascot3DContainer;
+
+      const updateHome3DFrame = (f: number) => {
+        current3DFrame = ((f % 18) + 18) % 18;
+        const key = `${prefix3D}_${current3DFrame.toString().padStart(2, '0')}`;
+        if (this.textures.exists(key)) {
+          sprite3D.setTexture(key);
+        }
+      };
+
+      // Gentle floating bobbing tween
+      this.tweens.add({
+        targets: sprite3D,
+        y: -12,
+        duration: 1500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+
+      // Natural drag to rotate & tap to open 3D details
+      let isDraggingHome = false;
+      let dragStartXHome = 0;
+      let dragStartFrameHome = 0;
+
+      const dragZone = this.add.zone(leftCenterX, daisY - 6, 170, 160)
+        .setInteractive({ useHandCursor: true });
+
+      dragZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        isDraggingHome = true;
+        dragStartXHome = pointer.x;
+        dragStartFrameHome = current3DFrame;
+      });
+
+      this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+        if (!isDraggingHome) return;
+        const deltaX = pointer.x - dragStartXHome;
+        const frameDelta = Math.floor(deltaX / 12);
+        updateHome3DFrame(dragStartFrameHome + frameDelta);
+      });
+
+      const finishHomeDrag = (pointer: Phaser.Input.Pointer) => {
+        if (!isDraggingHome) return;
+        isDraggingHome = false;
+        const totalMoved = Math.abs(pointer.x - dragStartXHome);
+        if (totalMoved < 8) {
+          // Tap on mascot: Cute bounce + audio + launch full 3D Showcase Modal
+          this.audio.playVictory();
+          this.haptic.medium();
+          this.tweens.add({
+            targets: sprite3D,
+            y: -24,
+            scaleX: 1.15,
+            scaleY: 0.88,
+            duration: 150,
+            yoyo: true,
+            ease: 'Quad.easeOut',
+            onComplete: () => {
+              CompanionModal3D.open(this, compId, (newComp) => {
+                this.saveSystem.setSelectedCompanion(newComp.id);
+                this.scene.restart();
+              });
+            }
+          });
+        }
+      };
+
+      dragZone.on('pointerup', finishHomeDrag);
+      dragZone.on('pointerupoutside', finishHomeDrag);
+
+      this.events.once('shutdown', () => {
+        this.input.off('pointermove');
+      });
+    } else if (this.textures.exists(mascotKey)) {
       const sprite = this.add.image(leftCenterX, daisY + 6, mascotKey);
       sprite.setDisplaySize(130, 130);
       mascotObj = sprite;
+
+      sprite.setInteractive({ useHandCursor: true });
+      sprite.on('pointerdown', () => {
+        this.audio.playSelect();
+        CompanionModal3D.open(this, compId, (newComp) => {
+          this.saveSystem.setSelectedCompanion(newComp.id);
+          this.scene.restart();
+        });
+      });
     } else {
       const fallbackTxt = this.add.text(leftCenterX, daisY + 6, mascotFallback, {
         fontSize: '72px'
@@ -770,9 +962,7 @@ export class MainMenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut'
     });
 
-    // Mascot Buff Banner
-    const compId = this.saveSystem.getSelectedCompanion();
-    const companion = CompanionManager.get(compId);
+    // Mascot Buff Banner (Clickable!)
     const buffBg = this.add.graphics();
     buffBg.fillStyle(0x111024, 0.92);
     buffBg.fillRoundedRect(leftCenterX - 188, daisY + 91, 376, 42, 15);
@@ -792,6 +982,17 @@ export class MainMenuScene extends Phaser.Scene {
       fontStyle: '900',
       color: `#${companion.themeColor.toString(16).padStart(6, '0')}`
     }).setOrigin(0.5);
+
+    const buffZone = this.add.zone(leftCenterX, daisY + 112, 376, 42)
+      .setInteractive({ useHandCursor: true });
+
+    buffZone.on('pointerdown', () => {
+      this.audio.playSelect();
+      CompanionModal3D.open(this, compId, (newComp) => {
+        this.saveSystem.setSelectedCompanion(newComp.id);
+        this.scene.restart();
+      });
+    });
 
     // 4. Left Bottom Card: Quick Collection Album & Rules Summary (Two-Column Non-Overlapping Layout)
     const albumCardW = 416;
@@ -853,7 +1054,7 @@ export class MainMenuScene extends Phaser.Scene {
     pBarFill.fillStyle(0x00f5d4, 1);
     pBarFill.fillRoundedRect(contentLeft, barY, barW * fillRatio, barH, 3);
 
-    const aRuleMini = this.add.text(contentLeft, 26, '⚡ Pikachu 2003: 10 Mạng ❤️ • +2s/cặp', {
+    const aRuleMini = this.add.text(contentLeft, 26, '⚡ Cổ Điển: 10 Mạng ❤️ • +2s/cặp', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '13.5px',
       fontStyle: '800',
@@ -984,7 +1185,11 @@ export class MainMenuScene extends Phaser.Scene {
     heroBtn.on('pointerdown', () => {
       this.haptic.medium();
       this.audio.playSelect();
-      this.scene.start('GameScene', { levelId: `level_${String(currentLvl).padStart(2, '0')}`, lives: 10 });
+      this.scene.start('GameScene', {
+        levelId: `level_${String(currentLvl).padStart(2, '0')}`,
+        difficulty: 'easy',
+        lives: 10
+      });
     });
 
     // --- 2. 2x2 Modern Game Modes Grid ---
@@ -1240,7 +1445,7 @@ export class MainMenuScene extends Phaser.Scene {
     modal.add(card);
 
     // Header
-    const title = this.add.text(0, -cardH / 2 + 40, '⛩️ CẨM NANG & CƠ CHẾ NỐI THÚ PIKACHU 2003', {
+    const title = this.add.text(0, -cardH / 2 + 40, '⛩️ CẨM NANG & CƠ CHẾ NỐI THÚ CỔ ĐIỂN', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '22px',
       fontStyle: '900',
@@ -1260,7 +1465,7 @@ export class MainMenuScene extends Phaser.Scene {
     const rules = [
       {
         icon: '⚡',
-        title: 'QUY TẮC 2 KHÚC GẬP (PIKACHU 2003)',
+        title: 'QUY TẮC 2 KHÚC GẬP (CỔ ĐIỂN)',
         color: '#ffd700',
         desc: 'Nối 2 linh thú giống nhau bằng tối đa 3 đoạn thẳng (2 góc vuông 90°). Đường nối không được bị cản bởi bất kỳ ô linh thú nào khác.'
       },
@@ -1319,28 +1524,911 @@ export class MainMenuScene extends Phaser.Scene {
       modal.add([rBg, iconObj, titleObj, descObj]);
     });
 
-    // Close Button
-    const closeBtn = this.add.container(0, cardH / 2 - 45);
+    // Buttons Tray (Wiki 30 Thần Khí + Quay Lại)
+    const btnWiki = this.add.container(-130, cardH / 2 - 45);
+    const wBg = this.add.graphics();
+    wBg.fillStyle(0x0e3b34, 1);
+    wBg.fillRoundedRect(-115, -22, 230, 44, 14);
+    wBg.lineStyle(2, 0x00f5d4, 0.9);
+    wBg.strokeRoundedRect(-115, -22, 230, 44, 14);
+    const wTxt = this.add.text(0, 0, '⛩️ BÁCH KHOA 30 THẦN KHÍ', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '14px',
+      fontStyle: '900',
+      color: '#00f5d4'
+    }).setOrigin(0.5);
+    btnWiki.add([wBg, wTxt]);
+    btnWiki.setSize(230, 44).setInteractive({ useHandCursor: true });
+    btnWiki.on('pointerdown', () => {
+      this.audio.playSelect();
+      modal.destroy();
+      this.rulesModalContainer = null;
+      this.openRelicsWikiModal(1);
+    });
+    modal.add(btnWiki);
+
+    const closeBtn = this.add.container(130, cardH / 2 - 45);
     const cBg = this.add.graphics();
     cBg.fillStyle(0xe63946, 1);
-    cBg.fillRoundedRect(-120, -22, 240, 44, 14);
-
+    cBg.fillRoundedRect(-115, -22, 230, 44, 14);
     const cTxt = this.add.text(0, 0, 'ĐÃ HIỂU & QUAY LẠI ➔', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '14px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
-
     closeBtn.add([cBg, cTxt]);
-    closeBtn.setSize(220, 40).setInteractive({ useHandCursor: true });
-
+    closeBtn.setSize(230, 44).setInteractive({ useHandCursor: true });
     closeBtn.on('pointerdown', () => {
       this.audio.playSelect();
       modal.destroy();
       this.rulesModalContainer = null;
     });
+    modal.add(closeBtn);
+  }
 
+  /**
+   * Bách Khoa Toàn Thư 30 Thần Khí (Relic Wiki Interactive Modal)
+   */
+  /**
+   * Bách Khoa Toàn Thư 30 Thần Khí (Hiển thị 8 cổ vật 1 lần: 4 trên, 4 dưới)
+   */
+  public openRelicsWikiModal(pageOrChapter: number = 0): void {
+    if (this.relicsWikiModalContainer) {
+      this.relicsWikiModalContainer.destroy();
+      this.relicsWikiModalContainer = null;
+    }
+
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+    const save = this.saveSystem || SaveSystem.getInstance();
+    const relicMgr = RelicManager.getInstance();
+
+    // Mở full toàn bộ 30 Thần Khí ("để full đại đi")
+    save.unlockAllRelics();
+
+    const allRelics = relicMgr.getAllRelics();
+    const PAGE_SIZE = 8;
+    const totalPages = Math.ceil(allRelics.length / PAGE_SIZE); // 4 trang
+    const safePage = Math.max(0, Math.min(totalPages - 1, pageOrChapter || 0));
+
+    const startIndex = safePage * PAGE_SIZE;
+    const currentRelics = allRelics.slice(startIndex, startIndex + PAGE_SIZE);
+
+    const modal = this.add.container(width / 2, height / 2).setDepth(310);
+    this.relicsWikiModalContainer = modal;
+
+    // Dark backdrop overlay
+    const { width: screenW } = getScreenDimensions();
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.90);
+    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
+    modal.add(overlay);
+
+    // Modal Card (Tối ưu màn hình ngang điện thoại)
+    const cardW = 1000;
+    const cardH = 610;
+    const card = this.add.graphics();
+    card.fillStyle(0x0e101c, 0.98);
+    card.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    card.lineStyle(2, 0xffd700, 0.95);
+    card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    card.lineStyle(1.2, 0x4338ca, 0.5);
+    card.strokeRoundedRect(-cardW / 2 + 4, -cardH / 2 + 4, cardW - 8, cardH - 8, 16);
+    modal.add(card);
+
+    // Header Title
+    const title = this.add.text(0, -cardH / 2 + 28, '⛩️ TOÀN THƯ CỔ VẬT THẦN KHÍ (30 BẢO VẬT 10 THẾ GIỚI)', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '19px',
+      fontStyle: '900',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+    modal.add(title);
+
+    // Navigation Bar (4 trang, 8 cổ vật / trang)
+    const navBarY = -cardH / 2 + 58;
+    const prevBtn = this.add.text(-280, navBarY, '◀ TRANG TRƯỚC', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13px',
+      fontStyle: '900',
+      color: safePage > 0 ? '#00f5d4' : '#555566'
+    }).setOrigin(0.5);
+    if (safePage > 0) {
+      prevBtn.setInteractive({ useHandCursor: true });
+      prevBtn.on('pointerdown', () => {
+        this.audio.playSelect();
+        this.openRelicsWikiModal(safePage - 1);
+      });
+    }
+    modal.add(prevBtn);
+
+    const pageTitle = this.add.text(0, navBarY, `TRANG ${safePage + 1}/${totalPages} • HIỂN THỊ 8 CỔ VẬT (MỤC ${startIndex + 1} - ${startIndex + currentRelics.length}/30)`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13.5px',
+      fontStyle: '900',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    modal.add(pageTitle);
+
+    const nextBtn = this.add.text(280, navBarY, 'TRANG KẾ TIẾP ▶', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13px',
+      fontStyle: '900',
+      color: safePage < totalPages - 1 ? '#00f5d4' : '#555566'
+    }).setOrigin(0.5);
+    if (safePage < totalPages - 1) {
+      nextBtn.setInteractive({ useHandCursor: true });
+      nextBtn.on('pointerdown', () => {
+        this.audio.playSelect();
+        this.openRelicsWikiModal(safePage + 1);
+      });
+    }
+    modal.add(nextBtn);
+
+    // 8 Cards Layout: 4 Trên, 4 Dưới
+    const colW = 224;
+    const colH = 210;
+    const colSpacing = 236;
+    const rowY1 = -64;
+    const rowY2 = 158;
+
+    currentRelics.forEach((r, idx) => {
+      const isSecondRow = idx >= 4;
+      const col = idx % 4;
+      const posX = (col - 1.5) * colSpacing;
+      const posY = isSecondRow ? rowY2 : rowY1;
+
+      const rBox = this.add.container(posX, posY);
+
+      const isEquipped = save.getEquippedRelicId() === r.id;
+      const colors = relicMgr.getTierColor(r.tier);
+
+      // Card BG
+      const cG = this.add.graphics();
+      cG.fillStyle(isEquipped ? 0x1d2138 : colors.fill, 0.95);
+      cG.fillRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      cG.lineStyle(isEquipped ? 2.5 : 1.6, isEquipped ? 0x00f5d4 : colors.stroke, 0.9);
+      cG.strokeRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      rBox.add(cG);
+
+      // Relic Image Slot (54x54)
+      const slotSize = 54;
+      const slotY = -colH / 2 + 36;
+      const sG = this.add.graphics();
+      sG.fillStyle(0x0a0c16, 0.95);
+      sG.fillRoundedRect(-slotSize / 2, slotY - slotSize / 2, slotSize, slotSize, 8);
+      sG.lineStyle(1.4, isEquipped ? 0x00f5d4 : colors.stroke, 0.9);
+      sG.strokeRoundedRect(-slotSize / 2, slotY - slotSize / 2, slotSize, slotSize, 8);
+      rBox.add(sG);
+
+      const texKey = `relic_${r.id}`;
+      if (this.textures.exists(texKey)) {
+        const img = this.add.image(0, slotY, texKey).setDisplaySize(slotSize - 6, slotSize - 6);
+        rBox.add(img);
+      } else {
+        const iconTxt = this.add.text(0, slotY, r.icon, { fontSize: '28px' }).setOrigin(0.5);
+        rBox.add(iconTxt);
+      }
+
+      // Title & Japanese Name
+      const nameTxt = this.add.text(0, slotY + 38, r.name, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '12.5px',
+        fontStyle: '900',
+        color: isEquipped ? '#00f5d4' : '#ffd700',
+        align: 'center'
+      }).setOrigin(0.5);
+      rBox.add(nameTxt);
+
+      // Tier & SubName
+      const tierTxt = this.add.text(0, slotY + 54, `${r.tierName} • ${r.subName}`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10px',
+        fontStyle: 'bold',
+        color: colors.hexStr
+      }).setOrigin(0.5);
+      rBox.add(tierTxt);
+
+      // Skill Title
+      const skillTitle = this.add.text(0, slotY + 70, `⚡ ${r.skillName} (Nộ: ${r.rageCost}%)`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10.5px',
+        fontStyle: '900',
+        color: '#00f5d4'
+      }).setOrigin(0.5);
+      rBox.add(skillTitle);
+
+      // Skill Short Desc
+      const skillDesc = this.add.text(0, slotY + 84, r.skillDesc, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '9.5px',
+        color: '#ced4da',
+        align: 'center',
+        wordWrap: { width: colW - 16 }
+      }).setOrigin(0.5, 0);
+      rBox.add(skillDesc);
+
+      // Action / Equip Pill Button (Full 5 sao)
+      const btnW = 144;
+      const btnH = 22;
+      const btnY = colH / 2 - 16;
+      const bG = this.add.graphics();
+
+      let btnLabel = '';
+      let btnColor = '#ffffff';
+
+      if (isEquipped) {
+        bG.fillStyle(0x00f5d4, 1);
+        bG.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
+        btnLabel = '✨ ĐANG DÙNG (★5)';
+        btnColor = '#0b1320';
+      } else {
+        bG.fillStyle(0x192238, 0.95);
+        bG.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
+        bG.lineStyle(1.2, 0xffd700, 0.9);
+        bG.strokeRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
+        btnLabel = '⚡ TRANG BỊ (★5)';
+        btnColor = '#ffd700';
+      }
+      rBox.add(bG);
+
+      const bTxt = this.add.text(0, btnY, btnLabel, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10px',
+        fontStyle: '900',
+        color: btnColor
+      }).setOrigin(0.5);
+      rBox.add(bTxt);
+
+      rBox.setSize(colW, colH).setInteractive({ useHandCursor: true });
+      rBox.on('pointerdown', () => {
+        save.equipRelic(r.id);
+        this.audio.playSelect();
+        this.openRelicsWikiModal(safePage);
+      });
+
+      modal.add(rBox);
+    });
+
+    // Close Button at Bottom
+    const closeBtn = this.add.container(0, cardH / 2 - 22);
+    const cBg = this.add.graphics();
+    cBg.fillStyle(0xe63946, 1);
+    cBg.fillRoundedRect(-110, -16, 220, 32, 10);
+    const cTxt = this.add.text(0, 0, 'ĐÓNG BÁCH KHOA ➔', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13px',
+      fontStyle: '900',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    closeBtn.add([cBg, cTxt]);
+    closeBtn.setSize(220, 32).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => {
+      this.audio.playSelect();
+      modal.destroy();
+      this.relicsWikiModalContainer = null;
+    });
+    modal.add(closeBtn);
+  }
+
+  /**
+   * Bảng Tra Cứu Tỷ Lệ Rớt Chiến Lợi Phẩm 10 Chương (Loot Table Modal)
+   */
+  public openLootTableModal(chapterNum: number = 1, selectedLevel?: number): void {
+    this.openStageLootCodexModal(chapterNum, selectedLevel);
+  }
+
+  /**
+   * 🗺️ Dedicated Stage Loot Codex & 100-Map Almanac Modal
+   * Features: Full 100 stages breakdown, mathematical formulas, item distributions,
+   * single-stage deep view, and full 10-stage comparison table mode.
+   */
+  public openStageLootCodexModal(initialChapter: number = 1, initialLevel?: number): void {
+    if (this.lootTableModalContainer) {
+      this.lootTableModalContainer.destroy();
+      this.lootTableModalContainer = null;
+    }
+
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+    let curChapter = Math.max(1, Math.min(10, initialChapter));
+    let curLevel = initialLevel ? Math.max(1, Math.min(100, initialLevel)) : (curChapter - 1) * 10 + 1;
+    let viewMode: 'detail' | 'table' = 'detail';
+    let formulaModal: Phaser.GameObjects.Container | null = null;
+
+    const modal = this.add.container(width / 2, height / 2).setDepth(320);
+    this.lootTableModalContainer = modal;
+
+    const { width: screenW } = getScreenDimensions();
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.92);
+    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
+    modal.add(overlay);
+
+    const cardW = 1000;
+    const cardH = 630;
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0f111a, 0.98);
+    bg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    bg.lineStyle(2.5, 0xffd700, 0.95);
+    bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    bg.lineStyle(1.2, 0x4338ca, 0.6);
+    bg.strokeRoundedRect(-cardW / 2 + 5, -cardH / 2 + 5, cardW - 10, cardH - 10, 16);
+    modal.add(bg);
+
+    // Header Title
+    const title = this.add.text(0, -cardH / 2 + 25, '🗺️ SỔ TAY 100 MÀN CHƠI & CHIẾN LỢI PHẨM (STAGE CODEX)', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '20px',
+      fontStyle: '900',
+      color: '#ffd700',
+      stroke: '#000000',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+    modal.add(title);
+
+    const sub = this.add.text(0, -cardH / 2 + 48, 'Phép tính toán học minh bạch • Phân rã 100 Map • Tỷ lệ Mảnh Thần Thú, Vật Phẩm, EXP & Vàng', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#cbd5e1'
+    }).setOrigin(0.5);
+    modal.add(sub);
+
+    // --- 10 CHAPTER TABS ---
+    const chIcons = ['⛩️', '🌊', '🏜️', '🏔️', '🏛️', '⚡', '🌪️', '🌌', '👹', '🐉'];
+    const chShortNames = ['Nhật', 'Thủy', 'Ai Cập', 'Kim', 'Hy Lạp', 'Lôi', 'Sấm', 'Hư', 'Dạ', 'Bát Kỳ'];
+    const tabY = -cardH / 2 + 78;
+    const tabW = 86;
+    const tabH = 26;
+    const tabGap = 8;
+    const totalTabsW = 10 * tabW + 9 * tabGap;
+    const tabStartX = -totalTabsW / 2 + tabW / 2;
+
+    const chapterTabsContainer = this.add.container(0, 0);
+    modal.add(chapterTabsContainer);
+
+    const mainContentContainer = this.add.container(0, 0);
+    modal.add(mainContentContainer);
+
+    const renderChapterTabs = () => {
+      chapterTabsContainer.removeAll(true);
+      for (let ch = 1; ch <= 10; ch++) {
+        const tx = tabStartX + (ch - 1) * (tabW + tabGap);
+        const isActive = ch === curChapter;
+        const tabBtn = this.add.container(tx, tabY);
+
+        const tBg = this.add.graphics();
+        if (isActive) {
+          tBg.fillStyle(0xffd700, 1);
+          tBg.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 8);
+          tBg.lineStyle(1.4, 0xffffff, 1);
+          tBg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 8);
+        } else {
+          tBg.fillStyle(0x191a2e, 0.9);
+          tBg.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 8);
+          tBg.lineStyle(1.2, 0x4338ca, 0.6);
+          tBg.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 8);
+        }
+
+        const tText = this.add.text(0, 0, `${chIcons[ch - 1]} Ch.${ch}`, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '11px',
+          fontStyle: '900',
+          color: isActive ? '#0f111a' : '#cbd5e1'
+        }).setOrigin(0.5);
+
+        tabBtn.add([tBg, tText]);
+        tabBtn.setSize(tabW, tabH).setInteractive({ useHandCursor: true });
+        tabBtn.on('pointerdown', () => {
+          if (curChapter !== ch) {
+            this.audio.playSelect();
+            curChapter = ch;
+            curLevel = (curChapter - 1) * 10 + 1;
+            renderChapterTabs();
+            renderMainContent();
+          }
+        });
+
+        chapterTabsContainer.add(tabBtn);
+      }
+    };
+
+    // --- FORMULA POPUP OVERLAY ---
+    const showFormulaModal = () => {
+      if (formulaModal) {
+        formulaModal.destroy();
+        formulaModal = null;
+      }
+
+      const fCont = this.add.container(0, 0).setDepth(330);
+      formulaModal = fCont;
+      modal.add(fCont);
+
+      const fOverlay = this.add.graphics();
+      fOverlay.fillStyle(0x000000, 0.85);
+      fOverlay.fillRect(-cardW / 2, -cardH / 2, cardW, cardH);
+      fOverlay.setInteractive(new Phaser.Geom.Rectangle(-cardW / 2, -cardH / 2, cardW, cardH), Phaser.Geom.Rectangle.Contains);
+      fCont.add(fOverlay);
+
+      const fBoxW = 760;
+      const fBoxH = 460;
+      const fBox = this.add.graphics();
+      fBox.fillStyle(0x131124, 0.98);
+      fBox.fillRoundedRect(-fBoxW / 2, -fBoxH / 2, fBoxW, fBoxH, 16);
+      fBox.lineStyle(2, 0x00f5d4, 1);
+      fBox.strokeRoundedRect(-fBoxW / 2, -fBoxH / 2, fBoxW, fBoxH, 16);
+      fCont.add(fBox);
+
+      const fTitle = this.add.text(0, -fBoxH / 2 + 30, '📐 CÔNG THỨC TOÁN HỌC & THUẬT TOÁN PHẦN THƯỞNG', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '17px',
+        fontStyle: '900',
+        color: '#00f5d4'
+      }).setOrigin(0.5);
+
+      const formulas = [
+        {
+          label: '1. KINH NGHIỆM CƠ BẢN (Base EXP):',
+          desc: 'BaseEXP(Level) = 10 + ⌊ (Level - 1) × 0.4 ⌋\n• Chạy mượt mà từ 10 EXP (Màn 1) đến 49 EXP (Màn 100).'
+        },
+        {
+          label: '2. VÀNG CƠ BẢN (Base Coins):',
+          desc: 'BaseCoins(Level) = 35 + ⌊ (Level - 1) × 1.65 ⌋\n• Chạy từ 35 Xu (Màn 1) đến 198 Xu (Màn 100).'
+        },
+        {
+          label: '3. HỆ SỐ LOẠI MÀN (Stage Multipliers):',
+          desc: '• Màn Thường: x1.0 EXP & Xu\n• Mini-Boss (Màn 5, 15, 25...): x1.25 EXP, x1.25 Xu, Tăng tỷ lệ rớt đồ +1.5%\n• Đại Trùm (Màn 10, 20...): x1.6 EXP, x1.5 Xu, Mảnh Trùm rớt 8% - 30%!'
+        },
+        {
+          label: '4. ĐỘ KHÓ & SAO CHIẾN THẮNG:',
+          desc: '• 🟢 Dễ: x1.0 EXP/Xu  |  🟡 Vừa: x1.25 EXP, x1.2 Xu  |  🔴 Khó: x1.6 EXP, x1.5 Xu\n• Thưởng Sao: 1⭐ x1.0 (+0 Xu), 2⭐ x1.15 (+20 Xu), 3⭐ x1.3 (+50 Xu, Boss +100 Xu & +1 Mảnh Khó)'
+        }
+      ];
+
+      let fy = -fBoxH / 2 + 75;
+      formulas.forEach((f) => {
+        const l = this.add.text(-fBoxW / 2 + 36, fy, f.label, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '13px',
+          fontStyle: '900',
+          color: '#ffd166'
+        });
+        const d = this.add.text(-fBoxW / 2 + 36, fy + 20, f.desc, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '11.5px',
+          fontStyle: 'bold',
+          color: '#e2e8f0',
+          lineSpacing: 4
+        });
+        fCont.add([l, d]);
+        fy += 78;
+      });
+
+      // Close button for formula popup
+      const fCloseBtn = this.add.container(0, fBoxH / 2 - 32);
+      const fcBg = this.add.graphics();
+      fcBg.fillStyle(0x3a3a52, 1);
+      fcBg.fillRoundedRect(-70, -15, 140, 30, 8);
+      fcBg.lineStyle(1.2, 0x00f5d4, 0.9);
+      fcBg.strokeRoundedRect(-70, -15, 140, 30, 8);
+      const fcTxt = this.add.text(0, 0, '✕ ĐÃ HIỂU', { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '12px', fontStyle: '900', color: '#00f5d4' }).setOrigin(0.5);
+      fCloseBtn.add([fcBg, fcTxt]);
+      fCloseBtn.setSize(140, 30).setInteractive({ useHandCursor: true });
+      fCloseBtn.on('pointerdown', () => {
+        this.audio.playSelect();
+        fCont.destroy();
+        formulaModal = null;
+      });
+
+      fCont.add([fTitle, fCloseBtn]);
+    };
+
+    // --- MAIN RENDER FUNCTION ---
+    const renderMainContent = () => {
+      mainContentContainer.removeAll(true);
+      const chCfg = LootManager.CHAPTERS[curChapter - 1];
+      const stages = LootManager.getChapterStages(curChapter);
+
+      // Clamp curLevel to current chapter
+      if (curLevel < chCfg.levelRange[0] || curLevel > chCfg.levelRange[1]) {
+        curLevel = chCfg.levelRange[0];
+      }
+
+      // Banner Strip: Chapter Info + View Switch Buttons
+      const bannerY = -cardH / 2 + 114;
+      const bannerBg = this.add.graphics();
+      bannerBg.fillStyle(0x16182a, 0.95);
+      bannerBg.fillRoundedRect(-cardW / 2 + 25, bannerY - 16, cardW - 50, 32, 8);
+      bannerBg.lineStyle(1.2, 0x3a86ff, 0.7);
+      bannerBg.strokeRoundedRect(-cardW / 2 + 25, bannerY - 16, cardW - 50, 32, 8);
+      mainContentContainer.add(bannerBg);
+
+      const chInfoTxt = this.add.text(-cardW / 2 + 40, bannerY, `CHƯƠNG ${curChapter}: ${chCfg.chapterName.toUpperCase()} • LINH THÚ: 🦊 ${chCfg.mainCompanionName} (CHÍNH) • 🐾 ${chCfg.subCompanionName} (PHỤ)`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '11.5px',
+        fontStyle: '900',
+        color: '#00f5d4'
+      }).setOrigin(0, 0.5);
+      mainContentContainer.add(chInfoTxt);
+
+      // Mode Switch Button (Detail vs Table)
+      const modeBtnX = cardW / 2 - 190;
+      const modeBtn = this.add.container(modeBtnX, bannerY);
+      const mBg = this.add.graphics();
+      mBg.fillStyle(0x272445, 1);
+      mBg.fillRoundedRect(-65, -12, 130, 24, 6);
+      mBg.lineStyle(1.2, 0xffd166, 0.85);
+      mBg.strokeRoundedRect(-65, -12, 130, 24, 6);
+      const mTxt = this.add.text(0, 0, viewMode === 'detail' ? '📊 XEM BẢNG 10 MÀN' : '🔍 XEM TỪNG MÀN', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10px',
+        fontStyle: '900',
+        color: '#ffd166'
+      }).setOrigin(0.5);
+      modeBtn.add([mBg, mTxt]);
+      modeBtn.setSize(130, 24).setInteractive({ useHandCursor: true });
+      modeBtn.on('pointerdown', () => {
+        this.audio.playSelect();
+        viewMode = viewMode === 'detail' ? 'table' : 'detail';
+        renderMainContent();
+      });
+      mainContentContainer.add(modeBtn);
+
+      // Formula Help Button
+      const formulaBtnX = cardW / 2 - 65;
+      const formulaBtn = this.add.container(formulaBtnX, bannerY);
+      const fbBg = this.add.graphics();
+      fbBg.fillStyle(0x19273c, 1);
+      fbBg.fillRoundedRect(-48, -12, 96, 24, 6);
+      fbBg.lineStyle(1.2, 0x00f5d4, 0.85);
+      fbBg.strokeRoundedRect(-48, -12, 96, 24, 6);
+      const fbTxt = this.add.text(0, 0, '📐 CÔNG THỨC', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10px',
+        fontStyle: '900',
+        color: '#00f5d4'
+      }).setOrigin(0.5);
+      formulaBtn.add([fbBg, fbTxt]);
+      formulaBtn.setSize(96, 24).setInteractive({ useHandCursor: true });
+      formulaBtn.on('pointerdown', () => {
+        this.audio.playSelect();
+        showFormulaModal();
+      });
+      mainContentContainer.add(formulaBtn);
+
+      if (viewMode === 'detail') {
+        renderDetailView(stages);
+      } else {
+        renderTableView(stages);
+      }
+    };
+
+    // --- VIEW 1: SINGLE STAGE DETAIL WITH 4 CARDS ---
+    const renderDetailView = (stages: any[]) => {
+      // Stage Selector Strip (10 stages)
+      const stripY = -cardH / 2 + 158;
+      const sBtnW = 88;
+      const sBtnH = 38;
+      const sGap = 8;
+      const totalStripW = 10 * sBtnW + 9 * sGap;
+      const stripStartX = -totalStripW / 2 + sBtnW / 2;
+
+      stages.forEach((st, idx) => {
+        const sx = stripStartX + idx * (sBtnW + sGap);
+        const isSelected = st.levelNumber === curLevel;
+        const sBtn = this.add.container(sx, stripY);
+
+        const bGfx = this.add.graphics();
+        if (isSelected) {
+          bGfx.fillStyle(0x2d1f4d, 1);
+          bGfx.fillRoundedRect(-sBtnW / 2, -sBtnH / 2, sBtnW, sBtnH, 8);
+          bGfx.lineStyle(2, 0x00f5d4, 1);
+          bGfx.strokeRoundedRect(-sBtnW / 2, -sBtnH / 2, sBtnW, sBtnH, 8);
+        } else {
+          bGfx.fillStyle(st.stageType === 'boss' ? 0x2d1522 : st.stageType === 'miniboss' ? 0x221a2e : 0x141524, 0.9);
+          bGfx.fillRoundedRect(-sBtnW / 2, -sBtnH / 2, sBtnW, sBtnH, 8);
+          bGfx.lineStyle(1.2, st.stageType === 'boss' ? 0xff476f : st.stageType === 'miniboss' ? 0xffd166 : 0x3a3d5e, 0.8);
+          bGfx.strokeRoundedRect(-sBtnW / 2, -sBtnH / 2, sBtnW, sBtnH, 8);
+        }
+
+        const tagIcon = st.stageType === 'boss' ? '👑' : st.stageType === 'miniboss' ? '⚔️' : '🟢';
+        const l1 = this.add.text(0, -6, `${tagIcon} Màn ${st.levelNumber}`, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '11px',
+          fontStyle: '900',
+          color: isSelected ? '#00f5d4' : '#ffffff'
+        }).setOrigin(0.5);
+
+        const l2 = this.add.text(0, 9, `${st.itemIcon} ${st.itemName.substring(0, 8)}`, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '9px',
+          fontStyle: 'bold',
+          color: isSelected ? '#ffd166' : '#94a3b8'
+        }).setOrigin(0.5);
+
+        sBtn.add([bGfx, l1, l2]);
+        sBtn.setSize(sBtnW, sBtnH).setInteractive({ useHandCursor: true });
+        sBtn.on('pointerdown', () => {
+          this.audio.playSelect();
+          curLevel = st.levelNumber;
+          renderMainContent();
+        });
+
+        mainContentContainer.add(sBtn);
+      });
+
+      // Selected Stage Header
+      const activeStage = LootManager.getStageLootConfig(curLevel);
+      const headerY = -cardH / 2 + 198;
+      const typeLabel = activeStage.stageType === 'boss'
+        ? '👑 ĐẠI TRÙM THẾ GIỚI (BOSS CỰC HẠN)'
+        : activeStage.stageType === 'miniboss'
+        ? '⚔️ THỬ THÁCH ĐẶC BIỆT (MINI-BOSS)'
+        : '🟢 MÀN CHIẾN DỊCH TIÊU CHUẨN';
+
+      const sTitle = this.add.text(0, headerY, `${activeStage.stageName.toUpperCase()}`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '15px',
+        fontStyle: '900',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+
+      const sSub = this.add.text(0, headerY + 18, `Phân loại: ${typeLabel} • Hệ số EXP: x${activeStage.stageExpMult} • Hệ số Xu: x${activeStage.stageCoinMult}`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '11px',
+        fontStyle: 'bold',
+        color: '#ffd166'
+      }).setOrigin(0.5);
+      mainContentContainer.add([sTitle, sSub]);
+
+      // 4 Mathematical Reward Cards
+      const colW = 226;
+      const colH = 265;
+      const startX = -357;
+      const gapX = 238;
+      const colY = -cardH / 2 + 365;
+
+      // Card 1: EXP
+      const c1 = this.add.container(startX, colY);
+      const b1 = this.add.graphics();
+      b1.fillStyle(0x15162a, 0.98);
+      b1.fillRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      b1.lineStyle(1.6, 0x00f5d4, 0.9);
+      b1.strokeRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      c1.add(b1);
+
+      const t1 = this.add.text(0, -colH / 2 + 18, '⚡ KINH NGHIỆM (EXP)', { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: '#00f5d4' }).setOrigin(0.5);
+      const math1 = this.add.text(0, -colH / 2 + 38, `Base: 10 + ⌊(${curLevel}-1)*0.4⌋ = ${activeStage.baseExp}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '9.5px', fontStyle: 'bold', color: '#94a3b8' }).setOrigin(0.5);
+
+      const rates1 = [
+        { label: '🟢 DỄ:', val: `+${activeStage.rewardsMatrix.easy.exp} EXP`, sub: 'x1.0 Multiplier', color: '#06d6a0' },
+        { label: '🟡 VỪA:', val: `+${activeStage.rewardsMatrix.medium.exp} EXP`, sub: 'x1.25 Multiplier', color: '#ffd166' },
+        { label: '🔴 KHÓ:', val: `+${activeStage.rewardsMatrix.hard.exp} EXP`, sub: 'x1.6 Multiplier', color: '#ef476f' },
+        { label: '⭐ 3 SAO:', val: activeStage.rewardsMatrix.threeStarExpBonus, sub: `Đạt ~${Math.round(activeStage.rewardsMatrix.hard.exp * 1.3)} EXP`, color: '#ffd700' }
+      ];
+
+      rates1.forEach((r, idx) => {
+        const ry = -colH / 2 + 70 + idx * 46;
+        const rBox = this.add.graphics();
+        rBox.fillStyle(0x0e101c, 0.9);
+        rBox.fillRoundedRect(-colW / 2 + 10, ry - 16, colW - 20, 38, 6);
+        c1.add(rBox);
+
+        const lTxt = this.add.text(-colW / 2 + 18, ry + 2, r.label, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: r.color }).setOrigin(0, 0.5);
+        const vTxt = this.add.text(colW / 2 - 18, ry - 4, r.val, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '12px', fontStyle: '900', color: '#ffffff' }).setOrigin(1, 0.5);
+        const sTxt = this.add.text(colW / 2 - 18, ry + 10, r.sub, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '9px', fontStyle: 'bold', color: '#8d99ae' }).setOrigin(1, 0.5);
+        c1.add([lTxt, vTxt, sTxt]);
+      });
+      c1.add([t1, math1]);
+      mainContentContainer.add(c1);
+
+      // Card 2: Coins
+      const c2 = this.add.container(startX + gapX, colY);
+      const b2 = this.add.graphics();
+      b2.fillStyle(0x15162a, 0.98);
+      b2.fillRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      b2.lineStyle(1.6, 0xffd166, 0.9);
+      b2.strokeRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      c2.add(b2);
+
+      const t2 = this.add.text(0, -colH / 2 + 18, '💰 VÀNG (XU THƯỞNG)', { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: '#ffd166' }).setOrigin(0.5);
+      const math2 = this.add.text(0, -colH / 2 + 38, `Base: 35 + ⌊(${curLevel}-1)*1.65⌋ = ${activeStage.baseCoins}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '9.5px', fontStyle: 'bold', color: '#94a3b8' }).setOrigin(0.5);
+
+      const rates2 = [
+        { label: '🟢 DỄ:', val: `+${activeStage.rewardsMatrix.easy.coins} Xu`, sub: 'x1.0 Multiplier', color: '#06d6a0' },
+        { label: '🟡 VỪA:', val: `+${activeStage.rewardsMatrix.medium.coins} Xu`, sub: 'x1.2 Multiplier', color: '#ffd166' },
+        { label: '🔴 KHÓ:', val: `+${activeStage.rewardsMatrix.hard.coins} Xu`, sub: 'x1.5 Multiplier', color: '#ef476f' },
+        { label: '⭐ THƯỞNG:', val: activeStage.stageType === 'boss' ? '+100 Xu' : '+50 Xu', sub: activeStage.rewardsMatrix.threeStarCoinBonus, color: '#ffd700' }
+      ];
+
+      rates2.forEach((r, idx) => {
+        const ry = -colH / 2 + 70 + idx * 46;
+        const rBox = this.add.graphics();
+        rBox.fillStyle(0x0e101c, 0.9);
+        rBox.fillRoundedRect(-colW / 2 + 10, ry - 16, colW - 20, 38, 6);
+        c2.add(rBox);
+
+        const lTxt = this.add.text(-colW / 2 + 18, ry + 2, r.label, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: r.color }).setOrigin(0, 0.5);
+        const vTxt = this.add.text(colW / 2 - 18, ry - 4, r.val, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '12px', fontStyle: '900', color: '#ffffff' }).setOrigin(1, 0.5);
+        const sTxt = this.add.text(colW / 2 - 18, ry + 10, r.sub, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '9px', fontStyle: 'bold', color: '#8d99ae' }).setOrigin(1, 0.5);
+        c2.add([lTxt, vTxt, sTxt]);
+      });
+      c2.add([t2, math2]);
+      mainContentContainer.add(c2);
+
+      // Card 3: Companion Shards
+      const c3 = this.add.container(startX + gapX * 2, colY);
+      const b3 = this.add.graphics();
+      b3.fillStyle(0x15162a, 0.98);
+      b3.fillRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      b3.lineStyle(1.6, 0xff758f, 0.9);
+      b3.strokeRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      c3.add(b3);
+
+      const t3 = this.add.text(0, -colH / 2 + 18, '🐾 MẢNH LINH THÚ', { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: '#ff758f' }).setOrigin(0.5);
+      const sub3 = this.add.text(0, -colH / 2 + 38, `Cần 20 Mảnh Triệu Hồi`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '9.5px', fontStyle: 'bold', color: '#ffd166' }).setOrigin(0.5);
+
+      const rates3 = [
+        { label: '💎 CHÍNH:', val: activeStage.mainCompanionName, sub: `D:${activeStage.rewardsMatrix.easy.mainShardPct} V:${activeStage.rewardsMatrix.medium.mainShardPct} K:${activeStage.rewardsMatrix.hard.mainShardPct}`, color: '#00f5d4' },
+        { label: '✨ PHỤ:', val: activeStage.subCompanionName, sub: `D:${activeStage.rewardsMatrix.easy.subShardPct} V:${activeStage.rewardsMatrix.medium.subShardPct} K:${activeStage.rewardsMatrix.hard.subShardPct}`, color: '#ff758f' },
+        { label: '🐾 LỘI NGƯỢC:', val: 'x2.0 MẢNH', sub: 'Mèo Nekomata (<15s)', color: '#ffd700' },
+        { label: '👑 ĐẠI TRÙM:', val: activeStage.stageType === 'boss' ? '30% KHÓ' : 'TẬP TRUNG', sub: activeStage.stageType === 'boss' ? '3⭐ Khó thưởng 1 Mảnh' : 'Chỉ rớt ở Màn 10', color: '#ef476f' }
+      ];
+
+      rates3.forEach((r, idx) => {
+        const ry = -colH / 2 + 70 + idx * 46;
+        const rBox = this.add.graphics();
+        rBox.fillStyle(0x0e101c, 0.9);
+        rBox.fillRoundedRect(-colW / 2 + 10, ry - 16, colW - 20, 38, 6);
+        c3.add(rBox);
+
+        const lTxt = this.add.text(-colW / 2 + 18, ry + 2, r.label, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: r.color }).setOrigin(0, 0.5);
+        const vTxt = this.add.text(colW / 2 - 18, ry - 4, r.val, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: '#ffffff' }).setOrigin(1, 0.5);
+        const sTxt = this.add.text(colW / 2 - 18, ry + 10, r.sub, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '8.5px', fontStyle: 'bold', color: '#8d99ae' }).setOrigin(1, 0.5);
+        c3.add([lTxt, vTxt, sTxt]);
+      });
+      c3.add([t3, sub3]);
+      mainContentContainer.add(c3);
+
+      // Card 4: Booster Items
+      const c4 = this.add.container(startX + gapX * 3, colY);
+      const b4 = this.add.graphics();
+      b4.fillStyle(0x15162a, 0.98);
+      b4.fillRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      b4.lineStyle(1.6, 0x7209b7, 0.9);
+      b4.strokeRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
+      c4.add(b4);
+
+      const t4 = this.add.text(0, -colH / 2 + 18, '🎁 VẬT PHẨM TRỢ GIÚP', { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: '#c77dff' }).setOrigin(0.5);
+      const math4 = this.add.text(0, -colH / 2 + 38, `${activeStage.itemIcon} ${activeStage.itemName}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: '#ffffff' }).setOrigin(0.5);
+
+      const rates4 = [
+        { label: '🟢 DỄ:', val: activeStage.rewardsMatrix.easy.itemPct, sub: 'Nhận +1 vật phẩm', color: '#06d6a0' },
+        { label: '🟡 VỪA:', val: activeStage.rewardsMatrix.medium.itemPct, sub: 'Nhận +1 vật phẩm', color: '#ffd166' },
+        { label: '🔴 KHÓ:', val: activeStage.rewardsMatrix.hard.itemPct, sub: 'Nhận +1 vật phẩm', color: '#ef476f' },
+        { label: '💎 DI VẬT:', val: activeStage.stageType === 'boss' ? '100% RƠI' : '0% MÀN NÀY', sub: activeStage.stageType === 'boss' ? 'Cổ Vật lần đầu' : 'Chỉ có ở Trùm', color: '#00f5d4' }
+      ];
+
+      rates4.forEach((r, idx) => {
+        const ry = -colH / 2 + 70 + idx * 46;
+        const rBox = this.add.graphics();
+        rBox.fillStyle(0x0e101c, 0.9);
+        rBox.fillRoundedRect(-colW / 2 + 10, ry - 16, colW - 20, 38, 6);
+        c4.add(rBox);
+
+        const lTxt = this.add.text(-colW / 2 + 18, ry + 2, r.label, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: r.color }).setOrigin(0, 0.5);
+        const vTxt = this.add.text(colW / 2 - 18, ry - 4, r.val, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '12px', fontStyle: '900', color: '#ffffff' }).setOrigin(1, 0.5);
+        const sTxt = this.add.text(colW / 2 - 18, ry + 10, r.sub, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '9px', fontStyle: 'bold', color: '#8d99ae' }).setOrigin(1, 0.5);
+        c4.add([lTxt, vTxt, sTxt]);
+      });
+      c4.add([t4, math4]);
+      mainContentContainer.add(c4);
+    };
+
+    // --- VIEW 2: 10-STAGE COMPARISON MATRIX TABLE ---
+    const renderTableView = (stages: any[]) => {
+      const tableStartY = -cardH / 2 + 148;
+      const rowH = 26;
+      const tW = cardW - 60;
+
+      // Header row
+      const hBg = this.add.graphics();
+      hBg.fillStyle(0x272445, 1);
+      hBg.fillRoundedRect(-tW / 2, tableStartY, tW, rowH, 6);
+      mainContentContainer.add(hBg);
+
+      const headers = [
+        { title: 'MÀN', x: -tW / 2 + 35 },
+        { title: 'TÊN MÀN CHƠI', x: -tW / 2 + 175 },
+        { title: 'EXP (D / V / K)', x: -tW / 2 + 390 },
+        { title: 'XU (D / V / K)', x: -tW / 2 + 520 },
+        { title: 'MẢNH CHÍNH', x: -tW / 2 + 645 },
+        { title: 'MẢNH PHỤ', x: -tW / 2 + 760 },
+        { title: 'VẬT PHẨM (K)', x: -tW / 2 + 875 }
+      ];
+
+      headers.forEach((h) => {
+        const ht = this.add.text(h.x, tableStartY + rowH / 2, h.title, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '10.5px',
+          fontStyle: '900',
+          color: '#ffd166'
+        }).setOrigin(0.5);
+        mainContentContainer.add(ht);
+      });
+
+      // 10 Stage Rows
+      stages.forEach((st, idx) => {
+        const ry = tableStartY + (idx + 1) * (rowH + 3);
+        const isSelected = st.levelNumber === curLevel;
+        const rowCont = this.add.container(0, ry);
+
+        const rBg = this.add.graphics();
+        if (isSelected) {
+          rBg.fillStyle(0x2d1f4d, 1);
+          rBg.fillRoundedRect(-tW / 2, 0, tW, rowH, 4);
+          rBg.lineStyle(1.4, 0x00f5d4, 1);
+          rBg.strokeRoundedRect(-tW / 2, 0, tW, rowH, 4);
+        } else {
+          rBg.fillStyle(idx % 2 === 0 ? 0x131526 : 0x181a2e, 0.95);
+          rBg.fillRoundedRect(-tW / 2, 0, tW, rowH, 4);
+        }
+        rowCont.add(rBg);
+
+        const tag = st.stageType === 'boss' ? '👑' : st.stageType === 'miniboss' ? '⚔️' : '🟢';
+        const c1 = this.add.text(-tW / 2 + 35, rowH / 2, `${tag} ${st.levelNumber}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: isSelected ? '#00f5d4' : '#ffffff' }).setOrigin(0.5);
+        const c2 = this.add.text(-tW / 2 + 80, rowH / 2, st.stageName.replace(/👑 |⚔️ /g, '').substring(0, 26), { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: 'bold', color: '#e2e8f0' }).setOrigin(0, 0.5);
+        const c3 = this.add.text(-tW / 2 + 390, rowH / 2, `${st.rewardsMatrix.easy.exp} / ${st.rewardsMatrix.medium.exp} / ${st.rewardsMatrix.hard.exp}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: '900', color: '#00f5d4' }).setOrigin(0.5);
+        const c4 = this.add.text(-tW / 2 + 520, rowH / 2, `${st.rewardsMatrix.easy.coins} / ${st.rewardsMatrix.medium.coins} / ${st.rewardsMatrix.hard.coins}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: '900', color: '#ffd166' }).setOrigin(0.5);
+        const c5 = this.add.text(-tW / 2 + 645, rowH / 2, `${st.rewardsMatrix.hard.mainShardPct} (K)`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: 'bold', color: '#ff758f' }).setOrigin(0.5);
+        const c6 = this.add.text(-tW / 2 + 760, rowH / 2, st.stageType === 'boss' ? '—' : `${st.rewardsMatrix.hard.subShardPct} (K)`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: 'bold', color: '#adb5bd' }).setOrigin(0.5);
+        const c7 = this.add.text(-tW / 2 + 875, rowH / 2, `${st.itemIcon} ${st.rewardsMatrix.hard.itemPct}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: '900', color: '#c77dff' }).setOrigin(0.5);
+
+        rowCont.add([c1, c2, c3, c4, c5, c6, c7]);
+        rowCont.setSize(tW, rowH).setInteractive(new Phaser.Geom.Rectangle(-tW / 2, 0, tW, rowH), Phaser.Geom.Rectangle.Contains);
+        rowCont.on('pointerdown', () => {
+          this.audio.playSelect();
+          curLevel = st.levelNumber;
+          viewMode = 'detail';
+          renderMainContent();
+        });
+
+        mainContentContainer.add(rowCont);
+      });
+    };
+
+    renderChapterTabs();
+    renderMainContent();
+
+    // Bottom Footer Tip & Close Button
+    const tipTxt = this.add.text(0, cardH / 2 - 58, '💡 Mẹo: Bấm vào từng màn để soi rõ phép tính EXP/Vàng hoặc chuyển sang dạng Bảng đối chiếu 10 màn!', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11px',
+      fontStyle: '800',
+      color: '#ffd166'
+    }).setOrigin(0.5);
+    modal.add(tipTxt);
+
+    const closeBtnY = cardH / 2 - 28;
+    const closeBtn = this.add.container(0, closeBtnY);
+    const cBg = this.add.graphics();
+    cBg.fillStyle(0x3a3a52, 1);
+    cBg.fillRoundedRect(-80, -15, 160, 30, 8);
+    cBg.lineStyle(1.4, 0xffd700, 0.85);
+    cBg.strokeRoundedRect(-80, -15, 160, 30, 8);
+    const cTxt = this.add.text(0, 0, '✕ ĐÓNG', { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '12.5px', fontStyle: '900', color: '#ffffff' }).setOrigin(0.5);
+    closeBtn.add([cBg, cTxt]);
+    closeBtn.setSize(160, 30).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', () => {
+      this.audio.playSelect();
+      modal.destroy();
+      this.lootTableModalContainer = null;
+    });
     modal.add(closeBtn);
   }
 
@@ -1528,16 +2616,97 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   /**
-   * Stage Select (1 - 100) Modal with 10 Mythological Chapters & Pagination
+   * Floating notification toast for locked difficulties or game alerts
    */
-  private openStageSelectModal(): void {
+  private showFloatingToast(message: string, color: number = 0xff595e): void {
+    const toast = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2).setDepth(400);
+    const text = this.add.text(0, 0, message, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13.5px',
+      fontStyle: '900',
+      color: '#ffffff',
+      align: 'center'
+    }).setOrigin(0.5);
+
+    const padX = 36;
+    const padY = 18;
+    const bgW = text.width + padX;
+    const bgH = text.height + padY;
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0e101c, 0.98);
+    bg.fillRoundedRect(-bgW / 2, -bgH / 2, bgW, bgH, 14);
+    bg.lineStyle(2, color, 1);
+    bg.strokeRoundedRect(-bgW / 2, -bgH / 2, bgW, bgH, 14);
+
+    toast.add([bg, text]);
+    toast.setAlpha(0);
+    toast.setScale(0.85);
+
+    this.tweens.add({
+      targets: toast,
+      alpha: 1,
+      scaleX: 1,
+      scaleY: 1,
+      y: GAME_HEIGHT / 2 - 16,
+      duration: 200,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.time.delayedCall(1600, () => {
+          this.tweens.add({
+            targets: toast,
+            alpha: 0,
+            y: GAME_HEIGHT / 2 - 36,
+            duration: 250,
+            ease: 'Quad.easeIn',
+            onComplete: () => toast.destroy()
+          });
+        });
+      }
+    });
+  }
+
+  /**
+   * Tải hình nền thật cho các màn trong chương (On-demand dynamic loading)
+   */
+  private loadChapterStageBackgrounds(chapterNum: number, onLoaded?: () => void): void {
+    const ch = LevelManager.getChapterConfig(chapterNum);
+    let queued = 0;
+    for (let s = ch.startLevel; s <= ch.endLevel; s++) {
+      const key = `stage_bg_${s}`;
+      if (!this.textures.exists(key)) {
+        this.load.image(key, `assets/stages/stage_bg_${s}.png`);
+        queued++;
+      }
+    }
+    if (queued > 0) {
+      this.load.once('complete', () => {
+        if (onLoaded) onLoaded();
+      });
+      if (!this.load.isLoading()) {
+        this.load.start();
+      }
+    }
+  }
+
+  /**
+   * Stage Select (1 - 100) Modal with Ornate Shinto Shrine / Torii Frame, Direct Difficulty Tabs & Asian Lacquer Aesthetics
+   */
+  private openStageSelectModal(targetChapter?: number): void {
     if (this.stageModalContainer) return;
 
     const width = GAME_WIDTH;
     const height = GAME_HEIGHT;
     const save = this.saveSystem || SaveSystem.getInstance();
 
-    this.stageSelectChapter = Math.max(1, Math.min(10, Math.ceil(save.getHighestLevel() / 10)));
+    this.stageSelectChapter = targetChapter ? Math.max(1, Math.min(10, targetChapter)) : Math.max(1, Math.min(10, Math.ceil(save.getHighestLevel() / 10)));
+
+    // Tải trước hình nền thật của chương này
+    this.loadChapterStageBackgrounds(this.stageSelectChapter, () => {
+      if (this.stageModalContainer && renderChapterFunc) {
+        renderChapterFunc();
+      }
+    });
 
     const modal = this.add.container(width / 2, height / 2).setDepth(200);
     this.stageModalContainer = modal;
@@ -1549,211 +2718,595 @@ export class MainMenuScene extends Phaser.Scene {
     overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
     modal.add(overlay);
 
+    // --- 1. GRAND ASIAN SHRINE MAIN FRAME (FULL-SCREEN EXPANSION) ---
+    const frameW = Math.max(1100, Math.min(screenW - 24, 1360));
+    const frameH = Math.min(height - 16, 620);
     const card = this.add.graphics();
-    card.fillStyle(0x181828, 1);
-    card.fillRoundedRect(-440, -240, 880, 480, 22);
-    card.lineStyle(2, 0xffd700, 0.9);
-    card.strokeRoundedRect(-440, -240, 880, 480, 22);
+
+    // Deep Obsidian / Indigo Lacquer Card Body
+    card.fillStyle(0x0e101c, 0.98);
+    card.fillRoundedRect(-frameW / 2, -frameH / 2, frameW, frameH, 20);
+
+    // Inner Dark Red Lacquer Trim
+    card.lineStyle(1.8, 0x660f17, 0.85);
+    card.strokeRoundedRect(-frameW / 2 + 4, -frameH / 2 + 4, frameW - 8, frameH - 8, 18);
+
+    // Outer Radiant Golden Frame
+    card.lineStyle(2, 0xffd700, 0.95);
+    card.strokeRoundedRect(-frameW / 2, -frameH / 2, frameW, frameH, 20);
     modal.add(card);
 
-    const collectedRelics = save.getCollectedRelicsCount('yokai');
-    const isAllRelicsCollected = collectedRelics >= 10;
+    // --- 1.5. LEFT & RIGHT VERMILION TORII PILLARS ---
+    const pillarG = this.add.graphics();
+    // Left Pillar
+    pillarG.fillStyle(0xa01a24, 0.95);
+    pillarG.fillRoundedRect(-frameW / 2 - 4, -frameH / 2 + 16, 12, frameH - 32, 4);
+    pillarG.fillStyle(0xffd700, 1);
+    pillarG.fillRect(-frameW / 2 - 6, -frameH / 2 + 16, 16, 6);
+    pillarG.fillRect(-frameW / 2 - 6, frameH / 2 - 22, 16, 6);
 
-    const title = this.add.text(0, -204, '🗺️ CHIẾN DỊCH VIỄN CHINH • 100 MÀN CHƠI', {
+    // Right Pillar
+    pillarG.fillStyle(0xa01a24, 0.95);
+    pillarG.fillRoundedRect(frameW / 2 - 8, -frameH / 2 + 16, 12, frameH - 32, 4);
+    pillarG.fillStyle(0xffd700, 1);
+    pillarG.fillRect(frameW / 2 - 10, -frameH / 2 + 16, 16, 6);
+    pillarG.fillRect(frameW / 2 - 10, frameH / 2 - 22, 16, 6);
+    modal.add(pillarG);
+
+    // --- 2. ORNATE SHINTO SHRINE ROOF LINTEL (TOP) ---
+    if (this.textures.exists('shrine_temple_roof')) {
+      const roofImg = this.add.image(0, -frameH / 2 - 2, 'shrine_temple_roof');
+      roofImg.setDisplaySize(frameW + 54, 54);
+      modal.add(roofImg);
+    } else {
+      const roofG = this.add.graphics();
+      roofG.fillStyle(0xb80c09, 1);
+      roofG.fillRoundedRect(-frameW / 2 - 12, -frameH / 2 - 8, frameW + 24, 14, 4);
+      roofG.fillStyle(0xffd700, 1);
+      roofG.fillRect(-frameW / 2 - 16, -frameH / 2 - 10, 12, 18);
+      roofG.fillRect(frameW / 2 + 4, -frameH / 2 - 10, 12, 18);
+      modal.add(roofG);
+    }
+
+    // --- 3. CENTER SHRINE EMBLEM: KITSUNE MASK WITH HITODAMA FLAMES ---
+    if (this.textures.exists('shrine_kitsune_mask')) {
+      const maskCrest = this.add.image(0, -frameH / 2 + 3, 'shrine_kitsune_mask');
+      maskCrest.setDisplaySize(86, 70);
+      modal.add(maskCrest);
+    } else {
+      const maskTxt = this.add.text(0, -frameH / 2 - 4, '🦊', { fontSize: '32px' }).setOrigin(0.5);
+      modal.add(maskTxt);
+    }
+
+    // --- 4. HANGING SHRINE LANTERNS (LEFT & RIGHT) WITH SUBTLE SWAY ---
+    const lanternKey = this.textures.exists('shrine_hanging_toro') ? 'shrine_hanging_toro' : (this.textures.exists('shrine_lantern_glow') ? 'shrine_lantern_glow' : 'shrine_lantern');
+    if (this.textures.exists(lanternKey)) {
+      const lLeft = this.add.image(-frameW / 2 - 14, -frameH / 2 + 82, lanternKey);
+      lLeft.setDisplaySize(46, 78);
+      modal.add(lLeft);
+
+      const lRight = this.add.image(frameW / 2 + 14, -frameH / 2 + 82, lanternKey);
+      lRight.setDisplaySize(46, 78);
+      modal.add(lRight);
+
+      this.tweens.add({
+        targets: [lLeft, lRight],
+        y: '-=2.5',
+        angle: { from: -1.2, to: 1.2 },
+        duration: 2200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    // --- 5. HEADER: RELIC ICONS & GOLDEN 3D TITLE ---
+    const headerY = -256;
+
+    // Left: Ancient Glowing Grimoire
+    const bookKey = this.textures.exists('shrine_book_icon') ? 'shrine_book_icon' : 'album_book_icon';
+    if (this.textures.exists(bookKey)) {
+      const bookImg = this.add.image(-320, headerY, bookKey);
+      bookImg.setDisplaySize(44, 44);
+      modal.add(bookImg);
+    }
+
+    // Right: Ancient Golden Parchment Scroll
+    if (this.textures.exists('shrine_scroll_icon')) {
+      const scrollImg = this.add.image(320, headerY, 'shrine_scroll_icon');
+      scrollImg.setDisplaySize(44, 44);
+      modal.add(scrollImg);
+    }
+
+    // Grand 3D Golden Title with Red Lacquer Stroke
+    const title = this.add.text(0, headerY, 'CHIẾN DỊCH VIỄN CHINH • 100 MÀN CHƠI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '21px',
+      fontSize: '23px',
       fontStyle: '900',
-      color: '#ffd700'
+      color: '#ffea00',
+      stroke: '#d90429',
+      strokeThickness: 3.5,
+      shadow: { offsetX: 0, offsetY: 3, color: '#30030b', blur: 6, fill: true }
     }).setOrigin(0.5);
     modal.add(title);
 
-    if (isAllRelicsCollected) {
-      const portalBtn = this.add.container(310, -204);
-      const pBg = this.add.graphics();
-      pBg.fillStyle(0x7209b7, 0.95);
-      pBg.fillRoundedRect(-85, -15, 170, 30, 8);
-      pBg.lineStyle(1.5, 0x4cc9f0, 0.9);
-      pBg.strokeRoundedRect(-85, -15, 170, 30, 8);
-      const pTxt = this.add.text(0, 0, '🌌 CỔNG THẾ GIỚI ➔', {
+    // --- 5.5. DIRECT DIFFICULTY MAP FILTER TABS ---
+    const diffY = -216;
+    const diffTabsContainer = this.add.container(0, diffY);
+    modal.add(diffTabsContainer);
+
+    const diffConfigs: { key: DifficultyLevel; label: string; activeColor: number; activeHex: string }[] = [
+      { key: 'easy', label: '🟢 DỄ', activeColor: 0x06d6a0, activeHex: '#06d6a0' },
+      { key: 'medium', label: '🟡 VỪA', activeColor: 0xffd166, activeHex: '#ffd166' },
+      { key: 'hard', label: '🔴 KHÓ', activeColor: 0xef476f, activeHex: '#ef476f' }
+    ];
+
+    const dTabW = 126;
+    const dTabH = 28;
+    const dSpacing = 138;
+    const tabBgs: Phaser.GameObjects.Graphics[] = [];
+    const tabTexts: Phaser.GameObjects.Text[] = [];
+
+    const updateDiffTabs = () => {
+      diffConfigs.forEach((d, idx) => {
+        const isUnlocked = save.isChapterDifficultyUnlocked(this.stageSelectChapter, d.key);
+        const isSelected = this.stageSelectDifficulty === d.key;
+        const bg = tabBgs[idx];
+        const txt = tabTexts[idx];
+
+        bg.clear();
+        if (isSelected) {
+          bg.fillStyle(d.activeColor, 0.95);
+          bg.fillRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 14);
+          bg.lineStyle(1.8, 0xffffff, 1);
+          bg.strokeRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 14);
+          txt.setText(d.label);
+          txt.setColor('#0e101c');
+          txt.setFontStyle('900');
+        } else if (isUnlocked) {
+          bg.fillStyle(0x181a2c, 0.92);
+          bg.fillRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 14);
+          bg.lineStyle(1.2, 0x414666, 0.85);
+          bg.strokeRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 14);
+          txt.setText(d.label);
+          txt.setColor('#c9d1d9');
+          txt.setFontStyle('bold');
+        } else {
+          bg.fillStyle(0x0f111d, 0.85);
+          bg.fillRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 14);
+          bg.lineStyle(1, 0x272a3d, 0.7);
+          bg.strokeRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 14);
+          txt.setText(`${d.label} 🔒`);
+          txt.setColor('#5c637a');
+          txt.setFontStyle('bold');
+        }
+      });
+    };
+
+    // Forward declaration of renderChapter so diff tabs click handler can invoke it
+    let renderChapterFunc: () => void = () => {};
+
+    diffConfigs.forEach((d, idx) => {
+      const posX = (idx - 1) * dSpacing;
+      const tabC = this.add.container(posX, 0);
+      const bg = this.add.graphics();
+      const txt = this.add.text(0, 0, d.label, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
+        fontSize: '12.5px',
         fontStyle: '900',
         color: '#ffffff'
       }).setOrigin(0.5);
-      portalBtn.add([pBg, pTxt]);
-      portalBtn.setSize(170, 30).setInteractive({ useHandCursor: true });
-      portalBtn.on('pointerdown', () => {
-        this.audio.playSelect();
-        modal.destroy();
-        this.stageModalContainer = null;
-        this.openRealmSelectorModal();
-      });
-      modal.add(portalBtn);
-    }
 
-    // --- CHAPTER SELECTOR BAR ---
+      tabC.add([bg, txt]);
+      tabC.setSize(dTabW, dTabH).setInteractive({ useHandCursor: true });
+      tabC.on('pointerdown', () => {
+        const isUnlocked = save.isChapterDifficultyUnlocked(this.stageSelectChapter, d.key);
+        if (!isUnlocked) {
+          this.audio.playTick();
+          if (d.key === 'medium') {
+            this.showFloatingToast(`🔒 Cần vượt hết 10 màn Dễ Chương ${this.stageSelectChapter} để mở Vừa!`, 0xffd166);
+          } else if (d.key === 'hard') {
+            this.showFloatingToast(`🔒 Cần vượt hết 10 màn Vừa Chương ${this.stageSelectChapter} để mở Khó!`, 0xef476f);
+          }
+          return;
+        }
+        if (this.stageSelectDifficulty !== d.key) {
+          this.audio.playSelect();
+          this.stageSelectDifficulty = d.key;
+          updateDiffTabs();
+          renderChapterFunc();
+        }
+      });
+
+      tabBgs.push(bg);
+      tabTexts.push(txt);
+      diffTabsContainer.add(tabC);
+    });
+
+    // Button: 🎁 TRA CỨU RỚT ĐỒ
+    const lootBtnW = 154;
+    const lootBtnH = 28;
+    const lootBtn = this.add.container(265, 0);
+    const lBg = this.add.graphics();
+    lBg.fillStyle(0x2a1b40, 0.95);
+    lBg.fillRoundedRect(-lootBtnW / 2, -lootBtnH / 2, lootBtnW, lootBtnH, 14);
+    lBg.lineStyle(1.6, 0xffd700, 0.9);
+    lBg.strokeRoundedRect(-lootBtnW / 2, -lootBtnH / 2, lootBtnW, lootBtnH, 14);
+
+    const lTxt = this.add.text(0, 0, '🎁 TRA CỨU RỚT ĐỒ', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11.5px',
+      fontStyle: '900',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+
+    lootBtn.add([lBg, lTxt]);
+    lootBtn.setSize(lootBtnW, lootBtnH).setInteractive({ useHandCursor: true });
+    lootBtn.on('pointerdown', () => {
+      this.audio.playSelect();
+      this.openLootTableModal(this.stageSelectChapter);
+    });
+    diffTabsContainer.add(lootBtn);
+
+    // --- 6. CHAPTER NAVIGATION BAR & HIGH-CONTRAST LUMINOUS BANNER ---
     const navY = -170;
+    const chBannerW = Math.min(frameW - 320, 780);
+    const chBannerH = 34;
+
+    // Distinct, high-contrast, luminous chapter plate (khắc phục hoàn toàn lỗi nền ẩn mờ)
+    const navBar = this.add.graphics();
+    navBar.fillStyle(0x161a30, 0.98);
+    navBar.fillRoundedRect(-chBannerW / 2, navY - chBannerH / 2, chBannerW, chBannerH, 17);
+    navBar.lineStyle(2, 0xffd700, 0.95);
+    navBar.strokeRoundedRect(-chBannerW / 2, navY - chBannerH / 2, chBannerW, chBannerH, 17);
+    navBar.lineStyle(1, 0xffb703, 0.4);
+    navBar.strokeRoundedRect(-chBannerW / 2 + 2, navY - chBannerH / 2 + 2, chBannerW - 4, chBannerH - 4, 15);
+    modal.add(navBar);
+
+    // Prev Chapter Button (Nằm ngoài trung tâm, tuyệt đối không bị chèn đè)
+    const navBtnW = 136;
+    const navBtnH = 32;
+    const prevBtnX = -chBannerW / 2 - navBtnW / 2 - 12;
+    const prevBtn = this.add.container(prevBtnX, navY);
+    const prevBg = this.add.graphics();
+    prevBg.fillStyle(0x231838, 0.98);
+    prevBg.fillRoundedRect(-navBtnW / 2, -navBtnH / 2, navBtnW, navBtnH, 16);
+    prevBg.lineStyle(1.6, 0xffd700, 0.9);
+    prevBg.strokeRoundedRect(-navBtnW / 2, -navBtnH / 2, navBtnW, navBtnH, 16);
+    const prevTxt = this.add.text(0, 0, '◀ CHƯƠNG TRƯỚC', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11px',
+      fontStyle: '900',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+    prevBtn.add([prevBg, prevTxt]);
+    prevBtn.setSize(navBtnW, navBtnH).setInteractive({ useHandCursor: true });
+    modal.add(prevBtn);
+
+    // Next Chapter Button (Nằm ngoài trung tâm, tuyệt đối không bị chèn đè)
+    const nextBtnX = chBannerW / 2 + navBtnW / 2 + 12;
+    const nextBtn = this.add.container(nextBtnX, navY);
+    const nextBg = this.add.graphics();
+    nextBg.fillStyle(0x231838, 0.98);
+    nextBg.fillRoundedRect(-navBtnW / 2, -navBtnH / 2, navBtnW, navBtnH, 16);
+    nextBg.lineStyle(1.6, 0xffd700, 0.9);
+    nextBg.strokeRoundedRect(-navBtnW / 2, -navBtnH / 2, navBtnW, navBtnH, 16);
+    const nextTxt = this.add.text(0, 0, 'CHƯƠNG SAU ▶', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11px',
+      fontStyle: '900',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+    nextBtn.add([nextBg, nextTxt]);
+    nextBtn.setSize(navBtnW, navBtnH).setInteractive({ useHandCursor: true });
+    modal.add(nextBtn);
+
+    // Center Chapter Info Banner Text (Rõ nét, độ tương phản cao, có viền stroke và giới hạn chữ)
     const chBannerTxt = this.add.text(0, navY, '', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
-      fontStyle: '800',
-      color: '#00f5d4',
-      align: 'center'
+      fontSize: '13px',
+      fontStyle: '900',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center',
+      wordWrap: { width: chBannerW - 24 }
     }).setOrigin(0.5);
     modal.add(chBannerTxt);
 
-    // Prev Chapter Button
-    const prevBtn = this.add.container(-275, navY);
-    const prevBg = this.add.graphics();
-    prevBg.fillStyle(0x2a2845, 0.9);
-    prevBg.fillRoundedRect(-62, -15, 124, 30, 8);
-    prevBg.lineStyle(1.2, 0x5a557d, 0.9);
-    prevBg.strokeRoundedRect(-62, -15, 124, 30, 8);
-    const prevTxt = this.add.text(0, 0, '◄ CHƯƠNG TRƯỚC', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: '800',
-      color: '#ffffff'
-    }).setOrigin(0.5);
-    prevBtn.add([prevBg, prevTxt]);
-    prevBtn.setSize(124, 30).setInteractive({ useHandCursor: true });
-    modal.add(prevBtn);
-
-    // Next Chapter Button
-    const nextBtn = this.add.container(275, navY);
-    const nextBg = this.add.graphics();
-    nextBg.fillStyle(0x2a2845, 0.9);
-    nextBg.fillRoundedRect(-62, -15, 124, 30, 8);
-    nextBg.lineStyle(1.2, 0x5a557d, 0.9);
-    nextBg.strokeRoundedRect(-62, -15, 124, 30, 8);
-    const nextTxt = this.add.text(0, 0, 'CHƯƠNG SAU ►', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: '800',
-      color: '#ffffff'
-    }).setOrigin(0.5);
-    nextBtn.add([nextBg, nextTxt]);
-    nextBtn.setSize(124, 30).setInteractive({ useHandCursor: true });
-    modal.add(nextBtn);
-
-    // Stages Grid Container
+    // --- 7. 10 STAGE CARDS GRID (2 ROWS X 5 COLUMNS) ---
     const stagesGrid = this.add.container(0, 0);
     modal.add(stagesGrid);
 
+    const cardW = 186;
+    const cardH = 142;
+    const colSpacing = 208;
+    const rowY1 = -70;
+    const rowY2 = +86;
+
+    const cleanStageTitle = (rawTitle: string): string => {
+      let t = rawTitle.includes(':') ? rawTitle.split(':')[1]?.trim() : rawTitle;
+      t = t.replace(/\s*\([^)]*\)/g, ''); // strip parentheses details like "(Down)", "(Hút)"
+      if (t.length > 17) t = t.slice(0, 16) + '…';
+      return t;
+    };
+
     const renderChapter = () => {
       stagesGrid.removeAll(true);
+
+      // Auto-fallback if the currently selected difficulty is locked for this chapter
+      if (!save.isChapterDifficultyUnlocked(this.stageSelectChapter, this.stageSelectDifficulty)) {
+        this.stageSelectDifficulty = 'easy';
+      }
+
+      updateDiffTabs();
+
       const ch = LevelManager.getChapterConfig(this.stageSelectChapter);
-      chBannerTxt.setText(`Chương ${ch.chapterNum}/10: ${ch.title}  (Màn ${ch.startLevel} - ${ch.endLevel})  •  Trùm: ${ch.bossSymbol} ${ch.bossName}`);
-      chBannerTxt.setColor(ch.hex);
+      chBannerTxt.setText(`${ch.title} (Màn ${ch.startLevel} - ${ch.endLevel})  •  ⚔️ Trùm: ${ch.bossSymbol} ${ch.bossName}`);
+      chBannerTxt.setColor('#ffffff');
 
-      prevBtn.setAlpha(this.stageSelectChapter > 1 ? 1 : 0.4);
-      nextBtn.setAlpha(this.stageSelectChapter < 10 ? 1 : 0.4);
-
-      const cardW = 155;
-      const cardH = 106;
-      const colSpacing = 168;
-      const rowY1 = -90;
-      const rowY2 = 45;
+      prevBtn.setAlpha(this.stageSelectChapter > 1 ? 1 : 0.35);
+      nextBtn.setAlpha(this.stageSelectChapter < 10 ? 1 : 0.35);
 
       for (let i = 0; i < 10; i++) {
+        const inChIdx = i + 1;
         const stgNum = ch.startLevel + i;
-        const stgConfig = LevelManager.getLevelConfig(stgNum, save.getSelectedTheme());
-        const isUnlocked = stgNum <= save.getHighestLevel();
+        const baseStgConfig = LevelManager.getLevelConfig(stgNum, save.getSelectedTheme(), this.stageSelectDifficulty);
+        const stgConfig = LevelManager.applyDifficultyToConfig(baseStgConfig, this.stageSelectDifficulty);
+
+        const isUnlocked = save.isLevelUnlocked(stgNum, this.stageSelectDifficulty);
         const isBoss = stgNum % 10 === 0;
 
         const isSecondRow = i >= 5;
         const colIndex = i % 5;
-        const posX = -2 * colSpacing + colIndex * colSpacing;
+        const posX = (colIndex - 2) * colSpacing;
         const posY = isSecondRow ? rowY2 : rowY1;
 
-        const row = this.add.container(posX, posY);
-        const stars = save.getLevelStars(stgConfig.id);
-        const isPerfect = stars === 3;
-        let starStr = isUnlocked ? '☆☆☆' : '🔒';
-        if (stars === 3) starStr = '⭐⭐⭐';
-        else if (stars === 2) starStr = '⭐⭐☆';
-        else if (stars === 1) starStr = '⭐☆☆';
+        const cardContainer = this.add.container(posX, posY);
 
-        const rBg = this.add.graphics();
-        if (!isUnlocked) {
-          rBg.fillStyle(0x131320, 0.9);
-          rBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
-          rBg.lineStyle(1.2, 0x2a283e, 0.6);
-          rBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
-        } else if (isBoss) {
-          rBg.fillStyle(isPerfect ? 0x3d1a24 : 0x2a1219, 0.95);
-          rBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
-          rBg.lineStyle(1.8, isPerfect ? 0xffd700 : 0xff595e, 0.95);
-          rBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
+        const rawStars = save.getLevelStars(stgConfig.id, this.stageSelectDifficulty) ||
+                         save.getLevelStars(`level_${stgNum}`, this.stageSelectDifficulty);
+        const isPassed = save.isDifficultyCompleted(stgConfig.id, this.stageSelectDifficulty) || (this.stageSelectDifficulty === 'easy' && (stgNum < save.getHighestLevel() || rawStars > 0));
+
+        // Determine Stage Thumbnail Texture (Ưu tiên ảnh nền thật của từng màn)
+        let thumbKey = '';
+        if (this.textures.exists(`stage_bg_${stgNum}`)) {
+          thumbKey = `stage_bg_${stgNum}`;
+        } else if (this.textures.exists(`bg${stgNum}`)) {
+          thumbKey = `bg${stgNum}`;
+        } else if (ch.worldId === 'egypt' && this.textures.exists('bg_egypt_nile')) {
+          thumbKey = 'bg_egypt_nile';
+        } else if (ch.chapterNum === 1 && this.textures.exists(`stage_bg_${inChIdx}`)) {
+          thumbKey = `stage_bg_${inChIdx}`;
+        } else if (ch.chapterNum === 1 && this.textures.exists(`bg${inChIdx}`)) {
+          thumbKey = `bg${inChIdx}`;
+        } else if (this.textures.exists(`bg_theme_${ch.worldId}`)) {
+          thumbKey = `bg_theme_${ch.worldId}`;
         } else {
-          rBg.fillStyle(isPerfect ? 0x27203a : 0x232538, 0.95);
-          rBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
-          rBg.lineStyle(1.5, isPerfect ? 0xffd700 : 0x4f5d75, isPerfect ? 0.9 : 0.7);
-          rBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 12);
+          thumbKey = `stage_preview_${inChIdx}`;
         }
 
-        const numBadge = this.add.text(0, -34, !isUnlocked ? `🔒 MÀN ${stgNum}` : (isBoss ? '👑 ĐẠI TRÙM' : `MÀN ${stgNum}`), {
+        // --- UPPER THUMBNAIL IMAGE ---
+        if (thumbKey && this.textures.exists(thumbKey)) {
+          const thumb = this.add.image(0, -34, thumbKey);
+          thumb.setDisplaySize(cardW - 4, 70);
+          if (!isUnlocked) {
+            // Tương tự Thư viện Yokai: Dùng ảnh nền thật nhưng phủ xám trắng đen và giảm sáng
+            thumb.setTint(0x525666);
+            thumb.setAlpha(0.72);
+          }
+          cardContainer.add(thumb);
+        }
+
+        // --- CARD BORDER & BASE GRAPHICS ---
+        const rBg = this.add.graphics();
+        const halfW = cardW / 2;
+        const halfH = cardH / 2;
+
+        if (isPassed) {
+          // --- STATE A: PASSED / BEATEN (GOLDEN DOUBLE BORDER) ---
+          rBg.fillStyle(0x121422, 0.94);
+          rBg.fillRoundedRect(-halfW, 2, cardW, halfH - 2, { tl: 0, tr: 0, bl: 10, br: 10 });
+
+          // Outer Double Golden Glow Border
+          rBg.lineStyle(2, 0xffd700, 1);
+          rBg.strokeRoundedRect(-halfW, -halfH, cardW, cardH, 10);
+          rBg.lineStyle(1, 0xffb703, 0.5);
+          rBg.strokeRoundedRect(-halfW + 3, -halfH + 3, cardW - 6, cardH - 6, 8);
+
+          // Golden Corner Flourish Angles
+          const cSize = 9;
+          rBg.lineStyle(2.5, 0xffd700, 1);
+          rBg.strokeLineShape(new Phaser.Geom.Line(-halfW + 1, -halfH + cSize, -halfW + 1, -halfH + 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(-halfW + 1, -halfH + 1, -halfW + cSize, -halfH + 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(halfW - 1, -halfH + cSize, halfW - 1, -halfH + 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(halfW - 1, -halfH + 1, halfW - cSize, -halfH + 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(-halfW + 1, halfH - cSize, -halfW + 1, halfH - 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(-halfW + 1, halfH - 1, -halfW + cSize, halfH - 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(halfW - 1, halfH - cSize, halfW - 1, halfH - 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(halfW - 1, halfH - 1, halfW - cSize, halfH - 1));
+        } else if (isUnlocked) {
+          // --- STATE B: UNLOCKED / ACTIVE ---
+          const activeThemeColor = this.stageSelectDifficulty === 'easy' ? 0x06d6a0 : (this.stageSelectDifficulty === 'medium' ? 0xffd166 : 0xef476f);
+          rBg.fillStyle(0x0e1422, 0.94);
+          rBg.fillRoundedRect(-halfW, 2, cardW, halfH - 2, { tl: 0, tr: 0, bl: 10, br: 10 });
+
+          rBg.lineStyle(2, activeThemeColor, 1);
+          rBg.strokeRoundedRect(-halfW, -halfH, cardW, cardH, 10);
+
+          const cSize = 8;
+          rBg.lineStyle(2.5, activeThemeColor, 1);
+          rBg.strokeLineShape(new Phaser.Geom.Line(-halfW + 1, -halfH + cSize, -halfW + 1, -halfH + 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(-halfW + 1, -halfH + 1, -halfW + cSize, -halfH + 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(halfW - 1, -halfH + cSize, halfW - 1, -halfH + 1));
+          rBg.strokeLineShape(new Phaser.Geom.Line(halfW - 1, -halfH + 1, halfW - cSize, -halfH + 1));
+        } else {
+          // --- STATE C: LOCKED ---
+          rBg.fillStyle(0x0a0c16, 0.94);
+          rBg.fillRoundedRect(-halfW, 2, cardW, halfH - 2, { tl: 0, tr: 0, bl: 10, br: 10 });
+
+          rBg.lineStyle(1.2, 0x2a2d40, 0.85);
+          rBg.strokeRoundedRect(-halfW, -halfH, cardW, cardH, 10);
+        }
+        cardContainer.add(rBg);
+
+        // --- TOP-LEFT CREST MON EMBLEM ---
+        const crestKey = isPassed ? 'crest_sakura_gold' : (isUnlocked ? 'crest_sakura_cyan' : 'crest_sakura_gray');
+        if (this.textures.exists(crestKey)) {
+          const crest = this.add.image(-halfW + 14, -halfH + 14, crestKey);
+          crest.setDisplaySize(16, 16);
+          cardContainer.add(crest);
+        }
+
+        // --- TOP BADGE: MÀN X ---
+        const badgeBg = this.add.graphics();
+        if (isPassed) {
+          badgeBg.fillStyle(0xffd700, 1);
+          badgeBg.fillRoundedRect(-36, -halfH + 3, 72, 18, 9);
+        } else if (isUnlocked) {
+          const diffBorder = this.stageSelectDifficulty === 'easy' ? 0x06d6a0 : (this.stageSelectDifficulty === 'medium' ? 0xffd166 : 0xef476f);
+          badgeBg.fillStyle(diffBorder, 0.2);
+          badgeBg.fillRoundedRect(-36, -halfH + 3, 72, 18, 9);
+          badgeBg.lineStyle(1.2, diffBorder, 1);
+          badgeBg.strokeRoundedRect(-36, -halfH + 3, 72, 18, 9);
+        } else {
+          badgeBg.fillStyle(0x161826, 0.95);
+          badgeBg.fillRoundedRect(-36, -halfH + 3, 72, 18, 9);
+          badgeBg.lineStyle(1, 0x363a52, 0.7);
+          badgeBg.strokeRoundedRect(-36, -halfH + 3, 72, 18, 9);
+        }
+        cardContainer.add(badgeBg);
+
+        const badgeText = this.add.text(0, -halfH + 12, `MÀN ${stgNum}`, {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '13.5px',
+          fontSize: '11px',
           fontStyle: '900',
-          color: !isUnlocked ? '#6c757d' : (isBoss ? '#ff595e' : (isPerfect ? '#ffd700' : '#00f5d4'))
+          color: isPassed ? '#181105' : (isUnlocked ? (this.stageSelectDifficulty === 'easy' ? '#06d6a0' : (this.stageSelectDifficulty === 'medium' ? '#ffd166' : '#ef476f')) : '#8890a6')
         }).setOrigin(0.5);
+        cardContainer.add(badgeText);
 
-        const displayName = stgConfig.title.includes(':') ? stgConfig.title.split(':')[1]?.trim() : stgConfig.title;
-        const stgName = this.add.text(0, -16, displayName.slice(0, 15), {
-          fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: isBoss ? '13.5px' : '14px',
-          fontStyle: '900',
-          color: !isUnlocked ? '#555566' : (isBoss ? '#ffd166' : '#ffffff'),
-          align: 'center'
-        }).setOrigin(0.5);
+        // --- CENTER LOCK ICON (FOR LOCKED CARDS) ---
+        if (!isUnlocked) {
+          const lockDisc = this.add.graphics();
+          lockDisc.fillStyle(0x0a0c16, 0.88);
+          lockDisc.fillCircle(0, -34, 16);
+          lockDisc.lineStyle(1.5, 0xffd700, 0.95);
+          lockDisc.strokeCircle(0, -34, 16);
+          cardContainer.add(lockDisc);
 
-        const subText = !isUnlocked
-          ? `Vượt Màn ${stgNum - 1} để mở`
-          : `${stgConfig.timeLimit}s • ${stgConfig.movement === 'none' ? 'Tĩnh lặng' : stgConfig.movement}`;
-        const stgSub = this.add.text(0, 3, subText, {
-          fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '12px',
-          fontStyle: 'bold',
-          color: !isUnlocked ? '#495057' : (isBoss ? '#fca311' : '#ced4da'),
-          align: 'center'
-        }).setOrigin(0.5);
+          const lockTxt = this.add.text(0, -34, '🔒', { fontSize: '15px' }).setOrigin(0.5);
+          cardContainer.add(lockTxt);
+        }
 
-        const starsTxt = this.add.text(0, 21, starStr, {
-          fontSize: '14.5px'
-        }).setOrigin(0.5);
+        // --- LOWER INFO PANEL CONTENT ---
+        const displayTitle = cleanStageTitle(stgConfig.title);
 
-        const playLabel = !isUnlocked
-          ? 'CHƯA MỞ'
-          : (isPerfect ? 'CHI TIẾT ➔' : (stars > 0 ? 'SĂN 3 SAO ➔' : (isBoss ? 'KHIÊU CHIẾN ⚔️' : 'CHỌN ĐỘ KHÓ ➔')));
-        const playTxt = this.add.text(0, 38, playLabel, {
+        // Level Title
+        const titleColor = !isUnlocked ? '#9aa4b8' : '#ffffff';
+        const stgTitle = this.add.text(0, isPassed ? 11 : 13, displayTitle, {
           fontFamily: 'Plus Jakarta Sans, sans-serif',
           fontSize: '12.5px',
           fontStyle: '900',
-          color: !isUnlocked ? '#495057' : (isPerfect ? '#ffd700' : (isBoss ? '#ff595e' : '#ff758f'))
+          color: titleColor,
+          align: 'center'
         }).setOrigin(0.5);
+        cardContainer.add(stgTitle);
 
-        row.add([rBg, numBadge, stgName, stgSub, starsTxt, playTxt]);
-        row.setSize(cardW, cardH);
+        // Subtitle: Timer + Modifier OR Unlock Condition
+        const subStr = !isUnlocked
+          ? (this.stageSelectDifficulty === 'easy'
+              ? (stgNum === 1 ? 'Mở đầu cuộc hành trình' : `Vượt Màn ${stgNum - 1} để mở`)
+              : `Vượt Màn ${stgNum - 1} ${this.stageSelectDifficulty === 'medium' ? 'Vừa' : 'Khó'}`)
+          : (this.stageSelectDifficulty === 'easy'
+              ? (stgConfig.isStopwatch ? '⏱ Tự do • Bấm giờ' : `⏱ ${stgConfig.timeLimit}s • Dễ thở`)
+              : `⏱ ${stgConfig.timeLimit}s • ${stgConfig.movement === 'none' ? 'Tĩnh lặng' : stgConfig.movement}`);
+        const subColor = !isUnlocked ? '#596073' : (isPassed ? '#ffd166' : (this.stageSelectDifficulty === 'easy' ? '#06d6a0' : '#4cc9f0'));
+        const stgSub = this.add.text(0, isPassed ? 25 : 28, subStr, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '10px',
+          fontStyle: 'bold',
+          color: subColor,
+          align: 'center'
+        }).setOrigin(0.5);
+        cardContainer.add(stgSub);
 
-        if (isUnlocked) {
-          row.setInteractive({ useHandCursor: true });
-          row.on('pointerdown', () => {
-            this.audio.playSelect();
-            this.openStageDetailModal(stgConfig);
-          });
+        // Stars for beaten stage
+        if (isPassed) {
+          const starsTxt = this.add.text(0, 39, rawStars === 3 ? '⭐⭐⭐' : rawStars === 2 ? '⭐⭐' : rawStars === 1 ? '⭐' : '⭐⭐⭐', {
+            fontSize: '11px'
+          }).setOrigin(0.5);
+          cardContainer.add(starsTxt);
         }
 
-        stagesGrid.add(row);
+        // Action Pill Button
+        const btnBg = this.add.graphics();
+        let btnLabel = '';
+        let btnTextColor = '#ffffff';
+
+        const btnY = isPassed ? 53 : 49;
+        const btnW = 126;
+        const btnH = 20;
+
+        if (isPassed) {
+          // Gold Button for Passed Stage - Clear replay cue
+          btnBg.fillStyle(0xffd700, 1);
+          btnBg.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 10);
+          btnLabel = 'CHƠI LẠI ➔';
+          btnTextColor = '#1a1003';
+        } else if (isUnlocked) {
+          const btnBorderColor = this.stageSelectDifficulty === 'easy' ? 0x06d6a0 : (this.stageSelectDifficulty === 'medium' ? 0xffd166 : 0xef476f);
+          btnBg.fillStyle(0x0e1422, 0.95);
+          btnBg.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 10);
+          btnBg.lineStyle(1.2, btnBorderColor, 1);
+          btnBg.strokeRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 10);
+          btnLabel = isBoss ? 'KHIÊU CHIẾN ⚔️' : 'VÀO MÀN ➔';
+          btnTextColor = isBoss ? '#ff595e' : (this.stageSelectDifficulty === 'easy' ? '#06d6a0' : (this.stageSelectDifficulty === 'medium' ? '#ffd166' : '#ef476f'));
+        } else {
+          // Locked: Show "🔍 XEM MÀN" instead of unclickable "CHƯA MỞ"
+          btnBg.fillStyle(0x1a1c2e, 0.95);
+          btnBg.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 10);
+          btnBg.lineStyle(1.2, 0x4a4e69, 0.85);
+          btnBg.strokeRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 10);
+          btnLabel = '🔍 XEM MÀN';
+          btnTextColor = '#ced4da';
+        }
+        cardContainer.add(btnBg);
+
+        const btnText = this.add.text(0, btnY, btnLabel, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '10.5px',
+          fontStyle: '900',
+          color: btnTextColor
+        }).setOrigin(0.5);
+        cardContainer.add(btnText);
+
+        // TẤT CẢ các thẻ màn (cả mở lẫn khóa) đều có thể nhấn vào để xem chi tiết thông tin
+        cardContainer.setSize(cardW, cardH).setInteractive({ useHandCursor: true });
+        cardContainer.on('pointerdown', () => {
+          this.audio.playSelect();
+          this.openStageDetailModal(stgConfig, this.stageSelectDifficulty);
+        });
+        cardContainer.on('pointerover', () => {
+          this.tweens.add({ targets: cardContainer, scale: 1.03, duration: 80 });
+        });
+        cardContainer.on('pointerout', () => {
+          this.tweens.add({ targets: cardContainer, scale: 1.0, duration: 80 });
+        });
+
+        stagesGrid.add(cardContainer);
       }
     };
 
+    renderChapterFunc = renderChapter;
     renderChapter();
 
     prevBtn.on('pointerdown', () => {
       if (this.stageSelectChapter > 1) {
         this.audio.playSelect();
         this.stageSelectChapter--;
+        this.loadChapterStageBackgrounds(this.stageSelectChapter, () => {
+          if (this.stageModalContainer) renderChapter();
+        });
         renderChapter();
       }
     });
@@ -1762,23 +3315,51 @@ export class MainMenuScene extends Phaser.Scene {
       if (this.stageSelectChapter < 10) {
         this.audio.playSelect();
         this.stageSelectChapter++;
+        this.loadChapterStageBackgrounds(this.stageSelectChapter, () => {
+          if (this.stageModalContainer) renderChapter();
+        });
         renderChapter();
       }
     });
 
-    // Close button
-    const closeBtn = this.add.container(0, 185);
-    const cBg = this.add.graphics();
-    cBg.fillStyle(0xe63946, 1);
-    cBg.fillRoundedRect(-100, -20, 200, 40, 12);
+    // --- 8. BOTTOM ORNATE RED LACQUER CLOSE BUTTON ("ĐÓNG BẢNG") ---
+    const closeBtnY = 246;
+    const closeBtn = this.add.container(0, closeBtnY);
+
+    if (this.textures.exists('shrine_close_banner')) {
+      const bannerImg = this.add.image(0, 0, 'shrine_close_banner');
+      bannerImg.setDisplaySize(340, 52);
+      closeBtn.add(bannerImg);
+    } else {
+      const cBg = this.add.graphics();
+      cBg.fillStyle(0xd90429, 1);
+      cBg.fillRoundedRect(-120, -22, 240, 44, 22);
+      cBg.lineStyle(2, 0xffd700, 0.95);
+      cBg.strokeRoundedRect(-120, -22, 240, 44, 22);
+      closeBtn.add(cBg);
+    }
+
+    // Floating Sakura petals flanking the close button
+    const flowerL = this.add.text(-145, 0, '🌸', { fontSize: '18px' }).setOrigin(0.5);
+    const flowerR = this.add.text(145, 0, '🌸', { fontSize: '18px' }).setOrigin(0.5);
+    closeBtn.add([flowerL, flowerR]);
+
     const cTxt = this.add.text(0, 0, 'ĐÓNG BẢNG', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '16.5px',
       fontStyle: '900',
-      color: '#ffffff'
+      color: '#ffffff',
+      shadow: { offsetX: 0, offsetY: 2, color: '#4a000d', blur: 6, fill: true }
     }).setOrigin(0.5);
-    closeBtn.add([cBg, cTxt]);
-    closeBtn.setSize(180, 36).setInteractive({ useHandCursor: true });
+    closeBtn.add(cTxt);
+
+    closeBtn.setSize(260, 44).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerover', () => {
+      this.tweens.add({ targets: closeBtn, scaleX: 1.05, scaleY: 1.05, duration: 120, ease: 'Cubic.easeOut' });
+    });
+    closeBtn.on('pointerout', () => {
+      this.tweens.add({ targets: closeBtn, scaleX: 1.0, scaleY: 1.0, duration: 120, ease: 'Cubic.easeOut' });
+    });
     closeBtn.on('pointerdown', () => {
       this.audio.playSelect();
       modal.destroy();
@@ -1788,9 +3369,12 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   /**
-   * Stage Detail Modal: Pick Difficulty (Easy, Medium, Hard), View 3 Quests, Relic Shard & Badges
+   * Stage Detail Modal: Pre-selected Difficulty, View 3 Quests, Relic Shard & Badges
    */
-  private openStageDetailModal(lvlConfig: any): void {
+  /**
+   * Stage Detail Modal: Real Stage Background Header, Relic Drops, Monsters & Yokai Pool with "NEW" badges, 3 Star Quests & Rewards
+   */
+  private openStageDetailModal(lvlConfig: any, chosenDiff: DifficultyLevel = 'easy'): void {
     if (this.stageDetailModalContainer) {
       this.stageDetailModalContainer.destroy();
       this.stageDetailModalContainer = null;
@@ -1799,279 +3383,572 @@ export class MainMenuScene extends Phaser.Scene {
     const width = GAME_WIDTH;
     const height = GAME_HEIGHT;
     const save = this.saveSystem || SaveSystem.getInstance();
+    const relicMgr = RelicManager.getInstance();
+
+    const isUnlocked = save.isLevelUnlocked(lvlConfig.levelNumber, chosenDiff);
+    const currentDiffConfig = LevelManager.applyDifficultyToConfig(lvlConfig, chosenDiff);
+    const ch = LevelManager.getChapterByLevel(lvlConfig.levelNumber);
 
     const modal = this.add.container(width / 2, height / 2).setDepth(250);
     this.stageDetailModalContainer = modal;
 
     const { width: screenW } = getScreenDimensions();
     const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.88);
+    overlay.fillStyle(0x000000, 0.90);
     overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
     overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
+    overlay.on('pointerdown', () => {
+      this.audio.playSelect();
+      modal.destroy();
+      this.stageDetailModalContainer = null;
+    });
     modal.add(overlay);
 
-    const modalW = 830;
-    const modalH = 480;
+    // Modal Card (980 x 590)
+    const modalW = 980;
+    const modalH = 590;
     const card = this.add.graphics();
-    card.fillStyle(0x131424, 0.98);
+    card.fillStyle(0x0e101c, 0.98);
     card.fillRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 20);
-    card.lineStyle(2, 0xffd700, 0.95);
+    card.lineStyle(1.8, 0x660f17, 0.85);
+    card.strokeRoundedRect(-modalW / 2 + 4, -modalH / 2 + 4, modalW - 8, modalH - 8, 18);
+    card.lineStyle(2, isUnlocked ? 0xffd700 : 0xef476f, 0.95);
     card.strokeRoundedRect(-modalW / 2, -modalH / 2, modalW, modalH, 20);
     modal.add(card);
 
+    // --- 1. REAL STAGE BACKGROUND HEADER BANNER ---
+    const bannerY = -modalH / 2 + 50;
+    const bannerW = modalW - 32;
+    const bannerH = 74;
+
+    let bgKey = '';
+    if (this.textures.exists(`stage_bg_${lvlConfig.levelNumber}`)) {
+      bgKey = `stage_bg_${lvlConfig.levelNumber}`;
+    } else if (this.textures.exists(`bg${lvlConfig.levelNumber}`)) {
+      bgKey = `bg${lvlConfig.levelNumber}`;
+    } else if (this.textures.exists(`bg_theme_${ch.worldId}`)) {
+      bgKey = `bg_theme_${ch.worldId}`;
+    } else {
+      bgKey = `stage_preview_${((lvlConfig.levelNumber - 1) % 10) + 1}`;
+    }
+
+    if (bgKey && this.textures.exists(bgKey)) {
+      const bannerImg = this.add.image(0, bannerY, bgKey);
+      bannerImg.setDisplaySize(bannerW, bannerH);
+      if (!isUnlocked) {
+        bannerImg.setTint(0x525666);
+        bannerImg.setAlpha(0.65);
+      }
+      modal.add(bannerImg);
+    }
+
+    // Gradient Overlay on Banner
+    const bOverlay = this.add.graphics();
+    bOverlay.fillStyle(0x0a0c16, 0.76);
+    bOverlay.fillRoundedRect(-bannerW / 2, bannerY - bannerH / 2, bannerW, bannerH, 12);
+    bOverlay.lineStyle(1.6, isUnlocked ? 0xffd700 : 0xef476f, 0.85);
+    bOverlay.strokeRoundedRect(-bannerW / 2, bannerY - bannerH / 2, bannerW, bannerH, 12);
+    modal.add(bOverlay);
+
     // Title & Info
-    const title = this.add.text(0, -modalH / 2 + 30, `⛩️ ${lvlConfig.title || 'MÀN THỬ THÁCH'}`, {
+    const titleTxt = this.add.text(-bannerW / 2 + 20, bannerY - 14, `⛩️ MÀN ${lvlConfig.levelNumber}: ${lvlConfig.title || 'MÀN THỬ THÁCH'}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '22px',
+      fontSize: '20px',
       fontStyle: '900',
-      color: '#ffd700'
-    }).setOrigin(0.5);
-    modal.add(title);
+      color: '#ffd700',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    modal.add(titleTxt);
 
-    const moveTxt = lvlConfig.movement && lvlConfig.movement !== 'none'
-      ? `Trọng lực: ${lvlConfig.movement}`
+    const timeInfo = currentDiffConfig.isStopwatch
+      ? '⏱️ Bấm giờ tự do (⭐ ≤ 45s, ⭐⭐ ≤ 75s)'
+      : `⏱️ Giới hạn ${currentDiffConfig.timeLimit}s`;
+    const moveTxt = currentDiffConfig.movement && currentDiffConfig.movement !== 'none'
+      ? `Trọng lực: ${currentDiffConfig.movement}`
       : 'Cổ điển tĩnh lặng';
-    const subInfo = this.add.text(0, -modalH / 2 + 56, `Bàn cờ ${lvlConfig.rows}x${lvlConfig.columns} • ${moveTxt} • 10 Mạng hồi phục`, {
+
+    const subInfoTxt = this.add.text(-bannerW / 2 + 20, bannerY + 12, `Chương ${ch.chapterNum}: ${ch.title}  •  Bàn cờ ${currentDiffConfig.rows}x${currentDiffConfig.columns}  •  ${timeInfo}  •  ${moveTxt}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '11.5px',
       fontStyle: 'bold',
-      color: '#adb5bd'
-    }).setOrigin(0.5);
-    modal.add(subInfo);
+      color: '#e0e1dd'
+    });
+    modal.add(subInfoTxt);
 
-    // --- LEFT COLUMN: Relic Shard & 3 Monster Badges ---
-    const leftX = -205;
+    // Status Badge on Header Right
+    const stBadgeW = 210;
+    const stBadgeH = 28;
+    const stBadgeX = bannerW / 2 - stBadgeW / 2 - 12;
+    const stBadge = this.add.graphics();
+    if (isUnlocked) {
+      stBadge.fillStyle(0x06d6a0, 0.95);
+      stBadge.fillRoundedRect(stBadgeX - stBadgeW / 2, bannerY - stBadgeH / 2, stBadgeW, stBadgeH, 14);
+    } else {
+      stBadge.fillStyle(0x3a1018, 0.95);
+      stBadge.fillRoundedRect(stBadgeX - stBadgeW / 2, bannerY - stBadgeH / 2, stBadgeW, stBadgeH, 14);
+      stBadge.lineStyle(1.2, 0xef476f, 0.9);
+      stBadge.strokeRoundedRect(stBadgeX - stBadgeW / 2, bannerY - stBadgeH / 2, stBadgeW, stBadgeH, 14);
+    }
+    modal.add(stBadge);
 
-    // 1. Relic Shard Card
-    const relic = lvlConfig.relicReward;
-    const hasRelic = relic ? save.hasRelic(relic.id) : false;
-
-    const relicBox = this.add.container(leftX, -60);
-    const rBg = this.add.graphics();
-    rBg.fillStyle(hasRelic ? 0x241d3b : 0x1b1b2f, 0.95);
-    rBg.fillRoundedRect(-185, -48, 370, 96, 12);
-    rBg.lineStyle(1.5, hasRelic ? 0xffd700 : 0x5a507a, 0.85);
-    rBg.strokeRoundedRect(-185, -48, 370, 96, 12);
-    relicBox.add(rBg);
-
-    const rIcon = this.add.text(-145, 0, relic?.icon || '🏺', {
-      fontSize: '34px'
-    }).setOrigin(0.5);
-    relicBox.add(rIcon);
-
-    const rTitle = this.add.text(-110, -32, `${relic?.name || 'Mảnh Cổ Vật'} (${relic?.japaneseName || '神器'})`, {
+    const prevNum = lvlConfig.levelNumber > 1 ? lvlConfig.levelNumber - 1 : 1;
+    const stLabel = isUnlocked
+      ? '🟢 SẴN SÀNG KHIÊU CHIẾN'
+      : (lvlConfig.levelNumber === 1 ? '🔒 CẦN MỞ ĐỘ KHÓ TRƯỚC' : `🔒 CẦN QUA MÀN ${prevNum}`);
+    const stTxt = this.add.text(stBadgeX, bannerY, stLabel, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '11px',
       fontStyle: '900',
-      color: hasRelic ? '#ffd700' : '#ffffff'
-    });
-    relicBox.add(rTitle);
-
-    const rDesc = this.add.text(-110, -10, relic?.description || 'Nối cặp ô cờ phát sáng trên bàn cờ để thu thập.', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      color: '#ced4da',
-      wordWrap: { width: 280 }
-    });
-    relicBox.add(rDesc);
-
-    const rStatus = this.add.text(-110, 24, hasRelic ? '✨ ĐÃ THU THẬP (1/1) • Thuộc Thần Khí' : '🔒 CHƯA TÌM THẤY (Sẽ xuất hiện ô phát sáng)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
-      fontStyle: '800',
-      color: hasRelic ? '#00f5d4' : '#ff758f'
-    });
-    relicBox.add(rStatus);
-    modal.add(relicBox);
-
-    // 2. Three Monster Badges
-    const badgeHeader = this.add.text(leftX, 22, '🎖️ 3 HUY HIỆU QUÁI VẬT (Dễ • Vừa • Khó)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
-      fontStyle: '900',
-      color: '#ffd166'
+      color: isUnlocked ? '#0e101c' : '#ffd166'
     }).setOrigin(0.5);
-    modal.add(badgeHeader);
+    modal.add(stTxt);
 
-    const badges = lvlConfig.badgeRewards || [];
-    const badgeW = 116;
-    const badgeH = 82;
-    const bSpacing = 124;
-
-    badges.slice(0, 3).forEach((b: any, bIdx: number) => {
-      const bX = leftX - bSpacing + bIdx * bSpacing;
-      const bY = 78;
-      const bBox = this.add.container(bX, bY);
-      const isOwned = save.hasBadge(b.id);
-
-      const bBg = this.add.graphics();
-      bBg.fillStyle(isOwned ? 0x221f3d : 0x181829, 0.95);
-      bBg.fillRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 10);
-      bBg.lineStyle(1.2, isOwned ? 0x00f5d4 : 0x4a4e69, isOwned ? 0.9 : 0.6);
-      bBg.strokeRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 10);
-      bBox.add(bBg);
-
-      const tierLabels = ['DỄ', 'VỪA', 'KHÓ'];
-      const tierColors = ['#00f5d4', '#ffd166', '#ff595e'];
-      const tTxt = this.add.text(0, -26, `CẤP ${tierLabels[b.tier - 1] || '1'}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11.5px',
-        fontStyle: '900',
-        color: tierColors[b.tier - 1] || '#ffffff'
-      }).setOrigin(0.5);
-      bBox.add(tTxt);
-
-      const bName = this.add.text(0, -6, b.name.replace('Huy Hiệu ', ''), {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
-        fontStyle: 'bold',
-        color: isOwned ? '#ffffff' : '#adb5bd',
-        align: 'center',
-        wordWrap: { width: 108 }
-      }).setOrigin(0.5);
-      bBox.add(bName);
-
-      const bStatus = this.add.text(0, 24, isOwned ? '✓ ĐÃ NHẶT' : 'CHƯA MỞ', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11.5px',
-        fontStyle: '900',
-        color: isOwned ? '#00f5d4' : '#6c757d'
-      }).setOrigin(0.5);
-      bBox.add(bStatus);
-
-      modal.add(bBox);
-    });
-
-    // --- RIGHT COLUMN: Difficulty Selector & 3 Star Quests ---
-    const rightX = 205;
-    let selectedDiff: DifficultyLevel = 'medium';
-
-    // Difficulty Tabs Container
-    const diffTabsContainer = this.add.container(rightX, -95);
-    modal.add(diffTabsContainer);
-
-    const diffs: { key: DifficultyLevel; label: string; color: number; hex: string }[] = [
-      { key: 'easy', label: '🟢 DỄ', color: 0x06d6a0, hex: '#06d6a0' },
-      { key: 'medium', label: '🟡 VỪA', color: 0xffd166, hex: '#ffd166' },
-      { key: 'hard', label: '🔴 KHÓ', color: 0xef476f, hex: '#ef476f' }
+    // --- 2. DIFFICULTY SWITCHER TABS ---
+    const diffBarY = -modalH / 2 + 106;
+    const diffConfigs: { key: DifficultyLevel; label: string; activeColor: number }[] = [
+      { key: 'easy', label: '🟢 DỄ (Thưởng x1.0)', activeColor: 0x06d6a0 },
+      { key: 'medium', label: '🟡 VỪA (Thưởng x1.5)', activeColor: 0xffd166 },
+      { key: 'hard', label: '🔴 KHÓ (Thưởng x2.0)', activeColor: 0xef476f }
     ];
 
-    const tabW = 110;
-    const tabH = 36;
-    const tabSpacing = 118;
-    const tabGraphics: Phaser.GameObjects.Graphics[] = [];
-    const tabTexts: Phaser.GameObjects.Text[] = [];
+    const dTabW = 168;
+    const dTabH = 26;
+    const dSpacing = 180;
 
-    // Info Labels (Time & Multiplier)
-    const diffInfoBox = this.add.container(rightX, -45);
-    modal.add(diffInfoBox);
-    const dInfoBg = this.add.graphics();
-    dInfoBg.fillStyle(0x1a1a2e, 0.9);
-    dInfoBg.fillRoundedRect(-180, -20, 360, 40, 8);
-    diffInfoBox.add(dInfoBg);
-    const dInfoTxt = this.add.text(0, 0, '', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
-      fontStyle: 'bold',
-      color: '#ffffff'
-    }).setOrigin(0.5);
-    diffInfoBox.add(dInfoTxt);
+    diffConfigs.forEach((d, idx) => {
+      const tabX = (idx - 1) * dSpacing;
+      const isSel = chosenDiff === d.key;
+      const isDiffUnlocked = save.isLevelUnlocked(lvlConfig.levelNumber, d.key);
 
-    const updateDifficultyUI = () => {
-      diffs.forEach((d, idx) => {
-        const isSel = d.key === selectedDiff;
-        const g = tabGraphics[idx];
-        const t = tabTexts[idx];
-        g.clear();
-        g.fillStyle(isSel ? d.color : 0x22223b, isSel ? 0.95 : 0.7);
-        g.fillRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 8);
-        g.lineStyle(isSel ? 2 : 1, isSel ? 0xffffff : 0x4a4e69, isSel ? 1 : 0.6);
-        g.strokeRoundedRect(-tabW / 2, -tabH / 2, tabW, tabH, 8);
-        t.setColor(isSel ? '#101018' : '#e0e1dd');
-        t.setFontStyle(isSel ? '900' : 'bold');
-      });
+      const tabC = this.add.container(tabX, diffBarY);
+      const bg = this.add.graphics();
 
-      const cfg = lvlConfig.difficulties?.[selectedDiff] || { timeLimit: 90, rewardMultiplier: 1.0 };
-      const timeStr = `${cfg.timeLimit}s`;
-      const multiStr = `x${cfg.rewardMultiplier}`;
-      dInfoTxt.setText(`⏱️ Thời gian: ${timeStr} • Thưởng Vàng & Điểm: ${multiStr}`);
-    };
+      if (isSel) {
+        bg.fillStyle(d.activeColor, 0.95);
+        bg.fillRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 13);
+        bg.lineStyle(1.8, 0xffffff, 1);
+        bg.strokeRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 13);
+      } else if (isDiffUnlocked) {
+        bg.fillStyle(0x181a2c, 0.92);
+        bg.fillRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 13);
+        bg.lineStyle(1.2, 0x414666, 0.85);
+        bg.strokeRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 13);
+      } else {
+        bg.fillStyle(0x0f111d, 0.85);
+        bg.fillRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 13);
+        bg.lineStyle(1, 0x272a3d, 0.7);
+        bg.strokeRoundedRect(-dTabW / 2, -dTabH / 2, dTabW, dTabH, 13);
+      }
+      tabC.add(bg);
 
-    diffs.forEach((d, idx) => {
-      const posX = -tabSpacing + idx * tabSpacing;
-      const tabContainer = this.add.container(posX, 0);
-      const tg = this.add.graphics();
-      const tt = this.add.text(0, 0, d.label, {
+      const labelTxt = isSel ? d.label : (isDiffUnlocked ? d.label : `${d.label} 🔒`);
+      const txt = this.add.text(0, 0, labelTxt, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '14.5px',
+        fontSize: '11px',
         fontStyle: '900',
-        color: '#ffffff'
+        color: isSel ? '#0e101c' : (isDiffUnlocked ? '#c9d1d9' : '#5c637a')
       }).setOrigin(0.5);
+      tabC.add(txt);
 
-      tabGraphics.push(tg);
-      tabTexts.push(tt);
-      tabContainer.add([tg, tt]);
-      tabContainer.setSize(tabW, tabH).setInteractive({ useHandCursor: true });
-      tabContainer.on('pointerdown', () => {
-        this.audio.playSelect();
-        selectedDiff = d.key;
-        updateDifficultyUI();
+      tabC.setSize(dTabW, dTabH).setInteractive({ useHandCursor: true });
+      tabC.on('pointerdown', () => {
+        if (!isDiffUnlocked) {
+          this.audio.playTick();
+          if (d.key === 'medium') {
+            this.showFloatingToast(`🔒 Cần vượt hết 10 màn Dễ Chương ${ch.chapterNum} để mở Vừa!`, 0xffd166);
+          } else if (d.key === 'hard') {
+            this.showFloatingToast(`🔒 Cần vượt hết 10 màn Vừa Chương ${ch.chapterNum} để mở Khó!`, 0xef476f);
+          }
+          return;
+        }
+        if (chosenDiff !== d.key) {
+          this.audio.playSelect();
+          this.openStageDetailModal(lvlConfig, d.key);
+        }
       });
-      diffTabsContainer.add(tabContainer);
+
+      modal.add(tabC);
     });
 
-    updateDifficultyUI();
+    // --- 3. TWO COLUMNS CONTENT (LEFT X = -236, RIGHT X = +236, WIDTH = 464 EACH) ---
+    const colW = 464;
+    const leftX = -236;
+    const rightX = +236;
 
-    // 3 Star Quests Box
-    const questBox = this.add.container(rightX, 55);
-    const qBg = this.add.graphics();
-    qBg.fillStyle(0x18182b, 0.95);
-    qBg.fillRoundedRect(-180, -56, 360, 112, 10);
-    qBg.lineStyle(1.2, 0xffd700, 0.8);
-    qBg.strokeRoundedRect(-180, -56, 360, 112, 10);
-    questBox.add(qBg);
+    // ==================== LEFT COLUMN ====================
+    // 3.1. THẦN KHÍ CỔ VẬT RƠI TẠI MÀN
+    const relicCardY = -84;
+    const relicCardH = 122;
 
-    const qHeader = this.add.text(-165, -44, '⭐ NHIỆM VỤ 3 SAO CỦA MÀN:', {
+    const relicBox = this.add.container(leftX, relicCardY);
+    const rBg = this.add.graphics();
+    rBg.fillStyle(0x131526, 0.95);
+    rBg.fillRoundedRect(-colW / 2, -relicCardH / 2, colW, relicCardH, 12);
+    rBg.lineStyle(1.4, 0xffd700, 0.85);
+    rBg.strokeRoundedRect(-colW / 2, -relicCardH / 2, colW, relicCardH, 12);
+    relicBox.add(rBg);
+
+    const rHeader = this.add.text(-colW / 2 + 14, -relicCardH / 2 + 10, '🏺 THẦN KHÍ CỔ VẬT RƠI TẠI MÀN NÀY', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '900',
+      color: '#ffd700'
+    });
+    relicBox.add(rHeader);
+
+    const relic = lvlConfig.relicReward || relicMgr.getRelicsByChapter(ch.chapterNum)[(lvlConfig.levelNumber - 1) % 3] || relicMgr.getRelicById('relic_yokai_01');
+    const relicId = relic?.id || 'relic_yokai_01';
+    const shards = save.getRelicShards(relicId);
+    const stars = save.getRelicStar(relicId);
+    const isRelicUnlocked = stars > 0;
+    const isEquipped = save.getEquippedRelicId() === relicId;
+
+    // Relic Slot (58x58)
+    const slotX = -colW / 2 + 44;
+    const slotY = 10;
+    const slotSize = 58;
+    const sG = this.add.graphics();
+    sG.fillStyle(0x0a0c16, 0.95);
+    sG.fillRoundedRect(-slotSize / 2 + slotX, slotY - slotSize / 2, slotSize, slotSize, 10);
+    sG.lineStyle(1.4, isRelicUnlocked ? 0xffd700 : 0x4a4e69, 0.85);
+    sG.strokeRoundedRect(-slotSize / 2 + slotX, slotY - slotSize / 2, slotSize, slotSize, 10);
+    relicBox.add(sG);
+
+    const texKey = `relic_${relicId}`;
+    if (this.textures.exists(texKey)) {
+      const img = this.add.image(slotX, slotY, texKey).setDisplaySize(slotSize - 8, slotSize - 8);
+      relicBox.add(img);
+    } else {
+      const iconTxt = this.add.text(slotX, slotY, relic?.icon || '🏺', { fontSize: '28px' }).setOrigin(0.5);
+      relicBox.add(iconTxt);
+    }
+
+    // Relic Text Details
+    const textStartX = -colW / 2 + 86;
+    const rNameTxt = this.add.text(textStartX, -18, `${relic?.name || 'Thần Khí'} (${relic?.subName || relic?.japaneseName || '神器'})`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '13px',
+      fontStyle: '900',
+      color: isRelicUnlocked ? '#ffd700' : '#ffffff'
+    });
+    relicBox.add(rNameTxt);
+
+    const tierBadge = relic?.tierName || (relic?.tier === 'epic' ? '🔴 Thượng Phẩm' : relic?.tier === 'rare' ? '🟡 Trung Phẩm' : '🟢 Hạ Phẩm');
+    const rSubTxt = this.add.text(textStartX, -2, `${tierBadge}  •  ⚡ Nộ yêu cầu: ${relic?.rageCost || 85}%`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10.5px',
+      fontStyle: 'bold',
+      color: '#00f5d4'
+    });
+    relicBox.add(rSubTxt);
+
+    const rSkillTxt = this.add.text(textStartX, 15, `Kỹ năng: ${relic?.skillDesc || relic?.description || 'Tăng sát thương và hỗ trợ qua màn.'}`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10px',
+      color: '#ced4da',
+      wordWrap: { width: 260 }
+    });
+    relicBox.add(rSkillTxt);
+
+    // Shard Progress Bar
+    const reqShards = save.getRelicRequiredShards(relicId);
+    const barW = 84;
+    const barH = 6;
+    const barY = relicCardH / 2 - 16;
+    const barG = this.add.graphics();
+    barG.fillStyle(0x0a0a14, 0.9);
+    barG.fillRoundedRect(textStartX, barY - barH / 2, barW, barH, 3);
+    const pRatio = Math.min(1, shards / reqShards);
+    if (pRatio > 0) {
+      barG.fillStyle(0x00f5d4, 1);
+      barG.fillRoundedRect(textStartX, barY - barH / 2, barW * pRatio, barH, 3);
+    }
+    relicBox.add(barG);
+
+    const shardTxt = this.add.text(textStartX + barW + 8, barY, `${shards}/${reqShards} Mảnh (★${stars})`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: '#adb5bd'
+    }).setOrigin(0, 0.5);
+    relicBox.add(shardTxt);
+
+    // Equip / Status Pill on Card Right
+    const eqStatusTxt = isEquipped
+      ? '✨ ĐANG GẮN'
+      : (isRelicUnlocked ? '⚡ ĐÃ MỞ (★5)' : '🔒 RƠI KHI QUA MÀN');
+    const eqTxt = this.add.text(colW / 2 - 14, relicCardH / 2 - 16, eqStatusTxt, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10.5px',
+      fontStyle: '900',
+      color: isEquipped ? '#00f5d4' : (isRelicUnlocked ? '#ffd700' : '#ff758f')
+    }).setOrigin(1, 0.5);
+    relicBox.add(eqTxt);
+
+    modal.add(relicBox);
+
+    // 3.2. LINH THÚ & QUÁI VẬT XUẤT HIỆN TRONG BÀN CỜ (CÓ GÌ TRONG MAP, VẬT MỚI)
+    const monstersCardY = 70;
+    const monstersCardH = 150;
+
+    const monstersBox = this.add.container(leftX, monstersCardY);
+    const mBg = this.add.graphics();
+    mBg.fillStyle(0x131526, 0.95);
+    mBg.fillRoundedRect(-colW / 2, -monstersCardH / 2, colW, monstersCardH, 12);
+    mBg.lineStyle(1.4, 0x00f5d4, 0.85);
+    mBg.strokeRoundedRect(-colW / 2, -monstersCardH / 2, colW, monstersCardH, 12);
+    monstersBox.add(mBg);
+
+    const rawPool = (lvlConfig.characterPool || []) as string[];
+    const mHeader = this.add.text(-colW / 2 + 14, -monstersCardH / 2 + 10, `🐾 LINH THÚ TRONG MAP (${rawPool.length} LOÀI • CÓ THỂ GẶP VẬT MỚI)`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '900',
+      color: '#00f5d4'
+    });
+    monstersBox.add(mHeader);
+
+    // Show up to 6 distinct Yokai / Monsters with their real avatar & NEW badge if undiscovered
+    const displayPool = rawPool.slice(0, 6);
+    const mSpacing = 72;
+    const mStartX = -((displayPool.length - 1) * mSpacing) / 2;
+
+    displayPool.forEach((charId: string, idx: number) => {
+      const char = CharacterRegistry.get(charId);
+      if (!char) return;
+
+      const cX = mStartX + idx * mSpacing;
+      const cY = 12;
+      const cBox = this.add.container(cX, cY);
+
+      const isDiscovered = save.isCharacterDiscovered(char.id);
+      const rarityColor = CharacterRegistry.getRarityColor(char.rarity);
+
+      // Card Background
+      const cardW = 64;
+      const cardH = 96;
+      const cG = this.add.graphics();
+      cG.fillStyle(isDiscovered ? 0x1d2138 : 0x121422, 0.95);
+      cG.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 8);
+      cG.lineStyle(1.4, !isDiscovered ? 0x00f5d4 : rarityColor, 0.85);
+      cG.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 8);
+      cBox.add(cG);
+
+      // Character Visual (Avatar or Emoji)
+      TextureGenerator.ensureCharacterTexture(this, char.id);
+      const tex = `char_${char.id}`;
+      if (this.textures.exists(tex)) {
+        const charImg = this.add.image(0, -18, tex).setDisplaySize(42, 42);
+        if (!isDiscovered) {
+          charImg.setAlpha(0.85);
+        }
+        cBox.add(charImg);
+      } else {
+        const sym = this.add.text(0, -18, char.symbol, { fontSize: '26px' }).setOrigin(0.5);
+        cBox.add(sym);
+      }
+
+      // Name
+      let displayName = char.name;
+      if (displayName.length > 7) displayName = displayName.slice(0, 6) + '…';
+      const nTxt = this.add.text(0, 14, displayName, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10px',
+        fontStyle: 'bold',
+        color: '#ffffff',
+        align: 'center'
+      }).setOrigin(0.5);
+      cBox.add(nTxt);
+
+      // Badge: "✨ MỚI!" if not yet discovered in Codex, else element
+      if (!isDiscovered) {
+        const newBadge = this.add.graphics();
+        newBadge.fillStyle(0x00f5d4, 1);
+        newBadge.fillRoundedRect(-22, 28, 44, 14, 4);
+        cBox.add(newBadge);
+
+        const newTxt = this.add.text(0, 35, '✨ MỚI!', {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '9px',
+          fontStyle: '900',
+          color: '#0e101c'
+        }).setOrigin(0.5);
+        cBox.add(newTxt);
+      } else {
+        const elemIcon = char.element === 'fire' ? '🔥' : (char.element === 'water' ? '💧' : (char.element === 'thunder' ? '⚡' : (char.element === 'wind' ? '🌪️' : '✨')));
+        const eTxt = this.add.text(0, 34, `${elemIcon} Đã gặp`, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '9px',
+          fontStyle: 'bold',
+          color: '#adb5bd'
+        }).setOrigin(0.5);
+        cBox.add(eTxt);
+      }
+
+      monstersBox.add(cBox);
+    });
+
+    modal.add(monstersBox);
+
+    // ==================== RIGHT COLUMN ====================
+    // 3.3. NHIỆM VỤ 3 SAO CỦA MÀN
+    const questsCardY = -84;
+    const questsCardH = 122;
+
+    const questBox = this.add.container(rightX, questsCardY);
+    const qBg = this.add.graphics();
+    qBg.fillStyle(0x131526, 0.95);
+    qBg.fillRoundedRect(-colW / 2, -questsCardH / 2, colW, questsCardH, 12);
+    qBg.lineStyle(1.4, 0xffd700, 0.85);
+    qBg.strokeRoundedRect(-colW / 2, -questsCardH / 2, colW, questsCardH, 12);
+    questBox.add(qBg);
+
+    const qHeader = this.add.text(-colW / 2 + 14, -questsCardH / 2 + 10, '⭐ NHIỆM VỤ 3 SAO CỦA MÀN NÀY', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
       fontStyle: '900',
       color: '#ffd700'
     });
     questBox.add(qHeader);
 
-    const quests = lvlConfig.quests || [
+    const quests = currentDiffConfig.quests || [
       { description: 'Dọn sạch bàn cờ trước khi hết giờ', icon: '🎯' },
       { description: 'Đạt chuỗi Combo liên tiếp x5', icon: '⚡' },
-      { description: 'Hoàn thành không dùng trợ giúp', icon: '✨' }
+      { description: 'Hoàn thành không dùng quyền trợ giúp', icon: '✨' }
     ];
 
     quests.slice(0, 3).forEach((q: any, qIdx: number) => {
-      const qTxt = this.add.text(-165, -20 + qIdx * 24, `⭐ ${qIdx + 1}. ${q.icon || '•'} ${q.description}`, {
+      const qTxt = this.add.text(-colW / 2 + 16, -24 + qIdx * 24, `⭐ ${qIdx + 1}. ${q.icon || '•'} ${q.description}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
+        fontSize: '11px',
         fontStyle: 'bold',
         color: '#e0e1dd'
       });
       questBox.add(qTxt);
     });
+
+    const rewardSub = this.add.text(-colW / 2 + 16, questsCardH / 2 - 16, '🎁 Đạt 3 sao: +100 Xu • +50 EXP • Mở khóa màn tiếp theo', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10.5px',
+      fontStyle: '900',
+      color: '#ffd166'
+    });
+    questBox.add(rewardSub);
+
     modal.add(questBox);
 
-    // --- BOTTOM BUTTONS ---
-    const btnY = modalH / 2 - 45;
+    // 3.4. PHẦN THƯỞNG & TỶ LỆ RƠI ĐỒ (LOOT MATRIX & BADGES)
+    const lootCardY = 70;
+    const lootCardH = 150;
+
+    const lootBox = this.add.container(rightX, lootCardY);
+    const lBg = this.add.graphics();
+    lBg.fillStyle(0x131526, 0.95);
+    lBg.fillRoundedRect(-colW / 2, -lootCardH / 2, colW, lootCardH, 12);
+    lBg.lineStyle(1.4, 0x00f5d4, 0.85);
+    lBg.strokeRoundedRect(-colW / 2, -lootCardH / 2, colW, lootCardH, 12);
+    lootBox.add(lBg);
+
+    const stageLoot = LootManager.getStageLootConfig(lvlConfig.levelNumber);
+    const validDiff = (chosenDiff === 'medium' || chosenDiff === 'hard') ? chosenDiff : 'easy';
+    const matrix = stageLoot.rewardsMatrix[validDiff] || stageLoot.rewardsMatrix.easy;
+
+    const lHeader = this.add.text(-colW / 2 + 14, -lootCardH / 2 + 10, '🎁 PHẦN THƯỞNG & TỶ LỆ RƠI ĐỒ KHI CHIẾN THẮNG', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '12px',
+      fontStyle: '900',
+      color: '#00f5d4'
+    });
+    lootBox.add(lHeader);
+
+    // 3 Monster Badges for this level
+    const badges = (lvlConfig.badgeRewards || []).slice(0, 3);
+    const bW = 138;
+    const bH = 34;
+    const bSpacing = 146;
+
+    badges.forEach((b: any, bIdx: number) => {
+      const bX = -bSpacing + bIdx * bSpacing;
+      const bY = -24;
+      const bBox = this.add.container(bX, bY);
+      const isOwned = save.hasBadge(b.id);
+
+      const bG = this.add.graphics();
+      bG.fillStyle(isOwned ? 0x1d2138 : 0x0f111d, 0.95);
+      bG.fillRoundedRect(-bW / 2, -bH / 2, bW, bH, 6);
+      bG.lineStyle(1, isOwned ? 0x00f5d4 : 0x3d4158, 0.8);
+      bG.strokeRoundedRect(-bW / 2, -bH / 2, bW, bH, 6);
+      bBox.add(bG);
+
+      const diffLabel = bIdx === 0 ? 'DỄ' : (bIdx === 1 ? 'VỪA' : 'KHÓ');
+      const bTxt = this.add.text(0, -6, `🎖️ Huy Hiệu ${diffLabel}`, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '10px',
+        fontStyle: 'bold',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+      bBox.add(bTxt);
+
+      const bStatus = this.add.text(0, 8, isOwned ? '✓ ĐÃ NHẶT' : '🔒 CHƯA MỞ', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '9.5px',
+        fontStyle: '900',
+        color: isOwned ? '#00f5d4' : '#6c757d'
+      }).setOrigin(0.5);
+      bBox.add(bStatus);
+
+      lootBox.add(bBox);
+    });
+
+    // Drop matrix lines
+    const dropLine1 = this.add.text(-colW / 2 + 16, 12, `⚡ Kinh nghiệm: +${matrix.exp} EXP   •   🪙 Tiền thưởng: +${matrix.coins} Xu`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: '#ffd166'
+    });
+    lootBox.add(dropLine1);
+
+    const dropLine2 = this.add.text(-colW / 2 + 16, 32, `🏺 Mảnh Đồng Hành: ${stageLoot.mainCompanionName} (${matrix.mainShardPct}) • ${stageLoot.subCompanionName} (${matrix.subShardPct})`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: '#00f5d4'
+    });
+    lootBox.add(dropLine2);
+
+    const dropLine3 = this.add.text(-colW / 2 + 16, 52, `🎁 Vật phẩm rớt: ${stageLoot.itemIcon} (${matrix.itemPct})  •  [Xem sổ tay rớt đồ 100 màn ›]`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '10.5px',
+      fontStyle: 'bold',
+      color: '#adb5bd'
+    });
+    dropLine3.setInteractive({ useHandCursor: true });
+    dropLine3.on('pointerdown', () => {
+      this.audio.playSelect();
+      this.openStageLootCodexModal(stageLoot.chapter, lvlConfig.levelNumber);
+    });
+    lootBox.add(dropLine3);
+
+    modal.add(lootBox);
+
+    // --- 4. BOTTOM ACTION BUTTONS ---
+    const btnY = modalH / 2 - 36;
 
     // Back Button
-    const backBtn = this.add.container(-130, btnY);
+    const backBtn = this.add.container(-160, btnY);
     const backBg = this.add.graphics();
-    backBg.fillStyle(0x3a3a52, 1);
-    backBg.fillRoundedRect(-70, -20, 140, 40, 10);
+    backBg.fillStyle(0x313448, 1);
+    backBg.fillRoundedRect(-80, -20, 160, 40, 10);
     const backTxt = this.add.text(0, 0, '↩️ QUAY LẠI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '14px',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5);
     backBtn.add([backBg, backTxt]);
-    backBtn.setSize(140, 40).setInteractive({ useHandCursor: true });
+    backBtn.setSize(160, 40).setInteractive({ useHandCursor: true });
     backBtn.on('pointerdown', () => {
       this.audio.playSelect();
       modal.destroy();
@@ -2079,34 +3956,63 @@ export class MainMenuScene extends Phaser.Scene {
     });
     modal.add(backBtn);
 
-    // Start Button
-    const startBtn = this.add.container(130, btnY);
+    // Start or Locked Info Button
+    const startBtn = this.add.container(140, btnY);
     const sBg = this.add.graphics();
-    sBg.fillStyle(0x06d6a0, 1);
-    sBg.fillRoundedRect(-120, -20, 240, 40, 10);
-    sBg.lineStyle(1.5, 0xffd700, 0.9);
-    sBg.strokeRoundedRect(-120, -20, 240, 40, 10);
-    const sTxt = this.add.text(0, 0, '⚔️ BẮT ĐẦU CHƠI', {
+    const btnW = 340;
+    const btnH = 40;
+
+    let btnLabel = '';
+    let btnColor = '#ffffff';
+
+    if (isUnlocked) {
+      sBg.fillStyle(0x06d6a0, 1);
+      sBg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 10);
+      sBg.lineStyle(1.8, 0xffd700, 0.95);
+      sBg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 10);
+      btnLabel = '⚔️ BẮT ĐẦU CHƠI';
+      btnColor = '#0b1320';
+    } else {
+      sBg.fillStyle(0x2d1520, 0.95);
+      sBg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 10);
+      sBg.lineStyle(1.5, 0xef476f, 0.85);
+      sBg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 10);
+      btnLabel = lvlConfig.levelNumber === 1
+        ? '🔒 CẦN MỞ ĐỘ KHÓ TRƯỚC'
+        : `🔒 CHƯA MỞ (CẦN VƯỢT MÀN ${prevNum})`;
+      btnColor = '#ffd166';
+    }
+
+    const sTxt = this.add.text(0, 0, btnLabel, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '14px',
       fontStyle: '900',
-      color: '#101018'
+      color: btnColor
     }).setOrigin(0.5);
+
     startBtn.add([sBg, sTxt]);
-    startBtn.setSize(240, 40).setInteractive({ useHandCursor: true });
+    startBtn.setSize(btnW, btnH).setInteractive({ useHandCursor: true });
     startBtn.on('pointerdown', () => {
-      this.audio.playSelect();
-      modal.destroy();
-      this.stageDetailModalContainer = null;
-      if (this.stageModalContainer) {
-        this.stageModalContainer.destroy();
-        this.stageModalContainer = null;
+      if (isUnlocked) {
+        this.audio.playSelect();
+        modal.destroy();
+        this.stageDetailModalContainer = null;
+        if (this.stageModalContainer) {
+          this.stageModalContainer.destroy();
+          this.stageModalContainer = null;
+        }
+        this.scene.start('GameScene', {
+          levelId: lvlConfig.id,
+          difficulty: chosenDiff,
+          lives: 10
+        });
+      } else {
+        this.audio.playTick();
+        const hintMsg = lvlConfig.levelNumber === 1
+          ? `🔒 Cần vượt hết 10 màn độ khó trước để mở!`
+          : `🔒 Bạn cần vượt qua Màn ${prevNum} để mở khóa màn này!`;
+        this.showFloatingToast(hintMsg, 0xef476f);
       }
-      this.scene.start('GameScene', {
-        levelId: lvlConfig.id,
-        difficulty: selectedDiff,
-        lives: 10
-      });
     });
     modal.add(startBtn);
   }
@@ -2398,6 +4304,16 @@ export class MainMenuScene extends Phaser.Scene {
 
         bg.lineStyle(1.5, elemCol, 0.7);
         bg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 16);
+        bCard.add(bg);
+
+        // Atmospheric Boss Arena Battlefield Backdrop
+        const arenaIdx = ((startIdx + i) % 10) + 1;
+        if (this.textures.exists(`boss_arena_${arenaIdx}`)) {
+          const arenaBg = this.add.image(0, 0, `boss_arena_${arenaIdx}`);
+          arenaBg.setDisplaySize(cardW - 4, cardH - 4);
+          arenaBg.setAlpha(0.28);
+          bCard.add(arenaBg);
+        }
 
         // Thumbnail Sprite
         let bossTex = b.id;
@@ -2464,7 +4380,7 @@ export class MainMenuScene extends Phaser.Scene {
           color: '#ffffff'
         }).setOrigin(0.5);
 
-        bCard.add([bg, thumbBg, thumbSprite, bName, bTitle, bHp, pBtnBg, pBtnTxt]);
+        bCard.add([thumbBg, thumbSprite, bName, bTitle, bHp, pBtnBg, pBtnTxt]);
         bCard.setSize(cardW, cardH).setInteractive({ useHandCursor: true });
 
         bCard.on('pointerdown', () => {

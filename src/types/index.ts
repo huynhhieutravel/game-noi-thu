@@ -128,6 +128,12 @@ export interface DifficultyConfig {
   characterPoolCount?: number;
   modifierMultiplier?: number;
   rewardMultiplier: number;
+  rows?: number;
+  columns?: number;
+  movement?: BoardMovement;
+  isStopwatch?: boolean;
+  targetGoldSeconds?: number;
+  targetSilverSeconds?: number;
 }
 
 export interface RelicReward {
@@ -138,6 +144,12 @@ export interface RelicReward {
   description: string;
   worldId: string;
   levelId: string;
+  tier?: 'common' | 'rare' | 'epic';
+  tierName?: string;
+  image?: string;
+  skillName?: string;
+  skillDesc?: string;
+  rageCost?: number;
 }
 
 export interface BadgeReward {
@@ -157,6 +169,9 @@ export interface LevelConfig {
   columns: number;
   characterPool: string[];
   timeLimit: number;
+  isStopwatch?: boolean;
+  targetGoldSeconds?: number;
+  targetSilverSeconds?: number;
   movement?: BoardMovement;
   modifiers?: {
     iceCount?: number;
@@ -185,28 +200,66 @@ export interface LevelConfig {
   };
 }
 
+export interface CompanionLevelInfo {
+  level: number;
+  skillDesc: string;
+  passiveDesc: string;
+  perkSummary?: string;
+  requiredShards: number;
+  requiredCoins: number;
+}
+
+export const COMPANION_UPGRADE_COSTS: Record<number, { shards: number; coins: number }> = {
+  1: { shards: 10, coins: 200 },
+  2: { shards: 25, coins: 500 },
+  3: { shards: 50, coins: 1000 },
+  4: { shards: 100, coins: 2000 }
+};
+
+export interface CompanionTierInfo {
+  tier: number;
+  tierName: string;
+  badge: string;
+  skillName: string;
+  skillDesc: string;
+  bossCounterDesc: string;
+  maxLevel: number;
+}
+
 export interface CompanionConfig {
   id: string;
   name: string;
   title: string;
   icon: string;
   element: string;
+  elementLabel?: string;
   themeColor: number;
   skillName: string;
   skillDesc: string;
+  passiveName?: string;
+  passiveDesc?: string;
   cost: number;
   unlockReqDesc?: string;
+  roleDescription?: string;
+  isApexSSR?: boolean;
+  levels?: CompanionLevelInfo[];
+  evolutionTiers?: Record<number, CompanionTierInfo>;
 }
 
 export interface UserSaveData {
   version: number;
   coins: number;
+  diamonds?: number;
   stars: number;
   highestLevel: number;
   levelStars: Record<string, number>;
   selectedTheme?: string;
   selectedCompanion?: string;
   unlockedCompanions?: string[];
+  companionTiers?: Record<string, number>;
+  companionLevels?: Record<string, number>;
+  companionShards?: Record<string, number>;
+  companionExp?: Record<string, number>;
   zenHighScore?: number;
   survivalHighScore?: number;
   survivalMaxWaves?: number;
@@ -223,6 +276,9 @@ export interface UserSaveData {
   };
   // New Relic, Badge, and World Multi-verse Progression
   relicsCollected?: Record<string, boolean>;
+  relicShards?: Record<string, number>;
+  relicStars?: Record<string, number>;
+  equippedRelicId?: string;
   badgesCollected?: Record<string, boolean>;
   completedDifficulties?: Record<string, { easy?: boolean; medium?: boolean; hard?: boolean }>;
   unlockedRealms?: string[];

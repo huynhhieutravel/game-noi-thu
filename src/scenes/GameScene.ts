@@ -13,10 +13,12 @@ import { SaveSystem } from '../systems/SaveSystem';
 import { CompanionManager } from '../game/CompanionManager';
 import { CompanionModal } from '../game/CompanionModal';
 import { LevelManager } from '../game/LevelManager';
+import { RelicManager } from '../game/RelicManager';
 import { BoardMovement, BossConfig, CompanionConfig, DifficultyLevel, GridPoint, LevelConfig, TileState } from '../types';
 import { TextureGenerator } from '../game/TextureGenerator';
 import { QADebugPanel } from '../game/QADebugPanel';
 import { SettingsModal } from '../game/SettingsModal';
+import { LootManager, CalculatedLootResult } from '../game/LootManager';
 
 export class GameScene extends Phaser.Scene {
   private levelConfig!: LevelConfig;
@@ -39,10 +41,41 @@ export class GameScene extends Phaser.Scene {
   private companionNameText!: Phaser.GameObjects.Text;
   private companionReadyBadge!: Phaser.GameObjects.Text;
   private isCompanionSkillReady: boolean = false;
+  private isSkillRechargeLocked: boolean = false;
   private companionPulseTween: Phaser.Tweens.Tween | null = null;
+
+  // Equipped Relic Pod System (Bottom-Right)
+  private relicEnergy: number = 0;
+  private isRelicSkillReady: boolean = false;
+  private relicPulseTween: Phaser.Tweens.Tween | null = null;
+  private relicPod!: Phaser.GameObjects.Container;
+  private relicPodBorder!: Phaser.GameObjects.Graphics;
+  private relicAvatarImg: Phaser.GameObjects.GameObject | null = null;
+  private relicNameText!: Phaser.GameObjects.Text;
+  private relicEnergyGraphics!: Phaser.GameObjects.Graphics;
+  private relicEnergyText!: Phaser.GameObjects.Text;
+  private relicReadyBadge!: Phaser.GameObjects.Text;
+
   private isTimeFrozen: boolean = false;
   private freezeTimeRemaining: number = 0;
   private frostOverlayGraphics!: Phaser.GameObjects.Graphics;
+  private byakkoGravityLockRemaining: number = 0;
+  private genbuShieldCharges: number = 0;
+  private genbuExtraLifeUsed: boolean = false;
+  private raijuScoreMultiplierMoves: number = 0;
+  private raijuScoreMultiplier: number = 1.0;
+  private orochiBossDamageBuffRemaining: number = 0;
+  private orochiBossDamageMultiplier: number = 1.0;
+  private kirinMatchCounter: number = 0;
+  private kirinTimeHealedTotal: number = 0;
+  private yatagarasuIdleTimer: number = 0;
+
+  private get maxCompanionEnergy(): number {
+    const id = this.companionConfig?.id;
+    if (this.companionConfig?.isApexSSR || id === 'orochi_serpent') return 140;
+    if (id === 'inari_kitsune' || id === 'byakko_tiger' || id === 'raiju_thunder') return 115;
+    return 100;
+  }
 
   // 🌙 Giờ Bách Quỷ Dạ Hành (Night Parade Rush)
   private isNightParadeActive: boolean = false;
@@ -57,6 +90,7 @@ export class GameScene extends Phaser.Scene {
   // Game metrics
   private score: number = 0;
   private timeRemaining: number = 180;
+  private elapsedTimeSeconds: number = 0;
   private isGameOver: boolean = false;
   private isVictory: boolean = false;
   private isZenMode: boolean = false;
@@ -78,6 +112,7 @@ export class GameScene extends Phaser.Scene {
   private bossSprite: Phaser.GameObjects.Image | null = null;
   private bossContainer: Phaser.GameObjects.Container | null = null;
   private isBossDefeatedSequence: boolean = false;
+  private isBossDefeatedThisRun: boolean = false;
 
   // Booster UI Texts
   private hintCountText!: Phaser.GameObjects.Text;
@@ -91,7 +126,7 @@ export class GameScene extends Phaser.Scene {
   private questTrackerStarsText: Phaser.GameObjects.Text | null = null;
 
   // 6. 🏆 Đa Độ Khó (Difficulty) & Mảnh Cổ Vật (Relic Shards) & Thống Kê Nhiệm Vụ
-  private currentDifficulty: DifficultyLevel = 'medium';
+  private currentDifficulty: DifficultyLevel = 'easy';
   private isRelicShardCollectedThisRun: boolean = false;
   private brokenIceCount: number = 0;
   private brokenStoneCount: number = 0;
@@ -124,7 +159,8 @@ export class GameScene extends Phaser.Scene {
     this.isZenMode = !!data.isZenMode;
     this.isSurvivalMode = !!data.isSurvivalMode;
     this.isBossDefeatedSequence = false;
-    this.currentDifficulty = data.difficulty || 'medium';
+    this.isBossDefeatedThisRun = false;
+    this.currentDifficulty = data.difficulty || 'easy';
     this.isRelicShardCollectedThisRun = false;
     this.brokenIceCount = 0;
     this.brokenStoneCount = 0;
@@ -230,16 +266,36 @@ export class GameScene extends Phaser.Scene {
       this.lives = 999;
       this.timeRemaining = 999999;
     } else {
-      const baseConfig = LevelManager.getLevelConfig(levelId, currentTheme);
-      this.levelConfig = LevelManager.applyDifficultyToConfig(baseConfig, this.currentDifficulty);
+      this.levelConfig = LevelManager.getLevelConfig(levelId, currentTheme, this.currentDifficulty);
       this.lives = data.lives !== undefined ? data.lives : 5;
       this.timeRemaining = this.levelConfig.timeLimit;
+      this.elapsedTimeSeconds = 0;
     }
 
     this.score = 0;
     this.lastTickSecond = -1;
     this.isGameOver = false;
     this.isVictory = false;
+  }
+
+  public preload(): void {
+    const lvlNum = this.levelConfig?.levelNumber || (this.levelConfig?.id ? parseInt(this.levelConfig.id.replace(/\D/g, ''), 10) : 1);
+    const stageKey = `stage_bg_${lvlNum}`;
+    if (!this.textures.exists(stageKey)) {
+      this.load.image(stageKey, `assets/stages/stage_bg_${lvlNum}.png`);
+      this.load.image(`bg${lvlNum}`, `assets/stages/stage_bg_${lvlNum}.png`);
+    }
+
+    // Load boss arena if this is a boss level
+    if (this.levelConfig?.id?.startsWith('boss_') || this.levelConfig?.boss) {
+      const bList = bossesData as any[];
+      const bIdx = bList.findIndex((b: any) => b.id === this.levelConfig.boss?.id || 'boss_' + b.id === this.levelConfig.boss?.id);
+      const arenaNum = (bIdx >= 0 ? (bIdx % 10) : 0) + 1;
+      const arenaKey = `boss_arena_${arenaNum}`;
+      if (!this.textures.exists(arenaKey)) {
+        this.load.image(arenaKey, `assets/boss_arenas/boss_arena_${arenaNum}.png`);
+      }
+    }
   }
 
   public onObstacleDestroyed(type: string): void {
@@ -266,33 +322,82 @@ export class GameScene extends Phaser.Scene {
     this.companionConfig = CompanionManager.get(this.save.getSelectedCompanion());
     this.companionEnergy = 0;
     this.isCompanionSkillReady = false;
+    this.isSkillRechargeLocked = false;
+    this.relicEnergy = 0;
+    this.isRelicSkillReady = false;
     this.isTimeFrozen = false;
     this.freezeTimeRemaining = 0;
     this.isNightParadeActive = false;
     this.nightParadeTimeRemaining = 0;
     this.hasTriggeredLowTimeRush = false;
+    this.byakkoGravityLockRemaining = 0;
+    this.genbuShieldCharges = 0;
+    this.genbuExtraLifeUsed = false;
+    this.raijuScoreMultiplierMoves = 0;
+    this.raijuScoreMultiplier = 1.0;
+    this.orochiBossDamageBuffRemaining = 0;
+    this.orochiBossDamageMultiplier = 1.0;
+    this.kirinMatchCounter = 0;
+    this.kirinTimeHealedTotal = 0;
+    this.yatagarasuIdleTimer = 0;
 
     // Reset Star Quests tracking
     this.maxComboAchieved = 0;
     this.playerUsedBoosterCount = 0;
     this.hasNotifiedComboQuest = false;
 
-    // Clean up timers on scene shutdown
+    // Clean up timers & tweens on scene shutdown
     this.events.once('shutdown', () => {
       this.endNightParadeRush();
+      if (this.companionPulseTween) {
+        this.companionPulseTween.stop();
+        this.companionPulseTween = null;
+      }
+      if (this.feverParticles) {
+        try {
+          this.feverParticles.destroy();
+        } catch {}
+      }
       try {
         this.boardManager?.destroy();
       } catch {}
     });
 
-    // 1. Crystal-clear HD Gameplay Shrine Night Background (100% sharp, edge-to-edge)
+    // 1. Crystal-clear HD Gameplay Background (Individual Stage Background for Japan stages 1-10, fallback to Shrine)
     const { width: screenW, offsetX } = getScreenDimensions();
-    if (this.textures.exists('bg_gameplay_shrine')) {
-      this.add.image(GAME_WIDTH / 2, height / 2, 'bg_gameplay_shrine')
-        .setDisplaySize(screenW, height)
-        .setDepth(0);
-    } else if (this.textures.exists('bg_main_torii')) {
-      this.add.image(GAME_WIDTH / 2, height / 2, 'bg_main_torii')
+    const lvlNum = this.levelConfig?.levelNumber || (this.levelConfig?.id ? parseInt(this.levelConfig.id.replace(/\D/g, ''), 10) : 1);
+    const chapter = LevelManager.getChapterByLevel(lvlNum);
+    const worldTheme = this.levelConfig?.worldId || chapter?.worldId || 'yokai';
+    
+    let bgKey = '';
+    // If directly challenged from Boss Arena, use dedicated Boss Arena battlefield
+    if (this.levelConfig?.id?.startsWith('boss_') || this.levelConfig?.boss) {
+      const bList = bossesData as any[];
+      const bIdx = bList.findIndex((b: any) => b.id === this.levelConfig.boss?.id || 'boss_' + b.id === this.levelConfig.boss?.id);
+      const arenaNum = (bIdx >= 0 ? (bIdx % 10) : 0) + 1;
+      if (this.textures.exists(`boss_arena_${arenaNum}`)) {
+        bgKey = `boss_arena_${arenaNum}`;
+      }
+    }
+
+    if (!bgKey) {
+      if (this.textures.exists(`stage_bg_${lvlNum}`)) {
+        bgKey = `stage_bg_${lvlNum}`;
+      } else if (this.textures.exists(`bg${lvlNum}`)) {
+        bgKey = `bg${lvlNum}`;
+      } else if ((worldTheme === 'egypt' || (lvlNum >= 11 && lvlNum <= 20)) && this.textures.exists('bg_egypt_nile')) {
+        bgKey = 'bg_egypt_nile';
+      } else if (this.textures.exists(`bg_theme_${worldTheme}`)) {
+        bgKey = `bg_theme_${worldTheme}`;
+      } else if (this.textures.exists('bg_gameplay_shrine')) {
+        bgKey = 'bg_gameplay_shrine';
+      } else if (this.textures.exists('bg_main_torii')) {
+        bgKey = 'bg_main_torii';
+      }
+    }
+
+    if (bgKey && this.textures.exists(bgKey)) {
+      this.add.image(GAME_WIDTH / 2, height / 2, bgKey)
         .setDisplaySize(screenW, height)
         .setDepth(0);
     } else {
@@ -324,6 +429,14 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
+    // 🐾 Apply Companion Combo Window Bonus
+    if (this.companionConfig?.id) {
+      const compStats = this.save.getCompanionTotalStats(this.companionConfig.id);
+      if (compStats.comboTimeBonusSec > 0) {
+        this.comboSystem.setBonusComboWindow(compStats.comboTimeBonusSec);
+      }
+    }
+
     // 4. Initialize Boss System (if level has boss)
     if (this.levelConfig.boss) {
       this.bossManager = new BossManager(this.levelConfig.boss, {
@@ -343,7 +456,7 @@ export class GameScene extends Phaser.Scene {
           this.audio.playBossHit();
           this.haptic.heavy();
         },
-        onBossSkillTriggered: (skillName, desc, skillType) => {
+        onBossSkillTriggered: (skillName, desc, skillType, swappedPairs) => {
           this.triggerBossSkillCastVisual();
           if (skillType === 'time_drain') {
             this.timeRemaining = Math.max(1, this.timeRemaining - 5);
@@ -355,10 +468,24 @@ export class GameScene extends Phaser.Scene {
           this.audio.playError();
           this.haptic.error();
           if (this.boardManager) {
-            this.boardManager.clearSelection();
+            // Only clear selection if currently selected tile was affected by the skill!
+            const selectedTile = this.boardManager.getSelectedTile();
+            if (selectedTile) {
+              const isSwapped = swappedPairs?.some(p => p.t1 === selectedTile || p.t2 === selectedTile);
+              if (selectedTile.modifier === 'ice' || selectedTile.modifier === 'stone' || selectedTile.isCleared || isSwapped) {
+                this.boardManager.clearSelection();
+              }
+            }
             this.boardManager.clearHint();
-            this.boardManager.syncViewsAfterMovement();
-            this.boardManager.checkBoardStatus();
+
+            if (swappedPairs && swappedPairs.length > 0) {
+              this.boardManager.animateTileSwaps(swappedPairs, () => {
+                this.boardManager.checkBoardStatus();
+              });
+            } else {
+              this.boardManager.syncViewsAfterMovement();
+              this.boardManager.checkBoardStatus();
+            }
           }
         },
         onDefeated: () => {
@@ -371,14 +498,20 @@ export class GameScene extends Phaser.Scene {
 
     // 5. Initialize Board Manager
     this.boardManager = new BoardManager(this, this.levelConfig, {
-      onTileSelected: () => {
+      onTileSelected: (tile) => {
         this.audio.playSelect();
         this.haptic.light();
+        this.showTileSelectionPill(tile);
       },
-      onMatchSuccess: (t1, t2) => {
-        this.handleMatchSuccess(t1, t2);
+      onTileDeselected: () => {
+        this.hideTileSelectionPill();
+      },
+      onMatchSuccess: (t1, t2, path, isAutoClear) => {
+        this.hideTileSelectionPill();
+        this.handleMatchSuccess(t1, t2, path, isAutoClear);
       },
       onMatchFailed: (t1, t2, reason) => {
+        this.hideTileSelectionPill();
         this.audio.playError();
         this.haptic.error();
         if (reason === 'different_char') {
@@ -389,8 +522,8 @@ export class GameScene extends Phaser.Scene {
           }
           const char1 = CharacterRegistry.get(t1.characterId || '');
           const char2 = CharacterRegistry.get(t2.characterId || '');
-          const name1 = char1 ? `${char1.name}` : 'Linh thú';
-          const name2 = char2 ? `${char2.name}` : 'Linh thú';
+          const name1 = char1 ? `${char1.symbol || ''} ${char1.name}` : 'Linh thú';
+          const name2 = char2 ? `${char2.symbol || ''} ${char2.name}` : 'Linh thú';
           this.showNotice(`❌ Khác linh thú (-2s): ${name1} ≠ ${name2}`, 0xff758f);
         } else if (reason === 'blocked_path') {
           this.showNotice('🚧 Bị cản đường nối! (Tối đa 2 khúc gấp không bị che)', 0xffd166);
@@ -478,7 +611,10 @@ export class GameScene extends Phaser.Scene {
     // 9. Build Pet Companion Pod (Bottom-Left)
     this.buildCompanionPod(width, height);
 
-    // 10. Frost Overlay for Time Freeze
+    // 10. Build Equipped Relic Pod (Bottom-Right)
+    this.buildRelicPod(width, height);
+
+    // 11. Frost Overlay for Time Freeze
     this.frostOverlayGraphics = this.add.graphics().setDepth(120);
 
     // 11. QA Debug Cheats Panel
@@ -513,6 +649,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   public damageBossCheat(damage: number = 250): void {
+    if (this.bossManager) {
+      this.bossManager.applyDamage(damage);
+    }
+  }
+
+  public damageBoss(damage: number): void {
     if (this.bossManager) {
       this.bossManager.applyDamage(damage);
     }
@@ -557,7 +699,7 @@ export class GameScene extends Phaser.Scene {
 
     const backTxt = this.add.text(0, 0, `${menuIcon} MENU`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '15.5px',
       fontStyle: '900',
       color: '#e2e8f0'
     }).setOrigin(0.5);
@@ -575,7 +717,7 @@ export class GameScene extends Phaser.Scene {
     // Lives next to Menu button (In Zen mode: 🌸 Vô Tận)
     this.livesText = this.add.text(142, 25, this.isSurvivalMode ? `❤️ x${this.lives}` : (this.isZenMode ? '🌸 Vô Tận' : `❤️ x${this.lives}`), {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17px',
+      fontSize: '18px',
       fontStyle: '900',
       color: this.isZenMode ? '#ff758f' : (this.isSurvivalMode ? '#00f5d4' : '#ff4d6d')
     }).setOrigin(0, 0.5);
@@ -590,7 +732,7 @@ export class GameScene extends Phaser.Scene {
 
     const titleText = this.add.text(width / 2, 17, cleanTitle, {
       fontFamily: 'Zen Maru Gothic, Plus Jakarta Sans, sans-serif',
-      fontSize: '16.5px',
+      fontSize: '18px',
       fontStyle: '900',
       color: this.isSurvivalMode ? '#90e0ef' : '#ffd700',
       stroke: '#0e0b17',
@@ -676,9 +818,14 @@ export class GameScene extends Phaser.Scene {
     this.updateTimerBar();
 
     // Time Label (placed right next to the timer bar)
-    this.timeText = this.add.text(timerBarX + timerBarW + 14, capY, this.isZenMode ? '∞' : `⏳ ${Math.ceil(this.timeRemaining)}s`, {
+    const initialTimeStr = this.isZenMode
+      ? '∞'
+      : this.levelConfig.isStopwatch
+      ? '⏱️ 0:00 ⭐⭐⭐'
+      : `⏳ ${Math.ceil(this.timeRemaining)}s`;
+    this.timeText = this.add.text(timerBarX + timerBarW + 14, capY, initialTimeStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17px',
+      fontSize: '18px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(0, 0.5);
@@ -758,7 +905,7 @@ export class GameScene extends Phaser.Scene {
 
     this.scoreText = this.add.text(scoreCapX + 10, scoreCapY, `${this.score} PTS`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '16.5px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -800,7 +947,7 @@ export class GameScene extends Phaser.Scene {
 
     const wTxt = this.add.text(0, 0, '⚠️ CẢNH BÁO: BĂNG DÂNG GẦN NÓC TRÊN! ⚠️', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#ff595e'
     }).setOrigin(0.5);
@@ -1154,7 +1301,7 @@ export class GameScene extends Phaser.Scene {
 
   private buildBoosterTray(width: number, height: number): void {
     const saveData = this.save.getData();
-    const tray = this.add.container(width / 2 + 55, height - 40).setDepth(20);
+    const tray = this.add.container(width / 2, height - 40).setDepth(20);
 
     const btnWidth = 146;
     const spacing = 154;
@@ -1171,7 +1318,7 @@ export class GameScene extends Phaser.Scene {
       if (success) {
         this.save.useBooster('hint');
         this.playerUsedBoosterCount++;
-        this.audio.playSelect();
+        this.audio.playHint();
         this.updateBoosterCounts();
       } else {
         this.showNotice('Không tìm thấy nước đi phù hợp!', 0xffd166);
@@ -1257,7 +1404,7 @@ export class GameScene extends Phaser.Scene {
     // Companion Name
     this.companionNameText = this.add.text(-38, -14, `⛩️ ${this.companionConfig.name}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '15.5px',
       fontStyle: '900',
       color: '#ffffff'
     });
@@ -1275,7 +1422,7 @@ export class GameScene extends Phaser.Scene {
     // Energy Text
     this.companionEnergyText = this.add.text(29, 9, '0% NỘ', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#ced4da'
     }).setOrigin(0.5);
@@ -1283,7 +1430,7 @@ export class GameScene extends Phaser.Scene {
     // Ready Badge Text (hidden by default)
     this.companionReadyBadge = this.add.text(29, 9, '⚡ BẤM DÙNG!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5).setVisible(false);
@@ -1353,10 +1500,11 @@ export class GameScene extends Phaser.Scene {
   private addCompanionEnergy(amount: number): void {
     if (this.isCompanionSkillReady) return;
 
-    this.companionEnergy = Math.min(100, this.companionEnergy + amount);
+    const maxE = this.maxCompanionEnergy;
+    this.companionEnergy = Math.min(maxE, this.companionEnergy + amount);
     this.updateCompanionEnergyUI();
 
-    if (this.companionEnergy >= 100 && !this.isCompanionSkillReady) {
+    if (this.companionEnergy >= maxE && !this.isCompanionSkillReady) {
       this.isCompanionSkillReady = true;
       this.updatePodBackground();
       this.audio.playMatch(5);
@@ -1387,7 +1535,8 @@ export class GameScene extends Phaser.Scene {
     const startX = -43;
     const startY = 3;
 
-    const fillW = Math.max(0, (this.companionEnergy / 100) * barW);
+    const maxE = this.maxCompanionEnergy;
+    const fillW = Math.max(0, (this.companionEnergy / maxE) * barW);
 
     if (this.isCompanionSkillReady) {
       this.companionEnergyGraphics.fillStyle(0xffd700, 1);
@@ -1399,7 +1548,7 @@ export class GameScene extends Phaser.Scene {
       if (fillW > 0) {
         this.companionEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 6);
       }
-      this.companionEnergyText.setText(`${Math.floor(this.companionEnergy)}% NỘ`);
+      this.companionEnergyText.setText(`${Math.floor((this.companionEnergy / maxE) * 100)}% NỘ`);
       this.companionEnergyText.setVisible(true);
       this.companionReadyBadge.setVisible(false);
     }
@@ -1411,6 +1560,12 @@ export class GameScene extends Phaser.Scene {
     this.isCompanionSkillReady = false;
     this.companionEnergy = 0;
     this.updateCompanionEnergyUI();
+
+    // Lock companion skill recharge while skill is actively executing
+    this.isSkillRechargeLocked = true;
+    this.time.delayedCall(2500, () => {
+      this.isSkillRechargeLocked = false;
+    });
 
     // Clear any active tile selection to prevent dangling highlights
     this.boardManager.clearSelection();
@@ -1425,62 +1580,47 @@ export class GameScene extends Phaser.Scene {
     this.haptic.heavy();
 
     const comp = this.companionConfig;
+    const lvl = this.save.getCompanionLevel(comp.id);
+
     if (comp.id === 'inari_kitsune') {
-      // 🦊 Cáo Inari: Tự động tìm & giải cứu ngay 2 cặp ô trên bàn cờ
-      this.showSkillBanner('🦊 CÁO INARI: LINH HỒ XUẤT KÍCH!', 'Linh Hồ giáng trần giải cứu ngay 2 cặp ô trên bàn cờ!', comp.themeColor);
+      // 🦊 Cáo Inari: Tự động tìm & giải cứu 1-2 cặp ô kẹt sâu nhất (Tuần tự an toàn)
+      const bannerSub = lvl >= 5
+        ? 'Linh Hồ giáng trần giải cứu trọn vẹn 2 cặp ô hiểm hóc nhất!'
+        : 'Linh Hồ giáng trần giải cứu 1 cặp ô bị kẹt sâu trên bàn cờ!';
+      this.showSkillBanner(`🦊 CÁO INARI (CẤP ${lvl}): LINH HỒ XUẤT KÍCH!`, bannerSub, comp.themeColor);
       this.audio.playVictory();
 
-      // Pair 1
-      const match1 = BoardGenerator.findFirstAvailableMatch(
-        this.boardManager.getGrid(),
-        this.boardManager.getRows(),
-        this.boardManager.getCols(),
-        this.boardManager.getPortals()
-      );
-
-      if (match1) {
-        this.audio.playLaserZap();
-        this.score += 200;
-        this.scoreText.setText(`${this.score} PTS`);
-        this.boardManager.triggerPairClear(match1.p1, match1.p2);
-        const wPos1 = this.boardManager.gridToWorld(match1.p1.r, match1.p1.c);
-        this.feverParticles.explode(16, wPos1.x, wPos1.y);
+      // Lv.3-4: Melts 1 web or ice obstacle
+      if (lvl >= 3 && lvl < 5) {
+        this.boardManager.destroyObstaclesOfType(['ice', 'web'], 1);
       }
 
-      // Pair 2 (delay 550ms, with safe retry if board is currently processing)
-      this.time.delayedCall(550, () => {
-        const doPair2 = () => {
-          if (this.isVictory || this.isGameOver) return;
-          if (this.boardManager.isProcessing()) {
-            this.time.delayedCall(200, doPair2);
-            return;
+      const pairCount = lvl >= 5 ? 2 : 1;
+      this.boardManager.executeSequentialAutoMatches(
+        pairCount,
+        (p1, p2, idx) => {
+          this.audio.playLaserZap();
+          this.score += 200;
+          this.scoreText.setText(`${this.score} PTS`);
+          const wPos = this.boardManager.gridToWorld(p1.r, p1.c);
+          this.feverParticles.explode(16, wPos.x, wPos.y);
+          if (idx === 1) {
+            this.showNotice('🦊 Linh Hồ thức tỉnh: Giải cứu thành công 2 cặp ô! +400 PTS! ✨', 0xff758f);
           }
-          const match2 = BoardGenerator.findFirstAvailableMatch(
-            this.boardManager.getGrid(),
-            this.boardManager.getRows(),
-            this.boardManager.getCols(),
-            this.boardManager.getPortals()
-          );
-          if (match2) {
-            this.audio.playLaserZap();
-            this.score += 200;
-            this.scoreText.setText(`${this.score} PTS`);
-            this.boardManager.triggerPairClear(match2.p1, match2.p2);
-            const wPos2 = this.boardManager.gridToWorld(match2.p1.r, match2.p1.c);
-            this.feverParticles.explode(16, wPos2.x, wPos2.y);
-            this.showNotice('🦊 Linh Hồ đã hoàn thành giải cứu 2 cặp ô! +400 PTS! ✨', 0xff758f);
-          }
-        };
-        doPair2();
-      });
+        }
+      );
     } else if (comp.id === 'ryujin_pearl') {
-      // 🐉 Thần Rồng Ryujin: Đóng băng đồng hồ đếm ngược trong 8 giây
-      this.showSkillBanner('🐉 RỒNG RYUJIN: NGƯNG ĐỌNG THỜI GIAN!', 'Bảo ngọc Long Vương đóng băng đồng hồ trong 8 giây!', comp.themeColor);
+      // 🐉 Thần Rồng Ryujin: Đóng băng đồng hồ đếm ngược 3.0s - 5.0s
+      const freezeDuration = lvl >= 5 ? 5.0 : lvl >= 4 ? 4.5 : lvl >= 3 ? 4.0 : lvl >= 2 ? 3.5 : 3.0;
+      this.showSkillBanner(
+        `🐉 RỒNG RYUJIN (CẤP ${lvl}): NGƯNG ĐỌNG LONG CHÂU!`,
+        `Bảo ngọc Long Vương đóng băng đồng hồ trong ${freezeDuration.toFixed(1)} giây!`,
+        comp.themeColor
+      );
       this.audio.playVictory();
       this.isTimeFrozen = true;
-      this.freezeTimeRemaining = 8.0;
+      this.freezeTimeRemaining = freezeDuration;
 
-      // Draw glacial frosted border on screen edges
       if (this.frostOverlayGraphics) {
         const { width: screenW, offsetX } = getScreenDimensions();
         this.frostOverlayGraphics.clear();
@@ -1494,22 +1634,223 @@ export class GameScene extends Phaser.Scene {
         this.showNotice('🐉 Long Vương gia hộ Zen: Thưởng ngay +500 PTS! ❄️', 0x00f5d4);
       }
     } else if (comp.id === 'hi_no_tori') {
-      // 🔥 Phượng Hoàng Hi-no-tori: Quét một luồng lửa dọn sạch toàn bộ chướng ngại vật
-      this.showSkillBanner('🔥 PHƯỢNG HOÀNG: HỎA NGỤC THIÊU CHƯỚNG!', 'Ngọn lửa bất tử thiêu rụi toàn bộ Băng, Đá và Khóa!', comp.themeColor);
+      // 🔥 Phượng Hoàng Hi-no-tori: Thiêu rụi chướng ngại vật hoặc giáng sát thương Boss
+      const obsCount = lvl >= 5 ? 3 : lvl >= 3 ? 2 : 1;
+      const bossDmg = lvl >= 5 ? 380 : lvl >= 4 ? 320 : lvl >= 3 ? 250 : lvl >= 2 ? 200 : 150;
+
+      this.showSkillBanner(
+        `🔥 PHƯỢNG HOÀNG (CẤP ${lvl}): HỎA DIỆM THANH TẨY!`,
+        this.bossManager
+          ? `Ngọn lửa bất tử giáng ${bossDmg} sát thương thiêu đốt Boss!`
+          : `Ngọn lửa bất tử thiêu rụi ${obsCount} chướng ngại vật trên bàn cờ!`,
+        comp.themeColor
+      );
+
       this.playPhoenixFlameSweep(() => {
-        const cleared = this.boardManager.clearAllObstacles();
-        this.audio.playBossHit();
-        if (cleared > 0) {
-          const bonusPts = cleared * 150;
-          this.score += bonusPts;
-          this.scoreText.setText(`${this.score} PTS`);
-          this.showNotice(`🔥 Phượng Hoàng thiêu rụi ${cleared} chướng ngại vật! +${bonusPts} PTS!`, 0xff595e);
+        if (this.bossManager) {
+          this.audio.playBossHit();
+          this.bossManager.applyDamage(bossDmg);
+          this.triggerBossHitReaction(bossDmg);
+          this.showNotice(`🔥 Hỏa Điểu giáng ${bossDmg} sát thương cực đại lên Boss!`, 0xff595e);
         } else {
-          this.score += 300;
-          this.scoreText.setText(`${this.score} PTS`);
-          this.showNotice('🔥 Hỏa Điểu thanh tẩy toàn bàn cờ! Thưởng +300 PTS!', 0xffd166);
+          const cleared = this.boardManager.destroyObstaclesOfType(
+            ['ice', 'stone', 'lock', 'thorn', 'web', 'barricade'],
+            obsCount
+          );
+          this.audio.playBossHit();
+          if (cleared > 0) {
+            const bonusPts = cleared * 150;
+            this.score += bonusPts;
+            this.scoreText.setText(`${this.score} PTS`);
+            this.showNotice(`🔥 Phượng Hoàng thiêu rụi ${cleared} chướng ngại vật! +${bonusPts} PTS!`, 0xff595e);
+          } else {
+            this.score += 300;
+            this.scoreText.setText(`${this.score} PTS`);
+            this.showNotice('🔥 Hỏa Điểu thanh tẩy toàn bàn cờ! Thưởng +300 PTS!', 0xffd166);
+          }
         }
       });
+    } else if (comp.id === 'byakko_tiger') {
+      // 🐯 Bạch Hổ Byakko (USER MANDATED): Giải 1 cặp thẳng hàng + Khóa trọng lực 4-7s (+25% resolve animation speed ở Lv.5)
+      const lockDuration = lvl >= 5 ? 7.0 : lvl >= 4 ? 6.0 : lvl >= 3 ? 5.0 : lvl >= 2 ? 4.0 : 0;
+      const isLv5 = lvl >= 5;
+
+      const bannerDesc = isLv5
+        ? 'Chém 1 cặp ô thẳng hàng + Khóa trọng lực 7s & Tốc độ giải gạch tăng +25%!'
+        : lockDuration > 0
+          ? `Chém 1 cặp ô thẳng hàng + Khóa trọng lực trượt gạch trong ${lockDuration}s!`
+          : 'Chém giải quyết 1 cặp ô thẳng hàng (0 khúc cua) ngay tức thì!';
+
+      this.showSkillBanner(`🐯 BẠCH HỔ BYAKKO (CẤP ${lvl}): BẠCH HỔ CUỒNG TRẢO!`, bannerDesc, comp.themeColor);
+      this.audio.playVictory();
+
+      let straightMatch = this.boardManager.findStraightLineMatch();
+      if (!straightMatch) {
+        straightMatch = this.boardManager.findAvailableMatch();
+      }
+
+      if (straightMatch) {
+        this.audio.playLaserZap();
+        this.score += 250;
+        this.scoreText.setText(`${this.score} PTS`);
+        this.boardManager.triggerPairClear(straightMatch.p1, straightMatch.p2);
+        const wPos = this.boardManager.gridToWorld(straightMatch.p1.r, straightMatch.p1.c);
+        this.feverParticles.explode(20, wPos.x, wPos.y);
+      }
+
+      // Lock gravity
+      if (lockDuration > 0) {
+        this.boardManager.setGravityLocked(true);
+        this.byakkoGravityLockRemaining = lockDuration;
+        if (isLv5) {
+          this.boardManager.setResolveSpeedMultiplier(1.25);
+        }
+        this.showNotice(`🐯 Bạch Hổ đã khóa trọng lực ${lockDuration}s! Bàn cờ định hình tĩnh!`, 0xadb5bd);
+      }
+    } else if (comp.id === 'genbu_tortoise') {
+      // 🐢 Huyền Vũ Genbu: Đập vỡ Stone/Lock + Tạo Khiên Thổ chống phạt nối sai
+      const smashCount = lvl >= 4 ? 2 : 1;
+      const shieldCharges = lvl >= 5 ? 2 : lvl >= 2 ? 1 : 0;
+
+      this.showSkillBanner(
+        `🐢 HUYỀN VŨ GENBU (CẤP ${lvl}): KIM CANG ĐỊA THUẪN!`,
+        `Đập vỡ ${smashCount} khối Đá/Khóa + Tạo Khiên Thổ chặn ${shieldCharges} lần nối sai!`,
+        comp.themeColor
+      );
+      this.audio.playBossHit();
+
+      const smashed = this.boardManager.destroyObstaclesOfType(['stone', 'lock', 'barricade'], smashCount);
+      if (smashed > 0) {
+        this.score += smashed * 200;
+        this.scoreText.setText(`${this.score} PTS`);
+      }
+
+      if (shieldCharges > 0) {
+        this.genbuShieldCharges = shieldCharges;
+        this.showNotice(`🛡️ Khiên Thổ kích hoạt: Bảo vệ ${shieldCharges} lần nối sai không bị trừ thời gian!`, 0x2a9d8f);
+      }
+    } else if (comp.id === 'kirin_sacred') {
+      // 🦌 Kỳ Lân Kirin: Thanh lọc nguyền rủa + Hồi phục thời gian + Biến Thánh Hoa (Lv.5)
+      const bonusSeconds = lvl >= 4 ? 5 : lvl >= 2 ? 4 : 3;
+      this.timeRemaining = Math.min(this.levelConfig.timeLimit + 30, this.timeRemaining + bonusSeconds);
+      this.showBonusTimePopup(bonusSeconds);
+
+      this.showSkillBanner(
+        `🦌 KỲ LÂN KIRIN (CẤP ${lvl}): CÁT TƯỜNG THANH TẨY!`,
+        `Thanh tẩy bùa nguyền rủa trên sân và hồi phục +${bonusSeconds} giây thời gian!`,
+        comp.themeColor
+      );
+      this.audio.playVictory();
+
+      this.boardManager.destroyObstaclesOfType(['thorn', 'web', 'fog'], 2);
+
+      if (lvl >= 5) {
+        this.boardManager.createHolyBlossomPair();
+        this.showNotice('🦌 Kỳ Lân thức tỉnh: Biến 1 cặp ô thành Thánh Hoa dễ kết nối!', 0x52b788);
+      }
+    } else if (comp.id === 'raiju_thunder') {
+      // ⚡ Lôi Thú Raiju: Phóng điện kết nối 1 cặp ô cự ly xa nhất (+ nhân x1.5 / x2.0 điểm số ở Lv.4-5)
+      let farthestMatch = this.boardManager.findFarthestMatch();
+      if (!farthestMatch) {
+        farthestMatch = this.boardManager.findAvailableMatch();
+      }
+
+      if (lvl >= 5) {
+        this.raijuScoreMultiplierMoves = 2;
+        this.raijuScoreMultiplier = 2.0;
+      } else if (lvl >= 4) {
+        this.raijuScoreMultiplierMoves = 1;
+        this.raijuScoreMultiplier = 1.5;
+      }
+
+      const multText = lvl >= 5 ? ' (2 lượt kế tiếp nhân x2.0 điểm!)' : (lvl >= 4 ? ' (Lượt kế tiếp nhân x1.5 điểm!)' : '');
+      this.showSkillBanner(
+        `⚡ LÔI THÚ RAIJU (CẤP ${lvl}): LÔI QUANG LIÊN NỐI!`,
+        `Phóng luồng điện Torii kết nối 1 cặp ô ở cự ly xa nhất${multText}!`,
+        comp.themeColor
+      );
+      this.audio.playLaserZap();
+
+      if (farthestMatch) {
+        this.score += 300;
+        this.scoreText.setText(`${this.score} PTS`);
+        this.boardManager.triggerPairClear(farthestMatch.p1, farthestMatch.p2);
+        const wPos = this.boardManager.gridToWorld(farthestMatch.p1.r, farthestMatch.p1.c);
+        this.feverParticles.explode(24, wPos.x, wPos.y);
+      }
+    } else if (comp.id === 'yatagarasu_crow') {
+      // 🦅 Quạ Yatagarasu (USER MANDATED): Xua tan fog 6-10s; Lv.3+ reveal Relic; Lv.5 highlight cặp tối ưu
+      const fogDuration = lvl >= 5 ? 10 : lvl >= 4 ? 9 : lvl >= 3 ? 8 : lvl >= 2 ? 7 : 6;
+      this.boardManager.clearAllFog();
+
+      const bannerDesc = lvl >= 5
+        ? 'Xua tan bóng tối 10s + Định vị Cổ vật Relic + Soi sáng cặp hợp lệ tốt nhất!'
+        : lvl >= 3
+          ? `Xua tan bóng tối ${fogDuration}s + Định vị chính xác Cổ vật Relic Shard!`
+          : `Rọi ánh sáng mặt trời xua tan bóng tối và sương mù trong ${fogDuration}s!`;
+
+      this.showSkillBanner(`🦅 QUẠ YATAGARASU (CẤP ${lvl}): NHẬT QUANG SOI ĐƯỜNG!`, bannerDesc, comp.themeColor);
+      this.audio.playVictory();
+
+      if (lvl >= 3) {
+        this.boardManager.tagRelicShardPair();
+      }
+      if (lvl >= 5) {
+        this.boardManager.showHint();
+        this.showNotice('🦅 Kim Ô chiếu rọi: Soi sáng cặp ô hợp lệ tốt nhất trên sân!', 0xfb8500);
+      }
+    } else if (comp.id === 'nekomata_cat') {
+      // 🐾 Mèo Nekomata: Hoán đổi 1 ô kẹt sâu ra rìa ngoài + cướp thời gian 2-4s
+      const bonusSec = lvl >= 4 ? 4 : lvl >= 3 ? 3 : lvl >= 2 ? 2 : 0;
+      if (bonusSec > 0) {
+        this.timeRemaining = Math.min(this.levelConfig.timeLimit + 30, this.timeRemaining + bonusSec);
+        this.showBonusTimePopup(bonusSec);
+      }
+
+      this.showSkillBanner(
+        `🐾 MÈO NEKOMATA (CẤP ${lvl}): HOÁN ĐỔI CÀN KHÔN!`,
+        `Hoán đổi ô gạch kẹt sâu ra ngoài rìa bàn cờ + Cướp lại +${bonusSec}s thời gian!`,
+        comp.themeColor
+      );
+      this.audio.playVictory();
+      this.boardManager.swapDeepTileToPerimeter();
+    } else if (comp.id === 'orochi_serpent') {
+      // 🐍 Bát Kỳ Orochi (USER MANDATED APEX SSR): +20% đến +30% damage Boss trong 8s, phá 1 chướng ngại vật, giải 1 cặp ô
+      const dmgMult = lvl >= 5 ? 1.30 : lvl >= 4 ? 1.28 : lvl >= 3 ? 1.25 : lvl >= 2 ? 1.22 : 1.20;
+      const buffDuration = lvl >= 5 ? 8.0 : lvl >= 3 ? 7.0 : 6.0;
+
+      this.orochiBossDamageMultiplier = dmgMult;
+      this.orochiBossDamageBuffRemaining = buffDuration;
+
+      const pctStr = Math.round((dmgMult - 1) * 100);
+      this.showSkillBanner(
+        `🐍 BÁT KỲ OROCHI (CẤP ${lvl}): BÁT ĐẦU CUỒNG NỘ!`,
+        `Tăng +${pctStr}% Sát thương Boss trong ${buffDuration}s + Nghiền nát chướng ngại vật!`,
+        comp.themeColor
+      );
+      this.audio.playBossHit();
+
+      // Crushes 1 obstacle (Lv.2+)
+      if (lvl >= 2) {
+        this.boardManager.destroyObstaclesOfType(
+          ['stone', 'lock', 'thorn', 'ice', 'web', 'barricade'],
+          1
+        );
+      }
+
+      // Solves 1 pair (Lv.4-5)
+      if (lvl >= 4) {
+        const match = this.boardManager.findAvailableMatch();
+        if (match) {
+          this.audio.playLaserZap();
+          this.score += 300;
+          this.scoreText.setText(`${this.score} PTS`);
+          this.boardManager.triggerPairClear(match.p1, match.p2);
+          const wPos = this.boardManager.gridToWorld(match.p1.r, match.p1.c);
+          this.feverParticles.explode(20, wPos.x, wPos.y);
+          this.showNotice('🐍 Xà Thần nuốt trọn 1 cặp ô gạch! +300 PTS!', 0x7209b7);
+        }
+      }
     }
   }
 
@@ -1606,6 +1947,264 @@ export class GameScene extends Phaser.Scene {
       this.showNotice(`🦊 Đã chuyển sang bạn đồng hành: ${comp.name}!`, comp.themeColor);
       this.audio.playVictory();
     });
+  }
+
+  // ==========================================
+  // 🏺 EQUIPPED RELIC POD SYSTEM (BOTTOM-RIGHT)
+  // ==========================================
+  private buildRelicPod(width: number, height: number): void {
+    const podW = 216;
+    const podH = 56;
+    const podX = width - 130;
+    const podY = height - 40;
+
+    this.relicPod = this.add.container(podX, podY).setDepth(25);
+
+    // Base background & border
+    this.relicPodBorder = this.add.graphics();
+    this.updateRelicPodBackground();
+
+    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
+    const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
+    const tierColor = RelicManager.getInstance().getTierColor(relic?.tier || 'common');
+
+    // Circular Avatar Container with tier-colored glowing halo
+    const avatarHalo = this.add.graphics();
+    avatarHalo.fillStyle(0x1a1226, 1);
+    avatarHalo.fillCircle(-68, 0, 24);
+    avatarHalo.lineStyle(2, tierColor.stroke, 0.95);
+    avatarHalo.strokeCircle(-68, 0, 24);
+
+    // Soft aura
+    avatarHalo.fillStyle(tierColor.stroke, 0.25);
+    avatarHalo.fillCircle(-68, 0, 28);
+
+    if (relic && this.textures.exists(relic.id)) {
+      this.relicAvatarImg = this.add.image(-68, 0, relic.id).setDisplaySize(44, 44);
+    } else if (relic && this.textures.exists(`relic_${relic.id}`)) {
+      this.relicAvatarImg = this.add.image(-68, 0, `relic_${relic.id}`).setDisplaySize(44, 44);
+    } else {
+      this.relicAvatarImg = this.add.text(-68, 0, relic?.icon || '🏺', { fontSize: '24px' }).setOrigin(0.5);
+    }
+
+    // Relic Name
+    const displayName = relic ? `🏺 ${relic.name}` : '🏺 Thần Khí';
+    this.relicNameText = this.add.text(-43, -14, displayName, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '14.5px',
+      fontStyle: '900',
+      color: tierColor.hexStr
+    });
+
+    // Energy Bar Background
+    const barBg = this.add.graphics();
+    barBg.fillStyle(0x0e0e18, 0.95);
+    barBg.fillRoundedRect(-43, 3, 134, 12, 6);
+    barBg.lineStyle(1, tierColor.stroke, 0.45);
+    barBg.strokeRoundedRect(-43, 3, 134, 12, 6);
+
+    // Dynamic Energy Fill
+    this.relicEnergyGraphics = this.add.graphics();
+
+    // Energy Text
+    this.relicEnergyText = this.add.text(24, 9, '0% NỘ', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13.5px',
+      fontStyle: '900',
+      color: '#ced4da'
+    }).setOrigin(0.5);
+
+    // Ready Badge Text (hidden by default)
+    this.relicReadyBadge = this.add.text(24, 9, '⚡ BẤM DÙNG!', {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '13.5px',
+      fontStyle: '900',
+      color: '#ffd700'
+    }).setOrigin(0.5).setVisible(false);
+
+    this.relicPod.add([
+      this.relicPodBorder,
+      avatarHalo,
+      this.relicAvatarImg,
+      this.relicNameText,
+      barBg,
+      this.relicEnergyGraphics,
+      this.relicEnergyText,
+      this.relicReadyBadge
+    ]);
+
+    this.relicPod.setSize(podW, podH).setInteractive({ useHandCursor: true });
+
+    this.relicPod.on('pointerdown', () => {
+      if (this.isGameOver || this.isVictory || this.boardManager.isProcessing()) return;
+      if (this.isRelicSkillReady) {
+        this.activateRelicSkill();
+      } else {
+        const equipped = RelicManager.getInstance().getRelicById(this.save.getEquippedRelicId());
+        if (equipped) {
+          const maxE = equipped.rageCost || 100;
+          const pct = Math.floor((this.relicEnergy / maxE) * 100);
+          this.showNotice(
+            `🏺 ${equipped.name}: Cần ${maxE}% Nộ (Hiện có: ${pct}%). Nối thêm cặp để tích nộ!`,
+            tierColor.stroke
+          );
+          this.audio.playSelect();
+        }
+      }
+    });
+
+    this.relicPod.on('pointerover', () => {
+      this.tweens.add({
+        targets: this.relicPod,
+        scaleX: 1.04,
+        scaleY: 1.04,
+        duration: 120,
+        ease: 'Quad.easeOut'
+      });
+    });
+
+    this.relicPod.on('pointerout', () => {
+      if (!this.isRelicSkillReady) {
+        this.tweens.add({
+          targets: this.relicPod,
+          scaleX: 1.0,
+          scaleY: 1.0,
+          duration: 120,
+          ease: 'Quad.easeOut'
+        });
+      }
+    });
+
+    this.updateRelicEnergyUI();
+  }
+
+  private updateRelicPodBackground(): void {
+    if (!this.relicPodBorder) return;
+    const podW = 216;
+    const podH = 56;
+    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
+    const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
+    const tierColor = RelicManager.getInstance().getTierColor(relic?.tier || 'common');
+
+    this.relicPodBorder.clear();
+    this.relicPodBorder.fillStyle(0x111022, 0.96);
+    this.relicPodBorder.fillRoundedRect(-podW / 2, -podH / 2, podW, podH, 16);
+    this.relicPodBorder.lineStyle(
+      this.isRelicSkillReady ? 2.5 : 1.8,
+      this.isRelicSkillReady ? 0xffd700 : tierColor.stroke,
+      this.isRelicSkillReady ? 1 : 0.75
+    );
+    this.relicPodBorder.strokeRoundedRect(-podW / 2, -podH / 2, podW, podH, 16);
+  }
+
+  private updateRelicEnergyUI(): void {
+    if (!this.relicEnergyGraphics) return;
+
+    this.relicEnergyGraphics.clear();
+    const barW = 134;
+    const barH = 12;
+    const startX = -43;
+    const startY = 3;
+
+    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
+    const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
+    const maxE = relic?.rageCost || 100;
+    const tierColor = RelicManager.getInstance().getTierColor(relic?.tier || 'common');
+    const fillW = Math.max(0, Math.min(1, this.relicEnergy / maxE) * barW);
+
+    if (this.isRelicSkillReady) {
+      this.relicEnergyGraphics.fillStyle(0xffd700, 1);
+      this.relicEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 6);
+      this.relicEnergyText.setVisible(false);
+      this.relicReadyBadge.setVisible(true);
+    } else {
+      this.relicEnergyGraphics.fillStyle(tierColor.stroke, 0.92);
+      if (fillW > 0) {
+        this.relicEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 6);
+      }
+      this.relicEnergyText.setText(`${Math.floor((this.relicEnergy / maxE) * 100)}% NỘ`);
+      this.relicEnergyText.setVisible(true);
+      this.relicReadyBadge.setVisible(false);
+    }
+  }
+
+  private addRelicEnergy(amount: number): void {
+    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
+    const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
+    const maxE = relic?.rageCost || 100;
+
+    this.relicEnergy = Math.min(maxE, this.relicEnergy + amount);
+    this.updateRelicEnergyUI();
+
+    if (this.relicEnergy >= maxE && !this.isRelicSkillReady) {
+      this.isRelicSkillReady = true;
+      this.audio.playVictory();
+      this.haptic.medium();
+      if (relic) {
+        this.showNotice(`✨ Thần Khí ${relic.name}: ĐÃ TÍCH ĐỦ NỘ! BẤM ĐỂ DÙNG!`, 0xffd700);
+      }
+
+      if (!this.relicPulseTween && this.relicPod) {
+        this.relicPulseTween = this.tweens.add({
+          targets: this.relicPod,
+          scaleX: 1.05,
+          scaleY: 1.05,
+          duration: 480,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      }
+      this.updateRelicPodBackground();
+    }
+  }
+
+  public activateRelicSkill(): void {
+    if (!this.isRelicSkillReady) return;
+    if (this.isGameOver || this.isVictory || this.boardManager.isProcessing()) return;
+
+    this.isRelicSkillReady = false;
+    this.relicEnergy = 0;
+    this.updateRelicEnergyUI();
+
+    if (this.relicPulseTween) {
+      this.relicPulseTween.stop();
+      this.relicPulseTween = null;
+      this.relicPod.setScale(1);
+    }
+    this.updateRelicPodBackground();
+    this.haptic.heavy();
+
+    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
+    const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
+    if (relic) {
+      const tierColor = RelicManager.getInstance().getTierColor(relic.tier);
+      this.showSkillBanner(
+        `🏺 ${relic.name.toUpperCase()}: ${relic.skillName.toUpperCase()}`,
+        relic.skillDesc,
+        tierColor.stroke
+      );
+      this.audio.playRelicBurst(relic.archetype || 'boss');
+
+      this.time.delayedCall(400, () => {
+        if (this.isGameOver || this.isVictory) return;
+        try {
+          const res = RelicManager.getInstance().executeRelicSkill(equippedRelicId, this);
+          if (res && res.success) {
+            this.showNotice(res.message, tierColor.stroke);
+            this.haptic.medium();
+          }
+        } catch (err) {
+          console.warn('[GameScene] executeRelicSkill error:', err);
+        }
+      });
+    }
+  }
+
+  public maxRageCheat(): void {
+    this.addCompanionEnergy(100);
+    this.addRelicEnergy(100);
+    this.showNotice('⚡ QA Cheat: Nộ Linh Thú & Thần Khí ĐÃ ĐẦY 100%!', 0xffd700);
   }
 
   private createBoosterButton(
@@ -1975,31 +2574,43 @@ export class GameScene extends Phaser.Scene {
     if (!this.isNightParadeActive) return;
     this.isNightParadeActive = false;
     this.nightParadeTimeRemaining = 0;
-    this.boardManager.setPiercingLaser(false);
+    if (this.boardManager && !this.isGameOver && !this.isVictory) {
+      this.boardManager.setPiercingLaser(false);
+    }
     this.audio.stopNightParadeMusic();
 
     if (this.nightParadeOverlay) {
-      this.tweens.add({
-        targets: this.nightParadeOverlay,
-        alpha: 0,
-        duration: 350,
-        onComplete: () => {
-          this.nightParadeOverlay?.destroy();
-          this.nightParadeOverlay = null;
-        }
-      });
+      if (this.scene?.isActive()) {
+        this.tweens.add({
+          targets: this.nightParadeOverlay,
+          alpha: 0,
+          duration: 350,
+          onComplete: () => {
+            this.nightParadeOverlay?.destroy();
+            this.nightParadeOverlay = null;
+          }
+        });
+      } else {
+        this.nightParadeOverlay.destroy();
+        this.nightParadeOverlay = null;
+      }
     }
 
     if (this.nightParadeTimerPill) {
-      this.tweens.add({
-        targets: this.nightParadeTimerPill,
-        alpha: 0,
-        duration: 250,
-        onComplete: () => {
-          this.nightParadeTimerPill?.destroy();
-          this.nightParadeTimerPill = null;
-        }
-      });
+      if (this.scene?.isActive()) {
+        this.tweens.add({
+          targets: this.nightParadeTimerPill,
+          alpha: 0,
+          duration: 250,
+          onComplete: () => {
+            this.nightParadeTimerPill?.destroy();
+            this.nightParadeTimerPill = null;
+          }
+        });
+      } else {
+        this.nightParadeTimerPill.destroy();
+        this.nightParadeTimerPill = null;
+      }
     }
 
     this.showNotice('🌙 Kết thúc Giờ Bách Quỷ Dạ Hành!', 0x9d4edd);
@@ -2013,7 +2624,7 @@ export class GameScene extends Phaser.Scene {
     this.bombCountText.setText(`x${b.bomb}`);
   }
 
-  private handleMatchSuccess(t1: TileState, t2: TileState): void {
+  private handleMatchSuccess(t1: TileState, t2: TileState, path?: GridPoint[], isAutoClear: boolean = false): void {
     const comboData = this.comboSystem.registerMatch();
 
     // 4. ⭐ Star Quest 2: Đạt ít nhất Combo x5
@@ -2118,12 +2729,7 @@ export class GameScene extends Phaser.Scene {
       this.haptic.combo();
 
       this.time.delayedCall(240, () => {
-        const nextMatch = BoardGenerator.findFirstAvailableMatch(
-          this.boardManager.getGrid(),
-          this.boardManager.getRows(),
-          this.boardManager.getCols(),
-          this.boardManager.getPortals()
-        );
+        const nextMatch = this.boardManager.findAvailableMatch();
         if (nextMatch) {
           const targetP1 = this.boardManager.gridToWorld(nextMatch.p1.r, nextMatch.p1.c);
           const targetP2 = this.boardManager.gridToWorld(nextMatch.p2.r, nextMatch.p2.c);
@@ -2157,15 +2763,43 @@ export class GameScene extends Phaser.Scene {
       this.bossManager.applyDamage(bossDamage);
     }
 
-    // 🦊 Pet Companion: Charge Energy Bar (Thanh Nộ)
-    let energyGain = 16;
-    if (comboData.combo >= 2) energyGain = 26;
-    if (comboData.isFever) energyGain = 36;
-    this.addCompanionEnergy(energyGain);
+    // 🦊 Pet Companion: Charge Energy Bar (Thanh Nộ) - Only manual player matches, never auto-cleared pairs!
+    if (!isAutoClear && !this.isSkillRechargeLocked) {
+      let energyGain = 8;
+      if (comboData.combo >= 4) {
+        energyGain = 13;
+      } else if (comboData.combo >= 2) {
+        energyGain = 10;
+      }
+      if (comboData.isFever) {
+        energyGain = 15;
+      }
 
-    // 🌙 Giờ Bách Quỷ Dạ Hành: Trigger khi đạt Combo x4, x8, x12...!
-    if (comboData.combo >= 4 && comboData.combo % 4 === 0) {
-      this.triggerNightParadeRush(`⚡ COMBO x${comboData.combo} ĐẠT ĐỈNH!`);
+      // Companion perk scaling (e.g. Inari Kitsune Lv.2 +5%, Lv.4 +10% charge rate)
+      if (this.companionConfig?.id === 'inari_kitsune') {
+        const inariLvl = this.save.getCompanionLevel('inari_kitsune');
+        if (inariLvl >= 4) {
+          energyGain = Math.round(energyGain * 1.10);
+        } else if (inariLvl >= 2) {
+          energyGain = Math.round(energyGain * 1.05);
+        }
+      }
+
+      // 🐾 Companion Evolution Perks: +rageBonusPercent
+      if (this.companionConfig?.id) {
+        const compStats = this.save.getCompanionTotalStats(this.companionConfig.id);
+        if (compStats.rageBonusPercent > 0) {
+          energyGain = Math.round(energyGain * (1 + compStats.rageBonusPercent / 100));
+        }
+      }
+
+      this.addCompanionEnergy(energyGain);
+      this.addRelicEnergy(energyGain);
+    }
+
+    // 🌙 Giờ Bách Quỷ Dạ Hành: Trigger khi đạt Combo x5, x10, x15...!
+    if (comboData.combo >= 5 && comboData.combo % 5 === 0) {
+      this.triggerNightParadeRush(`⚡ COMBO x${comboData.combo} BÁCH QUỶ DẠ HÀNH!`);
     }
   }
 
@@ -2175,11 +2809,11 @@ export class GameScene extends Phaser.Scene {
     const color = isPositive ? '#00f5d4' : '#ff3366';
     const popup = this.add.text(GAME_WIDTH / 2 + 250, 18, text, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+      fontSize: '18px',
       fontStyle: '900',
       color,
       stroke: '#000000',
-      strokeThickness: 3
+      strokeThickness: 4
     }).setOrigin(0.5).setDepth(40);
 
     this.tweens.add({
@@ -2289,6 +2923,69 @@ export class GameScene extends Phaser.Scene {
   }
 
   private currentNotice: Phaser.GameObjects.Text | null = null;
+  private tileSelectionPill: Phaser.GameObjects.Container | null = null;
+
+  private showTileSelectionPill(tile: TileState): void {
+    this.hideTileSelectionPill();
+    if (!tile.characterId) return;
+
+    const char = CharacterRegistry.get(tile.characterId);
+    if (!char) return;
+
+    const isBoss = !!this.bossManager;
+    const pillY = isBoss ? 116 : 64;
+
+    const container = this.add.container(GAME_WIDTH / 2, pillY).setDepth(140);
+
+    const labelText = `🎯 Đang chọn: ${char.symbol || '✨'} ${char.name}`;
+    const textObj = this.add.text(0, 0, labelText, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '15px',
+      fontStyle: '800',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+
+    const padX = 18;
+    const padY = 7;
+    const textBounds = textObj.getBounds();
+    const bgW = textBounds.width + padX * 2;
+    const bgH = textBounds.height + padY * 2;
+
+    const bgGfx = this.add.graphics();
+    bgGfx.fillStyle(0x0f111a, 0.94);
+    bgGfx.fillRoundedRect(-bgW / 2, -bgH / 2, bgW, bgH, 12);
+    bgGfx.lineStyle(2, 0xffd700, 0.85);
+    bgGfx.strokeRoundedRect(-bgW / 2, -bgH / 2, bgW, bgH, 12);
+
+    container.add([bgGfx, textObj]);
+    container.setScale(0.85).setAlpha(0);
+
+    this.tweens.add({
+      targets: container,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      alpha: 1.0,
+      duration: 150,
+      ease: 'Back.easeOut'
+    });
+
+    this.tileSelectionPill = container;
+  }
+
+  private hideTileSelectionPill(): void {
+    if (this.tileSelectionPill) {
+      const p = this.tileSelectionPill;
+      this.tileSelectionPill = null;
+      this.tweens.add({
+        targets: p,
+        alpha: 0,
+        scaleY: 0.8,
+        duration: 120,
+        ease: 'Quad.easeIn',
+        onComplete: () => p.destroy()
+      });
+    }
+  }
 
   private showNotice(text: string, color: number): void {
     if (this.currentNotice) {
@@ -2302,11 +2999,11 @@ export class GameScene extends Phaser.Scene {
 
     const notice = this.add.text(GAME_WIDTH / 2, startY, text, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
-      fontStyle: '800',
+      fontSize: '18px',
+      fontStyle: '900',
       color: `#${color.toString(16).padStart(6, '0')}`,
-      backgroundColor: 'rgba(15, 17, 26, 0.94)',
-      padding: { left: 20, right: 20, top: 8, bottom: 8 }
+      backgroundColor: 'rgba(15, 17, 26, 0.95)',
+      padding: { left: 26, right: 26, top: 11, bottom: 11 }
     }).setOrigin(0.5).setDepth(150);
 
     this.currentNotice = notice;
@@ -2392,6 +3089,31 @@ export class GameScene extends Phaser.Scene {
       this.timerBarGraphics.fillRoundedRect(timerBarX + 2, timerBarY + 2, timerBarW - 4, timerBarH - 4, 7);
       this.timerBarGraphics.lineStyle(2, 0xe0fbfc, 1);
       this.timerBarGraphics.strokeRoundedRect(timerBarX, timerBarY, timerBarW, timerBarH, 8.5);
+      return;
+    }
+
+    if (this.levelConfig.isStopwatch) {
+      const gold = this.levelConfig.targetGoldSeconds || 45;
+      const silver = this.levelConfig.targetSilverSeconds || 75;
+      let progress = 1;
+      let color = 0x00f5d4;
+
+      if (this.elapsedTimeSeconds <= gold) {
+        progress = Math.max(0.1, 1 - (this.elapsedTimeSeconds / gold) * 0.4);
+        color = 0x00f5d4;
+      } else if (this.elapsedTimeSeconds <= silver) {
+        const span = silver - gold;
+        const passedInSpan = this.elapsedTimeSeconds - gold;
+        progress = Math.max(0.1, 0.6 - (passedInSpan / span) * 0.45);
+        color = 0xffd166;
+      } else {
+        progress = 0.15;
+        color = 0xff595e;
+      }
+
+      const barWidth = Math.max(0, (timerBarW - 4) * progress);
+      this.timerBarGraphics.fillStyle(color, 1);
+      this.timerBarGraphics.fillRoundedRect(timerBarX + 2, timerBarY + 2, barWidth, timerBarH - 4, 7);
       return;
     }
 
@@ -2482,6 +3204,29 @@ export class GameScene extends Phaser.Scene {
         }
         this.showNotice('❄️ Hết thời gian đóng băng! Tiếp tục đếm ngược!', 0x90e0ef);
       }
+    } else if (this.levelConfig.isStopwatch) {
+      this.elapsedTimeSeconds += deltaSec;
+      const totalSec = Math.floor(this.elapsedTimeSeconds);
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      const timeStr = `${m}:${s < 10 ? '0' : ''}${s}`;
+
+      const gold = this.levelConfig.targetGoldSeconds || 45;
+      const silver = this.levelConfig.targetSilverSeconds || 75;
+      let starsBadge = '⭐⭐⭐';
+      let textColor = '#00f5d4';
+
+      if (this.elapsedTimeSeconds > silver) {
+        starsBadge = '⭐';
+        textColor = '#ff595e';
+      } else if (this.elapsedTimeSeconds > gold) {
+        starsBadge = '⭐⭐';
+        textColor = '#ffd166';
+      }
+
+      this.timeText.setText(`⏱️ ${timeStr} ${starsBadge}`);
+      this.timeText.setColor(textColor);
+      this.updateTimerBar();
     } else {
       // Timer countdown
       this.timeRemaining -= deltaSec;
@@ -2515,8 +3260,50 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (this.timeRemaining <= 0) {
+        // 🐢 Genbu Passive: Quy Giáp Trường Thọ (+1 Mạng sinh mệnh dự phòng khi hết giờ)
+        if (this.companionConfig.id === 'genbu_tortoise' && !this.genbuExtraLifeUsed) {
+          this.genbuExtraLifeUsed = true;
+          const level = this.save.getCompanionLevel('genbu_tortoise');
+          const bonusSeconds = level >= 5 ? 8 : level >= 4 ? 7 : level >= 3 ? 6 : 5;
+          this.timeRemaining = bonusSeconds;
+          this.audio.playVictory();
+          this.showNotice(`🛡️ QUY GIÁP HUYỀN VŨ BẢO HỘ! CỨU NGUY +${bonusSeconds}S!`, 0x2a9d8f);
+          return;
+        }
         this.handleGameOver('⏱️ Hết thời gian thử thách!');
         return;
+      }
+    }
+
+    // 🐯 Byakko Gravity Lock Countdown
+    if (this.byakkoGravityLockRemaining > 0) {
+      this.byakkoGravityLockRemaining -= deltaSec;
+      if (this.byakkoGravityLockRemaining <= 0) {
+        this.byakkoGravityLockRemaining = 0;
+        this.boardManager.setGravityLocked(false);
+        this.boardManager.setResolveSpeedMultiplier(1.0);
+        this.showNotice('🐯 Khóa trọng lực của Bạch Hổ đã kết thúc!', 0xadb5bd);
+      }
+    }
+
+    // 🐍 Orochi Boss Damage Buff Countdown
+    if (this.orochiBossDamageBuffRemaining > 0) {
+      this.orochiBossDamageBuffRemaining -= deltaSec;
+      if (this.orochiBossDamageBuffRemaining <= 0) {
+        this.orochiBossDamageBuffRemaining = 0;
+        this.orochiBossDamageMultiplier = 1.0;
+      }
+    }
+
+    // 🦅 Yatagarasu Idle Guidance Passive
+    if (this.companionConfig.id === 'yatagarasu_crow' && !this.isGameOver && !this.isVictory) {
+      const lvl = this.save.getCompanionLevel('yatagarasu_crow');
+      const idleThreshold = lvl >= 4 ? 7 : lvl >= 2 ? 8 : 10;
+      this.yatagarasuIdleTimer += deltaSec;
+      if (this.yatagarasuIdleTimer >= idleThreshold) {
+        this.yatagarasuIdleTimer = 0;
+        this.boardManager.showHint();
+        this.showNotice('🦅 Kim Ô chỉ lối: Đốm sáng mặt trời soi sáng ô hợp lệ!', 0xfb8500);
       }
     }
 
@@ -2537,8 +3324,15 @@ export class GameScene extends Phaser.Scene {
 
     // Boss timer update (freezes when Ryujin Time Freeze or Defeat sequence is active)
     if (this.bossManager && !this.isTimeFrozen && !this.isBossDefeatedSequence) {
+      // 🐍 Orochi Passive: Uy Áp Xà Thần (Giảm 15% đến 25% tần suất Boss tung kỹ năng quấy rối)
+      let bossDeltaSec = deltaSec;
+      if (this.companionConfig.id === 'orochi_serpent') {
+        const oLvl = this.save.getCompanionLevel('orochi_serpent');
+        const suppression = oLvl >= 5 ? 0.25 : oLvl >= 3 ? 0.20 : 0.15;
+        bossDeltaSec *= (1 - suppression);
+      }
       this.bossManager.update(
-        deltaSec,
+        bossDeltaSec,
         this.boardManager.getGrid(),
         this.boardManager.getRows(),
         this.boardManager.getCols()
@@ -2639,9 +3433,7 @@ export class GameScene extends Phaser.Scene {
       this.boardManager.syncViewsAfterMovement();
     }
 
-    const bossCfg = this.bossManager?.getBossConfig();
-    const bossName = bossCfg?.name || 'ĐẠI TRÙM';
-    this.showNotice(`👑 CHIẾN CÔNG HIỂN HÁCH! ĐÃ HẠ GỤC ${bossName.toUpperCase()}!`, 0xffd700);
+    this.isBossDefeatedThisRun = true;
 
     // 6. Smooth delay before transitioning to Victory dialog
     this.time.delayedCall(1600, () => {
@@ -2659,8 +3451,10 @@ export class GameScene extends Phaser.Scene {
     this.audio.playVictory();
 
     // Remaining time bonus (+50 pts per second)
-    const timeBonus = Math.floor(this.timeRemaining * 50);
-    this.score += timeBonus;
+    const timeBonus = this.levelConfig.isStopwatch
+      ? Math.max(300, Math.floor(((this.levelConfig.targetSilverSeconds || 75) - this.elapsedTimeSeconds) * 40))
+      : Math.floor(this.timeRemaining * 50);
+    this.score += Math.max(0, timeBonus);
     this.scoreText.setText(`${this.score} PTS`);
 
     // 4. ⭐ Dynamic Star Quests Evaluation
@@ -2687,17 +3481,87 @@ export class GameScene extends Phaser.Scene {
     const quest3Achieved = quests[2] ? evaluateQuest(quests[2]) : (this.playerUsedBoosterCount === 0 || this.timeRemaining > 40);
 
     let earnedStars = (quest1Achieved ? 1 : 0) + (quest2Achieved ? 1 : 0) + (quest3Achieved ? 1 : 0);
-    earnedStars = Math.max(1, Math.min(3, earnedStars));
+    if (this.levelConfig.isStopwatch) {
+      const gold = this.levelConfig.targetGoldSeconds || 45;
+      const silver = this.levelConfig.targetSilverSeconds || 75;
+      if (this.elapsedTimeSeconds <= gold) {
+        earnedStars = 3;
+      } else if (this.elapsedTimeSeconds <= silver) {
+        earnedStars = 2;
+      } else {
+        earnedStars = 1;
+      }
+    } else {
+      earnedStars = Math.max(1, Math.min(3, earnedStars));
+    }
 
     const isPerfect = earnedStars === 3;
     const diffCfg = this.levelConfig.difficulties?.[this.currentDifficulty];
     const diffMultiplier = diffCfg?.rewardMultiplier || 1.0;
     const baseCoins = Math.round(this.levelConfig.rewards.coins * diffMultiplier);
     const perfectBonusCoins = isPerfect ? 50 : 0;
-    const earnedCoins = baseCoins + perfectBonusCoins;
+    let earnedCoins = baseCoins + perfectBonusCoins;
+
+    // 🐯 Byakko Passive: Tốc Chiến Tiên Phong (Thưởng điểm Speedrun)
+    if (this.companionConfig.id === 'byakko_tiger') {
+      const bLvl = this.save.getCompanionLevel('byakko_tiger');
+      const bonusPct = bLvl >= 5 ? 0.25 : bLvl >= 4 ? 0.18 : bLvl >= 3 ? 0.15 : bLvl >= 2 ? 0.12 : 0.10;
+      const speedrunBonus = Math.round(this.score * bonusPct);
+      this.score += speedrunBonus;
+      this.scoreText.setText(`${this.score} PTS`);
+    }
+
+    // 🐾 Nekomata Passive: Chiêu Tài Lội Ngược (Thắng khi < 15s nhân x1.5 đến x2.0 Mảnh & Xu)
+    let nekomataMultiplier = 1.0;
+    if (this.companionConfig.id === 'nekomata_cat' && this.timeRemaining < 15) {
+      const nLvl = this.save.getCompanionLevel('nekomata_cat');
+      nekomataMultiplier = nLvl >= 5 ? 2.0 : nLvl >= 4 ? 1.8 : nLvl >= 3 ? 1.7 : nLvl >= 2 ? 1.6 : 1.5;
+    }
+    earnedCoins = Math.round(earnedCoins * nekomataMultiplier);
+
+    // 🐾 Thưởng Vàng cộng dồn từ Cấp & Bậc Tiến Hóa của Linh Thú
+    // 🐾 Thưởng Vàng cộng dồn từ Cấp & Bậc Tiến Hóa của Linh Thú
+    const compStats = this.companionConfig?.id ? this.save.getCompanionTotalStats(this.companionConfig.id) : { expBonusPercent: 0, goldBonusPercent: 0 };
+    if (compStats.goldBonusPercent > 0) {
+      earnedCoins = Math.round(earnedCoins * (1 + compStats.goldBonusPercent / 100));
+    }
+
+    // 🎲 Tính toán Chiến Lợi Phẩm theo tỷ lệ rớt (LootManager)
+    const lootResult = LootManager.calculateLoot(
+      this.levelConfig.levelNumber,
+      this.currentDifficulty as 'easy' | 'medium' | 'hard',
+      earnedStars,
+      nekomataMultiplier,
+      compStats.expBonusPercent
+    );
+
+    // Xử lý Mảnh Linh Thú nếu rớt
+    let shardsEarned = 0;
+    let shardCompanionName = '';
+    let shardCompanionId = '';
+
+    if (lootResult.mainShardsEarned > 0) {
+      shardsEarned = lootResult.mainShardsEarned;
+      shardCompanionName = lootResult.mainCompanionName;
+      shardCompanionId = lootResult.mainCompanionId;
+      this.save.addCompanionShards(lootResult.mainCompanionId, lootResult.mainShardsEarned);
+    } else if (lootResult.subShardsEarned > 0) {
+      shardsEarned = lootResult.subShardsEarned;
+      shardCompanionName = lootResult.subCompanionName;
+      shardCompanionId = lootResult.subCompanionId;
+      this.save.addCompanionShards(lootResult.subCompanionId, lootResult.subShardsEarned);
+    }
+
+    // Xử lý Thẻ Vật Phẩm Hỗ Trợ (Booster) nếu rớt
+    if (lootResult.itemEarned) {
+      this.save.addBooster(lootResult.itemEarned.type, 1);
+    }
+
+    // Tích Lũy Điểm Kinh Nghiệm (EXP) cho Linh Thú đang trang bị
+    const expResult = this.save.addCompanionExp(this.companionConfig.id, lootResult.expEarned);
 
     this.save.addCoins(earnedCoins);
-    this.save.recordLevelCompleted(this.levelConfig.id, this.levelConfig.levelNumber, earnedStars);
+    this.save.recordLevelCompleted(this.levelConfig.id, this.levelConfig.levelNumber, earnedStars, this.currentDifficulty);
     this.save.recordDifficultyCompleted(this.levelConfig.id, this.currentDifficulty);
 
     // Unlock next realm if completing milestone 10th level of chapter
@@ -2708,9 +3572,56 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Save Relic Shard if collected this run
-    if (this.isRelicShardCollectedThisRun && this.levelConfig.relicReward) {
-      this.save.collectRelic(this.levelConfig.relicReward.id);
+    // Relic Shard Drop Calculation (Tiered 40 / 75 / 100 System & Pity Guarantee)
+    let relicShardsEarned = 0;
+    let relicSurplusCoins = 0;
+    let relicCanUnlock = false;
+    const targetRelic = this.levelConfig.relicReward;
+
+    if (targetRelic) {
+      const tier = targetRelic.tier || 'common';
+      const isBossLevel = !!(this.bossManager || this.levelConfig.levelNumber % 10 === 0 || this.levelConfig.levelNumber % 5 === 0);
+      const is3StarHard = earnedStars === 3 && this.currentDifficulty === 'hard';
+
+      // Drop rates and shard amounts by tier and difficulty
+      let dropChance = 0.10;
+      let minShards = 1;
+      let maxShards = 1;
+
+      if (tier === 'epic') {
+        dropChance = this.currentDifficulty === 'hard' ? 0.35 : (this.currentDifficulty === 'medium' ? 0.25 : 0.18);
+        minShards = this.currentDifficulty === 'hard' ? 2 : 1;
+        maxShards = this.currentDifficulty === 'hard' ? 3 : 2;
+      } else if (tier === 'rare') {
+        dropChance = this.currentDifficulty === 'hard' ? 0.22 : (this.currentDifficulty === 'medium' ? 0.16 : 0.12);
+        minShards = 1;
+        maxShards = this.currentDifficulty === 'hard' ? 2 : 1;
+      } else { // common
+        dropChance = this.currentDifficulty === 'hard' ? 0.16 : (this.currentDifficulty === 'medium' ? 0.12 : 0.08);
+        minShards = 1;
+        maxShards = 1;
+      }
+
+      // Pity Guarantee: 3-Star on Hard at Boss Level ALWAYS guarantees >= 2 shards!
+      if (isBossLevel && is3StarHard) {
+        dropChance = 1.0;
+        minShards = Math.max(minShards, 2);
+        maxShards = Math.max(maxShards, 2);
+      }
+
+      // Bonus if player collected the glowing relic shard in game
+      if (this.isRelicShardCollectedThisRun) {
+        dropChance = 1.0;
+        minShards += 1;
+        maxShards += 1;
+      }
+
+      if (Math.random() <= dropChance) {
+        relicShardsEarned = Math.floor(Math.random() * (maxShards - minShards + 1)) + minShards;
+        const shardResult = this.save.addRelicShards(targetRelic.id, relicShardsEarned);
+        relicSurplusCoins = shardResult.surplusCoins;
+        relicCanUnlock = shardResult.canUnlock;
+      }
     }
 
     // Award Monster Badge corresponding to current difficulty tier
@@ -2740,8 +3651,18 @@ export class GameScene extends Phaser.Scene {
       boostersUsed: this.playerUsedBoosterCount,
       timeRemaining: this.timeRemaining,
       isPerfect,
-      relicReward: (this.isRelicShardCollectedThisRun && this.levelConfig.relicReward) ? this.levelConfig.relicReward : null,
-      badgeReward: earnedBadge || null
+      relicReward: targetRelic || null,
+      relicShardsEarned,
+      relicSurplusCoins,
+      relicCanUnlock,
+      badgeReward: earnedBadge || null,
+      shardsEarned,
+      shardCompanionName,
+      shardCompanionId,
+      lootResult,
+      expResult,
+      bossDefeated: (this.isBossDefeatedThisRun || this.bossManager) ? this.bossManager?.getBossConfig() : null,
+      nekomataMultiplier
     });
   }
 
@@ -2759,7 +3680,17 @@ export class GameScene extends Phaser.Scene {
       timeRemaining: number;
       isPerfect: boolean;
       relicReward?: any;
+      relicShardsEarned?: number;
+      relicSurplusCoins?: number;
+      relicCanUnlock?: boolean;
       badgeReward?: any;
+      shardsEarned?: number;
+      shardCompanionName?: string;
+      shardCompanionId?: string;
+      lootResult?: CalculatedLootResult;
+      expResult?: any;
+      bossDefeated?: any;
+      nekomataMultiplier?: number;
     }
   ): void {
     const width = GAME_WIDTH;
@@ -2769,48 +3700,54 @@ export class GameScene extends Phaser.Scene {
     const modal = this.add.container(width / 2, height / 2).setDepth(200);
 
     const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.88);
+    overlay.fillStyle(0x000000, 0.92);
     overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
     overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
     modal.add(overlay);
 
     const isPerfect = questStats?.isPerfect ?? (stars === 3);
-    const cardW = 450;
-    const cardH = 600;
+    const cardW = 940;
+    const cardH = 610;
 
     const card = this.add.graphics();
-    card.fillStyle(0x161324, 0.98);
-    card.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    card.fillStyle(0x131122, 0.98);
+    card.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 22);
     card.lineStyle(2.5, isPerfect ? 0xffd700 : 0x7209b7, 1);
-    card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 22);
+
+    // Decorative Golden Inner Line
+    card.lineStyle(1.4, 0xffd700, 0.55);
+    card.strokeRoundedRect(-cardW / 2 + 5, -cardH / 2 + 5, cardW - 10, cardH - 10, 18);
     modal.add(card);
 
-    // Title
-    const title = this.add.text(0, -255, '✨ CHIẾN THẮNG! ✨', {
+    // 1. Header: Title
+    const title = this.add.text(0, -258, '🏆 CHIẾN THẮNG HUY HOÀNG! 🏆', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '25px',
+      fontSize: '32px',
       fontStyle: '900',
-      color: '#ffd700'
+      color: '#ffd700',
+      stroke: '#000000',
+      strokeThickness: 5
     }).setOrigin(0.5);
     modal.add(title);
 
     // Level subtitle with Difficulty badge
     const diffBadge = this.currentDifficulty === 'easy' ? '🟢 DỄ' : this.currentDifficulty === 'medium' ? '🟡 VỪA' : '🔴 KHÓ';
-    const subTitle = this.add.text(0, -228, `${this.levelConfig.title} • [${diffBadge}]`, {
+    const subTitle = this.add.text(0, -222, `${this.levelConfig.title}  •  [${diffBadge}]`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '17px',
       fontStyle: 'bold',
-      color: '#adb5bd'
+      color: '#ced4da'
     }).setOrigin(0.5);
     modal.add(subTitle);
 
     // 3 Animated Stars Container
-    const starsY = -180;
-    const starOffsets = [-64, 0, 64];
+    const starsY = -176;
+    const starOffsets = [-72, 0, 72];
     for (let i = 0; i < 3; i++) {
       const isEarned = i < stars;
       const starIcon = this.add.text(starOffsets[i], starsY, isEarned ? '⭐' : '☆', {
-        fontSize: '38px',
+        fontSize: '50px',
         color: isEarned ? '#ffd700' : '#495057'
       }).setOrigin(0.5);
 
@@ -2820,7 +3757,7 @@ export class GameScene extends Phaser.Scene {
           targets: starIcon,
           scaleX: 1,
           scaleY: 1,
-          delay: 200 * (i + 1),
+          delay: 180 * (i + 1),
           duration: 350,
           ease: 'Back.easeOut',
           onStart: () => {
@@ -2833,7 +3770,7 @@ export class GameScene extends Phaser.Scene {
       modal.add(starIcon);
     }
 
-    // Rating Badge
+    // Rating Badge Pill
     let ratingBadgeStr = '⭐ ĐẠT 1/3 SAO • CỐ LÊN!';
     let ratingColor = '#ffd166';
     if (isPerfect) {
@@ -2844,28 +3781,32 @@ export class GameScene extends Phaser.Scene {
       ratingColor = '#00f5d4';
     }
 
-    const ratingBadge = this.add.text(0, -135, ratingBadgeStr, {
+    const ratingBadge = this.add.text(0, -130, ratingBadgeStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '18px',
       fontStyle: '900',
       color: ratingColor
     }).setOrigin(0.5);
     modal.add(ratingBadge);
 
-    // 📋 Dynamic Star Quests Checklist Panel
-    const qPanelW = 420;
-    const qPanelH = 145;
-    const qPanelY = -42;
+    // ==========================================
+    // 2. LEFT PANEL: Star Quests Checklist Panel
+    // ==========================================
+    const qPanelW = 350;
+    const qPanelH = 265;
+    const qPanelX = -260;
+    const qPanelY = 28;
+
     const panelBg = this.add.graphics();
-    panelBg.fillStyle(0x1d1830, 0.95);
-    panelBg.fillRoundedRect(-qPanelW / 2, qPanelY - qPanelH / 2, qPanelW, qPanelH, 14);
-    panelBg.lineStyle(1.2, 0x3d325c, 0.8);
-    panelBg.strokeRoundedRect(-qPanelW / 2, qPanelY - qPanelH / 2, qPanelW, qPanelH, 14);
+    panelBg.fillStyle(0x1a162b, 0.95);
+    panelBg.fillRoundedRect(qPanelX - qPanelW / 2, qPanelY - qPanelH / 2, qPanelW, qPanelH, 16);
+    panelBg.lineStyle(1.6, 0x4338ca, 0.75);
+    panelBg.strokeRoundedRect(qPanelX - qPanelW / 2, qPanelY - qPanelH / 2, qPanelW, qPanelH, 16);
     modal.add(panelBg);
 
-    const panelTitle = this.add.text(0, qPanelY - 54, '⭐ NHIỆM VỤ 3 SAO (STAR QUESTS)', {
+    const panelTitle = this.add.text(qPanelX, qPanelY - 105, '⭐ NHIỆM VỤ 3 SAO (QUESTS)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontSize: '16.5px',
       fontStyle: '900',
       color: '#c77dff'
     }).setOrigin(0.5);
@@ -2879,15 +3820,16 @@ export class GameScene extends Phaser.Scene {
 
     // Quest 1
     const q1Desc = levelQuests[0]?.description || 'Dọn sạch bàn cờ trước khi hết giờ';
-    const q1Txt = this.add.text(-195, qPanelY - 34, `⭐ 1. ${q1Desc}`, {
+    const q1Txt = this.add.text(qPanelX - 158, qPanelY - 68, `⭐ 1. ${q1Desc}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: 'bold',
-      color: '#f8f9fa'
+      color: '#f8f9fa',
+      wordWrap: { width: 240 }
     });
-    const q1Badge = this.add.text(195, qPanelY - 34, '[✓ ĐẠT]', {
+    const q1Badge = this.add.text(qPanelX + 158, qPanelY - 68, '[✓ ĐẠT]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(1, 0);
@@ -2896,15 +3838,16 @@ export class GameScene extends Phaser.Scene {
     // Quest 2
     const q2Ok = questStats?.quest2 ?? (stars >= 2);
     const q2Desc = levelQuests[1]?.description || 'Đạt chuỗi Combo thử thách';
-    const q2Txt = this.add.text(-195, qPanelY - 10, `⭐ 2. ${q2Desc}`, {
+    const q2Txt = this.add.text(qPanelX - 158, qPanelY - 20, `⭐ 2. ${q2Desc}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: 'bold',
-      color: q2Ok ? '#f8f9fa' : '#adb5bd'
+      color: q2Ok ? '#f8f9fa' : '#adb5bd',
+      wordWrap: { width: 240 }
     });
-    const q2Badge = this.add.text(195, qPanelY - 10, q2Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
+    const q2Badge = this.add.text(qPanelX + 158, qPanelY - 20, q2Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: '900',
       color: q2Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
@@ -2913,111 +3856,418 @@ export class GameScene extends Phaser.Scene {
     // Quest 3
     const q3Ok = questStats?.quest3 ?? (stars === 3);
     const q3Desc = levelQuests[2]?.description || 'Vượt qua không dùng trợ giúp';
-    const q3Txt = this.add.text(-195, qPanelY + 14, `⭐ 3. ${q3Desc}`, {
+    const q3Txt = this.add.text(qPanelX - 158, qPanelY + 28, `⭐ 3. ${q3Desc}`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: 'bold',
-      color: q3Ok ? '#f8f9fa' : '#adb5bd'
+      color: q3Ok ? '#f8f9fa' : '#adb5bd',
+      wordWrap: { width: 240 }
     });
-    const q3Badge = this.add.text(195, qPanelY + 14, q3Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
+    const q3Badge = this.add.text(qPanelX + 158, qPanelY + 28, q3Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
+      fontSize: '15px',
       fontStyle: '900',
       color: q3Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
     modal.add([q3Txt, q3Badge]);
 
     // Quest Tip / Note
-    const qNoteTxt = this.add.text(0, qPanelY + 46, isPerfect ? '✨ Xuất sắc! Bạn đã thu phục trọn vẹn điểm màn này! ✨' : '💡 Mẹo: Bấm chơi lại để đạt điểm tuyệt đối 3 sao!', {
+    const qNoteTxt = this.add.text(qPanelX, qPanelY + 95, isPerfect ? '✨ Xuất sắc! Nhận trọn vẹn điểm thưởng! ✨' : '💡 Mẹo: Chơi lại để săn trọn 3 sao!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
+      fontSize: '14px',
       fontStyle: 'bold',
-      color: isPerfect ? '#ffd700' : '#adb5bd'
+      color: isPerfect ? '#ffd700' : '#ffd166'
     }).setOrigin(0.5);
     modal.add(qNoteTxt);
 
-    // Rewards info text
-    const rewardsText = this.add.text(0, 48, `+${coins} 💰 Ngân lượng • ⏱️ Thưởng: +${timeBonus} PTS • ❤️ ${this.lives}/10`, {
+    // ==========================================
+    // 3. RIGHT PANEL: REWARD CARDS SHOWCASE
+    // ==========================================
+    const rPanelW = 520;
+    const rPanelH = 265;
+    const rPanelX = 195;
+    const rPanelY = 28;
+
+    const rPanelBg = this.add.graphics();
+    rPanelBg.fillStyle(0x1e1915, 0.95);
+    rPanelBg.fillRoundedRect(rPanelX - rPanelW / 2, rPanelY - rPanelH / 2, rPanelW, rPanelH, 16);
+    rPanelBg.lineStyle(1.6, 0x855a1d, 0.8);
+    rPanelBg.strokeRoundedRect(rPanelX - rPanelW / 2, rPanelY - rPanelH / 2, rPanelW, rPanelH, 16);
+    modal.add(rPanelBg);
+
+    const rPanelTitle = this.add.text(rPanelX, rPanelY - 105, '🎁 THẺ BÀI CHIẾN LỢI PHẨM (REWARDS)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '17.5px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
-    modal.add(rewardsText);
+    modal.add(rPanelTitle);
 
-    // Relic Shard Drop Banner (If collected this run)
-    let extraRewardOffset = 76;
-    if (questStats?.relicReward) {
+    const rSubNote = this.add.text(rPanelX, rPanelY - 82, `❤️ Tự động hồi phục +1 sinh lực (Hiện có: ${this.lives}/10)`, {
+      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontSize: '14px',
+      fontStyle: 'bold',
+      color: '#ced4da'
+    }).setOrigin(0.5);
+    modal.add(rSubNote);
+
+    // Assemble dynamic reward cards
+    interface RewardCardItem {
+      type: string;
+      title: string;
+      amount?: string;
+      sub?: string;
+      icon?: string;
+      imageKey?: string;
+      borderColor: number;
+      badgeColor: number;
+      isHighlighted?: boolean;
+    }
+
+    const rewardCards: RewardCardItem[] = [];
+
+    // Card 1: Coins Card
+    const nekoMult = questStats?.nekomataMultiplier || 1.0;
+    const coinTag = nekoMult > 1
+      ? `🐾 x${nekoMult} NEKOMATA`
+      : isPerfect
+        ? '🌟 3-SAO (+50)'
+        : '💰 VÀNG THẮNG';
+
+    rewardCards.push({
+      type: 'coins',
+      title: coinTag,
+      amount: `+${coins} XU`,
+      sub: 'VÀNG CHIẾN LỢI',
+      icon: '🪙',
+      borderColor: 0xffd700,
+      badgeColor: 0x9a6b00,
+      isHighlighted: isPerfect || nekoMult > 1
+    });
+
+    // Card 2: Companion Shards Card (Only if dropped)
+    const shardCount = questStats?.shardsEarned || 0;
+    if (shardCount > 0) {
+      const shardName = questStats?.shardCompanionName || this.companionConfig.name;
+      const shardId = questStats?.shardCompanionId || this.companionConfig.id;
+      const compTex = `comp_${shardId}`;
+      const charTexForComp = `char_${shardId}`;
+      const shardImageKey = this.textures.exists(compTex)
+        ? compTex
+        : (this.textures.exists(charTexForComp) ? charTexForComp : undefined);
+
+      const shardTag = nekoMult > 1
+        ? `🐾 x${nekoMult} MẢNH`
+        : '💎 MẢNH THẦN THÚ';
+
+      rewardCards.push({
+        type: 'shards',
+        title: shardTag,
+        amount: `+${shardCount} MẢNH`,
+        sub: shardName.toUpperCase(),
+        icon: '💎',
+        imageKey: shardImageKey,
+        borderColor: 0x00f5d4,
+        badgeColor: 0x007f5f,
+        isHighlighted: true
+      });
+    }
+
+    // Card 2.5: Booster Item Card (If dropped by LootManager)
+    if (questStats?.lootResult?.itemEarned) {
+      const it = questStats.lootResult.itemEarned;
+      rewardCards.push({
+        type: 'item',
+        title: '🎁 VẬT PHẨM RỚT',
+        amount: `+1 ${it.name.toUpperCase()}`,
+        sub: 'CHIẾN LỢI PHẨM',
+        icon: it.icon,
+        borderColor: 0x06d6a0,
+        badgeColor: 0x007f5f,
+        isHighlighted: true
+      });
+    }
+
+    // Card 3: Boss Bounty / Boss Trophy Card (if boss defeated this run)
+    if (questStats?.bossDefeated) {
+      const boss = questStats.bossDefeated;
+      const bossTex = `boss_${boss.id || 'orochi'}`;
+      rewardCards.push({
+        type: 'boss',
+        title: '👑 CHIẾN CÔNG BOSS',
+        amount: 'HẠ GỤC TRÙM!',
+        sub: boss.name.toUpperCase(),
+        icon: '👹',
+        imageKey: this.textures.exists(bossTex) ? bossTex : undefined,
+        borderColor: 0xff595e,
+        badgeColor: 0xb5179e,
+        isHighlighted: true
+      });
+    }
+
+    // Card 4: Newly Unlocked Character Card (if any)
+    if (newCharId) {
+      const char = CharacterRegistry.get(newCharId);
+      TextureGenerator.ensureCharacterTexture(this, newCharId);
+      const charTex = `char_${newCharId}`;
+      rewardCards.push({
+        type: 'character',
+        title: '🎊 MỞ KHÓA MỚI!',
+        amount: char ? char.name : 'Linh Thú',
+        sub: char ? char.japaneseName : 'MỚI MỞ KHÓA',
+        icon: char ? char.symbol : '🦊',
+        imageKey: this.textures.exists(charTex) ? charTex : undefined,
+        borderColor: 0xff758f,
+        badgeColor: 0xd90429,
+        isHighlighted: true
+      });
+    }
+
+    // Card 5: Relic Shard Drop Card
+    if (questStats?.relicReward && questStats.relicShardsEarned && questStats.relicShardsEarned > 0) {
       const relic = questStats.relicReward;
-      const relicBox = this.add.container(0, extraRewardOffset);
-      const rBg = this.add.graphics();
-      rBg.fillStyle(0x3a2e12, 0.95);
-      rBg.fillRoundedRect(-200, -12, 400, 24, 8);
-      rBg.lineStyle(1.2, 0xffd700, 0.9);
-      rBg.strokeRoundedRect(-200, -12, 400, 24, 8);
-      const rTxt = this.add.text(0, 0, `✨ THU THẬP THẦN KHÍ: ${relic.icon} ${relic.name} (${relic.japaneseName})`, {
+      const surplusCoins = questStats.relicSurplusCoins || 0;
+      const amountTxt = surplusCoins > 0 
+        ? `+${surplusCoins} XU` 
+        : `+${questStats.relicShardsEarned} MẢNH`;
+      const subTxt = surplusCoins > 0
+        ? '★5 Tối Đa • Tự Đổi Xu'
+        : (questStats.relicCanUnlock ? '⚡ ĐÃ ĐỦ MẢNH ĐÚC!' : `${this.save.getRelicShards(relic.id)}/${this.save.getRelicRequiredShards(relic.id)} Mảnh`);
+      const relicTex = `relic_${relic.id}`;
+
+      rewardCards.push({
+        type: 'relic',
+        title: surplusCoins > 0 ? '💰 QUY ĐỔI MẢNH THỪA' : '⛩️ MẢNH THẦN KHÍ',
+        amount: amountTxt,
+        sub: subTxt,
+        icon: relic.icon || '🪞',
+        imageKey: this.textures.exists(relicTex) ? relicTex : undefined,
+        borderColor: 0xffd700,
+        badgeColor: 0x9c6644,
+        isHighlighted: true
+      });
+    }
+
+    // Card 6: Monster Badge Card (if any)
+    if (questStats?.badgeReward) {
+      const badge = questStats.badgeReward;
+      const tierLabel = this.currentDifficulty === 'easy' ? 'ĐỒNG' : this.currentDifficulty === 'medium' ? 'BẠC' : 'VÀNG';
+      rewardCards.push({
+        type: 'badge',
+        title: '🎖️ HUY HIỆU',
+        amount: badge.name,
+        sub: `HẠNG ${tierLabel}`,
+        icon: '🛡️',
+        borderColor: 0x00f5d4,
+        badgeColor: 0x3f37c9
+      });
+    }
+
+    // Card 7: Speed Bonus PTS Card (if timeBonus > 0 and room available)
+    if (rewardCards.length <= 2 && timeBonus > 0) {
+      rewardCards.push({
+        type: 'speed',
+        title: '⚡ TỐC CHIẾN',
+        amount: `+${timeBonus} PTS`,
+        sub: 'ĐIỂM TỐC ĐỘ',
+        icon: '⏱️',
+        borderColor: 0x4cc9f0,
+        badgeColor: 0x1d3557
+      });
+    }
+
+    // Render cards side by side
+    const maxShowCards = Math.min(4, rewardCards.length);
+    const visibleCards = rewardCards.slice(0, maxShowCards);
+    const cardItemW = maxShowCards === 4 ? 118 : maxShowCards === 3 ? 152 : 190;
+    const cardItemH = 180;
+    const cardSpacing = Math.floor(rPanelW / maxShowCards);
+    const cardsStartY = rPanelY + 24;
+
+    visibleCards.forEach((cData, cIdx) => {
+      const cPosX = rPanelX - rPanelW / 2 + cIdx * cardSpacing + cardSpacing / 2;
+      const cPosY = cardsStartY;
+
+      const cardContainer = this.add.container(cPosX, cPosY);
+
+      // Card Base
+      const cBg = this.add.graphics();
+      cBg.fillStyle(cData.isHighlighted ? 0x221326 : 0x141224, 0.96);
+      cBg.fillRoundedRect(-cardItemW / 2, -cardItemH / 2, cardItemW, cardItemH, 14);
+      cBg.lineStyle(cData.isHighlighted ? 2.5 : 1.8, cData.borderColor, 0.95);
+      cBg.strokeRoundedRect(-cardItemW / 2, -cardItemH / 2, cardItemW, cardItemH, 14);
+
+      // Subtle inner frame
+      cBg.lineStyle(1.0, cData.borderColor, 0.35);
+      cBg.strokeRoundedRect(-cardItemW / 2 + 3, -cardItemH / 2 + 3, cardItemW - 6, cardItemH - 6, 11);
+
+      // Header Tag Badge
+      const tagW = cardItemW - 14;
+      const tagH = 24;
+      const tagBg = this.add.graphics();
+      tagBg.fillStyle(cData.badgeColor, 0.95);
+      tagBg.fillRoundedRect(-tagW / 2, -cardItemH / 2 + 6, tagW, tagH, 6);
+
+      const tagTxt = this.add.text(0, -cardItemH / 2 + 18, cData.title, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: maxShowCards === 4 ? '11.5px' : '13px',
+        fontStyle: '900',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+
+      // Card Graphic/Visual in Center
+      let centerVisual: Phaser.GameObjects.GameObject;
+      const visualSize = maxShowCards === 4 ? 54 : 64;
+      if (cData.imageKey && this.textures.exists(cData.imageKey)) {
+        centerVisual = this.add.image(0, -6, cData.imageKey).setDisplaySize(visualSize, visualSize);
+      } else {
+        centerVisual = this.add.text(0, -6, cData.icon || '🎁', {
+          fontSize: maxShowCards === 4 ? '38px' : '44px'
+        }).setOrigin(0.5);
+      }
+
+      // Bottom Main Amount / Name
+      const amtTxt = this.add.text(0, 42, cData.amount || '', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: maxShowCards === 4 ? '15.5px' : '18px',
+        fontStyle: '900',
+        color: `#${cData.borderColor.toString(16).padStart(6, '0')}`,
+        stroke: '#000000',
+        strokeThickness: 3.0
+      }).setOrigin(0.5);
+
+      // Bottom Sublabel
+      const subTxt = this.add.text(0, 64, cData.sub || '', {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: maxShowCards === 4 ? '12px' : '13px',
+        fontStyle: '800',
+        color: '#e0e1dd'
+      }).setOrigin(0.5);
+
+      cardContainer.add([cBg, tagBg, tagTxt, centerVisual, amtTxt, subTxt]);
+
+      // Interactive hover scale
+      cardContainer.setSize(cardItemW, cardItemH).setInteractive({ useHandCursor: true });
+      cardContainer.on('pointerover', () => {
+        this.tweens.add({ targets: cardContainer, scaleX: 1.04, scaleY: 1.04, duration: 120 });
+      });
+      cardContainer.on('pointerout', () => {
+        this.tweens.add({ targets: cardContainer, scaleX: 1.0, scaleY: 1.0, duration: 120 });
+      });
+
+      // Staggered Pop-in animation with taiko & haptic (single run, then stays still)
+      cardContainer.setScale(0);
+      this.tweens.add({
+        targets: cardContainer,
+        scale: 1,
+        delay: 350 + cIdx * 140,
+        duration: 340,
+        ease: 'Back.easeOut',
+        onStart: () => {
+          this.audio.playSelect();
+          this.haptic.light();
+        }
+      });
+
+      modal.add(cardContainer);
+    });
+
+    // ==========================================
+    // 3.5 COMPANION EXP BAR (Dynamic Progression)
+    // ==========================================
+    if (questStats?.expResult && questStats?.lootResult) {
+      const expR = questStats.expResult;
+      const lootR = questStats.lootResult;
+      const expBoxY = 188;
+      const expBoxW = 740;
+      const expBoxH = 36;
+
+      const expContainer = this.add.container(0, expBoxY);
+      modal.add(expContainer);
+
+      const expBg = this.add.graphics();
+      expBg.fillStyle(0x131122, 0.95);
+      expBg.fillRoundedRect(-expBoxW / 2, -expBoxH / 2, expBoxW, expBoxH, 10);
+      expBg.lineStyle(1.4, expR.leveledUp ? 0xffd700 : 0x00f5d4, expR.leveledUp ? 1 : 0.7);
+      expBg.strokeRoundedRect(-expBoxW / 2, -expBoxH / 2, expBoxW, expBoxH, 10);
+      expContainer.add(expBg);
+
+      // Icon & Companion Name
+      const compIcon = this.companionConfig.icon || '🦊';
+      const compLabel = `${compIcon} ${this.companionConfig.name.toUpperCase()} (CẤP ${expR.newLevel})`;
+      const compTxt = this.add.text(-expBoxW / 2 + 18, 0, compLabel, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '13px',
         fontStyle: '900',
         color: '#ffd700'
-      }).setOrigin(0.5);
-      relicBox.add([rBg, rTxt]);
-      modal.add(relicBox);
-      extraRewardOffset += 28;
-    }
+      }).setOrigin(0, 0.5);
+      expContainer.add(compTxt);
 
-    // Monster Badge Tier Banner (If awarded this run)
-    if (questStats?.badgeReward) {
-      const badge = questStats.badgeReward;
-      const tierLabel = this.currentDifficulty === 'easy' ? 'ĐỒNG' : this.currentDifficulty === 'medium' ? 'BẠC' : 'VÀNG';
-      const badgeBox = this.add.container(0, extraRewardOffset);
-      const bBg = this.add.graphics();
-      bBg.fillStyle(0x162a38, 0.95);
-      bBg.fillRoundedRect(-200, -12, 400, 24, 8);
-      bBg.lineStyle(1.2, 0x00f5d4, 0.9);
-      bBg.strokeRoundedRect(-200, -12, 400, 24, 8);
-      const bTxt = this.add.text(0, 0, `🎖️ HUY HIỆU QUÁI: ${badge.name} [TIER ${tierLabel}]`, {
+      // EXP Bar Graphic
+      const barX = 18;
+      const barW = 320;
+      const barH = 14;
+      const barGfx = this.add.graphics();
+      barGfx.fillStyle(0x232538, 1);
+      barGfx.fillRoundedRect(barX, -barH / 2, barW, barH, 5);
+      barGfx.lineStyle(1, 0x495057, 0.8);
+      barGfx.strokeRoundedRect(barX, -barH / 2, barW, barH, 5);
+      expContainer.add(barGfx);
+
+      const expFrac = Math.min(1, expR.newExp / Math.max(1, expR.requiredExp));
+      const fillGfx = this.add.graphics();
+      fillGfx.fillStyle(0x00f5d4, 1);
+      fillGfx.fillRoundedRect(barX, -barH / 2, barW * expFrac, barH, 5);
+      expContainer.add(fillGfx);
+
+      // EXP text info
+      const expText = expR.leveledUp
+        ? `🌟 LEVEL UP! CẤP ${expR.newLevel} (+${lootR.expEarned} EXP)`
+        : `+${lootR.expEarned} EXP • (${expR.newExp}/${expR.requiredExp})`;
+
+      const expTxt = this.add.text(barX + barW + 16, 0, expText, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
+        fontSize: '12.5px',
         fontStyle: '900',
-        color: '#00f5d4'
-      }).setOrigin(0.5);
-      badgeBox.add([bBg, bTxt]);
-      modal.add(badgeBox);
-      extraRewardOffset += 28;
-    }
+        color: expR.leveledUp ? '#ffd700' : '#ffffff'
+      }).setOrigin(0, 0.5);
+      expContainer.add(expTxt);
 
-    // If new character discovered
-    if (newCharId) {
-      const char = CharacterRegistry.get(newCharId);
-      if (char) {
-        const charTxt = this.add.text(0, extraRewardOffset, `🎊 THU PHỤC LINH THÚ: ${char.symbol} ${char.name} (${char.japaneseName})`, {
-          fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '13.5px',
-          fontStyle: '900',
-          color: '#ff758f'
-        }).setOrigin(0.5);
-        modal.add(charTxt);
+      if (expR.leveledUp) {
+        this.tweens.add({
+          targets: expTxt,
+          scaleX: 1.1,
+          scaleY: 1.1,
+          yoyo: true,
+          repeat: -1,
+          duration: 400
+        });
       }
     }
 
-    // Action Buttons
+    // ==========================================
+    // 4. ACTION BUTTONS (Horizontal Bottom Row)
+    // ==========================================
+    const isFinalLevel = this.levelConfig.levelNumber >= 100;
+    const btnY = 244;
+
     if (isPerfect) {
-      const isFinalLevel = this.levelConfig.levelNumber >= 100;
       // 1. Next Level / Campaign Victory Button
-      const nextBtn = this.add.container(0, 182);
+      const nextBtn = this.add.container(-140, btnY);
       const nBg = this.add.graphics();
       nBg.fillStyle(isFinalLevel ? 0xffb703 : 0xe63946, 1);
-      nBg.fillRoundedRect(-130, -20, 260, 40, 14);
+      nBg.fillRoundedRect(-150, -24, 300, 48, 14);
+      nBg.lineStyle(2, 0xffd700, 0.95);
+      nBg.strokeRoundedRect(-150, -24, 300, 48, 14);
+
       const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH CHIẾN DỊCH! 👑' : 'TIẾP TỤC HÀNH TRÌNH ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '15px',
+        fontSize: '17px',
         fontStyle: '900',
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
       }).setOrigin(0.5);
       nextBtn.add([nBg, nTxt]);
-      nextBtn.setSize(260, 40);
-      nextBtn.setInteractive({ useHandCursor: true });
+      nextBtn.setSize(300, 48).setInteractive({ useHandCursor: true });
       nextBtn.on('pointerdown', () => {
         this.audio.playSelect();
         if (isFinalLevel) {
@@ -3031,40 +4281,43 @@ export class GameScene extends Phaser.Scene {
       modal.add(nextBtn);
 
       // 2. Menu Button
-      const menuBtn = this.add.container(0, 236);
+      const menuBtn = this.add.container(180, btnY);
       const mBg = this.add.graphics();
-      mBg.fillStyle(0x2b2d42, 1);
-      mBg.fillRoundedRect(-130, -18, 260, 36, 12);
+      mBg.fillStyle(0x232538, 1);
+      mBg.fillRoundedRect(-120, -24, 240, 48, 14);
+      mBg.lineStyle(1.6, 0x495057, 0.85);
+      mBg.strokeRoundedRect(-120, -24, 240, 48, 14);
+
       const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '14.5px',
+        fontSize: '16.5px',
         fontStyle: '800',
-        color: '#adb5bd'
+        color: '#ced4da'
       }).setOrigin(0.5);
       menuBtn.add([mBg, mTxt]);
-      menuBtn.setSize(260, 36);
-      menuBtn.setInteractive({ useHandCursor: true });
+      menuBtn.setSize(240, 48).setInteractive({ useHandCursor: true });
       menuBtn.on('pointerdown', () => {
         this.audio.playSelect();
         this.scene.start('MainMenuScene');
       });
       modal.add(menuBtn);
     } else {
-      const isFinalLevel = this.levelConfig.levelNumber >= 100;
-      // 1. Next Level / Campaign Victory Button
-      const nextBtn = this.add.container(0, 172);
+      // 1. Next Level Button
+      const nextBtn = this.add.container(-255, btnY);
       const nBg = this.add.graphics();
       nBg.fillStyle(isFinalLevel ? 0xffb703 : 0xe63946, 1);
-      nBg.fillRoundedRect(-130, -18, 260, 36, 12);
-      const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH CHIẾN DỊCH! 👑' : 'TIẾP TỤC HÀNH TRÌNH ➔', {
+      nBg.fillRoundedRect(-125, -24, 250, 48, 14);
+      nBg.lineStyle(2, 0xffd700, 0.9);
+      nBg.strokeRoundedRect(-125, -24, 250, 48, 14);
+
+      const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH!' : 'TIẾP TỤC ➔', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '14.5px',
+        fontSize: '17px',
         fontStyle: '900',
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
       }).setOrigin(0.5);
       nextBtn.add([nBg, nTxt]);
-      nextBtn.setSize(260, 36);
-      nextBtn.setInteractive({ useHandCursor: true });
+      nextBtn.setSize(250, 48).setInteractive({ useHandCursor: true });
       nextBtn.on('pointerdown', () => {
         this.audio.playSelect();
         if (isFinalLevel) {
@@ -3077,22 +4330,22 @@ export class GameScene extends Phaser.Scene {
       });
       modal.add(nextBtn);
 
-      // 2. Replay to hunt 3 stars button
-      const replayBtn = this.add.container(0, 216);
+      // 2. Replay Button
+      const replayBtn = this.add.container(25, btnY);
       const rBg = this.add.graphics();
       rBg.fillStyle(0x382c16, 1);
-      rBg.fillRoundedRect(-130, -18, 260, 36, 12);
-      rBg.lineStyle(1.5, 0xffb703, 0.9);
-      rBg.strokeRoundedRect(-130, -18, 260, 36, 12);
-      const rTxt = this.add.text(0, 0, '🔄 CHƠI LẠI ĐỂ SĂN 3 SAO!', {
+      rBg.fillRoundedRect(-130, -24, 260, 48, 14);
+      rBg.lineStyle(2, 0xffb703, 0.95);
+      rBg.strokeRoundedRect(-130, -24, 260, 48, 14);
+
+      const rTxt = this.add.text(0, 0, '🔄 CHƠI LẠI (SĂN 3⭐)', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '14.5px',
+        fontSize: '16.5px',
         fontStyle: '900',
         color: '#ffd166'
       }).setOrigin(0.5);
       replayBtn.add([rBg, rTxt]);
-      replayBtn.setSize(260, 36);
-      replayBtn.setInteractive({ useHandCursor: true });
+      replayBtn.setSize(260, 48).setInteractive({ useHandCursor: true });
       replayBtn.on('pointerdown', () => {
         this.audio.playSelect();
         this.scene.restart({ levelId: this.levelConfig.id, lives: this.lives, difficulty: this.currentDifficulty });
@@ -3100,19 +4353,21 @@ export class GameScene extends Phaser.Scene {
       modal.add(replayBtn);
 
       // 3. Menu Button
-      const menuBtn = this.add.container(0, 258);
+      const menuBtn = this.add.container(285, btnY);
       const mBg = this.add.graphics();
       mBg.fillStyle(0x232538, 1);
-      mBg.fillRoundedRect(-130, -17, 260, 34, 10);
-      const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
+      mBg.fillRoundedRect(-95, -24, 190, 48, 14);
+      mBg.lineStyle(1.6, 0x495057, 0.85);
+      mBg.strokeRoundedRect(-95, -24, 190, 48, 14);
+
+      const mTxt = this.add.text(0, 0, 'VỀ MENU 🏠', {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '14px',
+        fontSize: '16px',
         fontStyle: '800',
-        color: '#adb5bd'
+        color: '#ced4da'
       }).setOrigin(0.5);
       menuBtn.add([mBg, mTxt]);
-      menuBtn.setSize(260, 34);
-      menuBtn.setInteractive({ useHandCursor: true });
+      menuBtn.setSize(190, 48).setInteractive({ useHandCursor: true });
       menuBtn.on('pointerdown', () => {
         this.audio.playSelect();
         this.scene.start('MainMenuScene');
@@ -3148,62 +4403,70 @@ export class GameScene extends Phaser.Scene {
     overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
     modal.add(overlay);
 
+    const cardW = 440;
+    const cardH = 310;
     const card = this.add.graphics();
     card.fillStyle(0x1a1528, 1);
-    card.fillRoundedRect(-150, -120, 300, 240, 20);
-    card.lineStyle(2, 0xe63946, 1);
-    card.strokeRoundedRect(-150, -120, 300, 240, 20);
+    card.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    card.lineStyle(2.5, 0xe63946, 1);
+    card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
     modal.add(card);
 
-    const title = this.add.text(0, -75, 'GAME OVER!', {
+    const title = this.add.text(0, -100, 'GAME OVER!', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '24px',
+      fontSize: '28px',
       fontStyle: '900',
       color: '#e63946'
     }).setOrigin(0.5);
 
-    const reasonText = this.add.text(0, -45, this.gameOverReason, {
+    const reasonText = this.add.text(0, -60, this.gameOverReason, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '16.5px',
       fontStyle: 'bold',
       color: '#ffd166',
-      wordWrap: { width: 260 },
+      wordWrap: { width: 380 },
       align: 'center'
     }).setOrigin(0.5);
 
     modal.add([title, reasonText]);
 
-    const retryBtn = this.add.container(0, 5);
+    const retryBtn = this.add.container(0, 8);
     const rBg = this.add.graphics();
     rBg.fillStyle(0xe63946, 1);
-    rBg.fillRoundedRect(-105, -21, 210, 42, 12);
+    rBg.fillRoundedRect(-140, -24, 280, 48, 14);
+    rBg.lineStyle(1.8, 0xff758f, 0.9);
+    rBg.strokeRoundedRect(-140, -24, 280, 48, 14);
+
     const rTxt = this.add.text(0, 0, 'THỬ LẠI MÀN NÀY 🔄', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+      fontSize: '17px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
     retryBtn.add([rBg, rTxt]);
-    retryBtn.setSize(210, 42);
+    retryBtn.setSize(280, 48);
     retryBtn.setInteractive({ useHandCursor: true });
     retryBtn.on('pointerdown', () => {
       this.audio.playSelect();
-      this.scene.restart({ levelId: this.levelConfig.id, lives: 10 });
+      this.scene.restart({ levelId: this.levelConfig.id, lives: 10, difficulty: this.currentDifficulty });
     });
     modal.add(retryBtn);
 
-    const menuBtn = this.add.container(0, 60);
+    const menuBtn = this.add.container(0, 72);
     const mBg = this.add.graphics();
     mBg.fillStyle(0x2b2d42, 1);
-    mBg.fillRoundedRect(-105, -19, 210, 38, 12);
+    mBg.fillRoundedRect(-140, -24, 280, 48, 14);
+    mBg.lineStyle(1.5, 0x495057, 0.85);
+    mBg.strokeRoundedRect(-140, -24, 280, 48, 14);
+
     const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+      fontSize: '16.5px',
       fontStyle: '800',
       color: '#adb5bd'
     }).setOrigin(0.5);
     menuBtn.add([mBg, mTxt]);
-    menuBtn.setSize(210, 38);
+    menuBtn.setSize(280, 48);
     menuBtn.setInteractive({ useHandCursor: true });
     menuBtn.on('pointerdown', () => {
       this.audio.playSelect();

@@ -83,9 +83,58 @@ export class BoardGenerator {
       }
     }
 
-    // Pick exactly targetUniqueCount diverse characters
+    // 🛡️ Comprehensive Anti-Confusion Filter: Guarantee visually confusing "false twins" NEVER share the board
+    const VISUAL_CONFUSION_GROUPS: string[][] = [
+      // Group 1: Ghost Girls (Black messy hair, pale ghostly skin, red eyes/ribbon, will-o'-the-wisp flames)
+      ['hanako_san', 'kuchisake_onna', 'teke_teke', 'hone_onna', 'kage_onna'],
+
+      // Group 2: Geisha / Traditional Kimono with High Hair Bun & Red Flower Hairpin
+      ['jorogumo', 'rokurokubi', 'futakuchi_onna'],
+
+      // Group 3: White Fox Spirits with Red Markings, Gold Bell, Blue Flames
+      ['inari_kitsune', 'kyuubi_kitsune'],
+
+      // Group 4: Red Horned Oni with White Hair
+      ['aka_oni', 'aka_oni_kanabo'],
+
+      // Group 5: Chubby Spotted Tsuchinoko with Head Leaf & Tongue
+      ['tsuchinoko_chua', 'tsuchinoko_kawa'],
+
+      // Group 6: Blue Shark Warriors with Sharp Jaws & Yellow Eyes
+      ['samebito', 'same_ronin'],
+
+      // Group 7: Spider Yokai
+      ['jorogumo', 'tsuchigumo']
+    ];
+
+    // Pick diverse characters while ensuring no two visually indistinguishable false twins appear together
     this.shuffleArray(expandedPool);
-    const chosenChars = expandedPool.slice(0, targetUniqueCount);
+    const chosenChars: string[] = [];
+    const excludedTwinChars = new Set<string>();
+
+    for (const charId of expandedPool) {
+      if (excludedTwinChars.has(charId)) continue;
+
+      chosenChars.push(charId);
+
+      // Check if this character belongs to any visual confusion group, and mark all other members as excluded
+      for (const group of VISUAL_CONFUSION_GROUPS) {
+        if (group.includes(charId)) {
+          for (const member of group) {
+            if (member !== charId) {
+              excludedTwinChars.add(member);
+            }
+          }
+        }
+      }
+
+      if (chosenChars.length >= targetUniqueCount) break;
+    }
+
+    // Fallback if exclusions made chosenChars smaller than needed
+    if (chosenChars.length === 0 && expandedPool.length > 0) {
+      chosenChars.push(expandedPool[0]);
+    }
 
     // Distribute pairs evenly across chosen characters (each gets 1..2 pairs, max 3)
     for (let i = 0; i < totalPairs; i++) {

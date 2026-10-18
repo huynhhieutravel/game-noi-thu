@@ -3,7 +3,12 @@ import { BossConfig, TileState } from '../types';
 export interface BossEvents {
   onDamaged?: (currentHp: number, maxHp: number, damage: number) => void;
   onHeadSevered?: (headsLeft: number, totalHeads: number) => void;
-  onBossSkillTriggered?: (skillName: string, description: string, skillType?: string) => void;
+  onBossSkillTriggered?: (
+    skillName: string,
+    description: string,
+    skillType?: string,
+    swappedPairs?: { t1: TileState; t2: TileState }[]
+  ) => void;
   onDefeated?: () => void;
 }
 
@@ -69,8 +74,8 @@ export class BossManager {
     if (this.config.skills.length === 0) return;
 
     const skill = this.config.skills[Math.floor(Math.random() * this.config.skills.length)];
-
     const type = skill.type;
+    const swappedPairs: { t1: TileState; t2: TileState }[] = [];
 
     // 1. Freeze / Lock skills
     if (
@@ -82,16 +87,17 @@ export class BossManager {
       for (let r = 1; r <= rows; r++) {
         for (let c = 1; c <= cols; c++) {
           const tile = grid[r][c];
-          if (!tile.isCleared && tile.characterId && tile.modifier !== 'ice' && tile.modifier !== 'stone') {
+          if (!tile.isCleared && tile.characterId && tile.modifier === 'none' && !tile.isLocked) {
             candidates.push(tile);
           }
         }
       }
-      for (let i = 0; i < Math.min(3, candidates.length); i++) {
+      for (let i = 0; i < Math.min(2, candidates.length); i++) {
         const randIdx = Math.floor(Math.random() * candidates.length);
         const t = candidates.splice(randIdx, 1)[0];
         t.modifier = 'ice';
         t.iceLayers = 2;
+        t.modifierLevel = 2;
       }
     }
     // 2. Obstacle / Stone / Vines spawn
@@ -100,22 +106,35 @@ export class BossManager {
       type === 'forest_vines' || type === 'powder_barrel' || type === 'volcanic_eruption' ||
       type === 'root_strangle' || type === 'trex_stomp'
     ) {
-      const clearedSlots: TileState[] = [];
+      // Limit total stone obstacles on the board to max 4 to avoid suffocating paths
+      let currentStones = 0;
       for (let r = 1; r <= rows; r++) {
         for (let c = 1; c <= cols; c++) {
           const tile = grid[r][c];
-          if (tile.isCleared) {
-            clearedSlots.push(tile);
+          if (!tile.isCleared && tile.modifier === 'stone') {
+            currentStones++;
           }
         }
       }
-      for (let i = 0; i < Math.min(2, clearedSlots.length); i++) {
-        const randIdx = Math.floor(Math.random() * clearedSlots.length);
-        const randSlot = clearedSlots.splice(randIdx, 1)[0];
-        randSlot.modifier = 'stone';
-        randSlot.modifierLevel = 2;
-        randSlot.isCleared = false;
-        randSlot.characterId = null;
+
+      if (currentStones < 4) {
+        const clearedSlots: TileState[] = [];
+        for (let r = 1; r <= rows; r++) {
+          for (let c = 1; c <= cols; c++) {
+            const tile = grid[r][c];
+            if (tile.isCleared) {
+              clearedSlots.push(tile);
+            }
+          }
+        }
+        if (clearedSlots.length > 0) {
+          const randIdx = Math.floor(Math.random() * clearedSlots.length);
+          const randSlot = clearedSlots[randIdx];
+          randSlot.modifier = 'stone';
+          randSlot.modifierLevel = 2;
+          randSlot.isCleared = false;
+          randSlot.characterId = null;
+        }
       }
     }
     // 3. Tile swap / Whirlwind / Tempest
@@ -125,25 +144,35 @@ export class BossManager {
       type === 'wing_tempest' || type === 'gravity_warp' || type === 'pack_call' ||
       type === 'celestial_ascend' || type === 'tidal_surge'
     ) {
+      // ONLY swap playable, non-obstacle tiles that are not locked
       const activeTiles: TileState[] = [];
       for (let r = 1; r <= rows; r++) {
         for (let c = 1; c <= cols; c++) {
           const tile = grid[r][c];
-          if (!tile.isCleared && tile.characterId && tile.modifier !== 'stone') {
+          if (!tile.isCleared && tile.characterId && tile.modifier === 'none' && !tile.isLocked) {
             activeTiles.push(tile);
           }
         }
       }
-      for (let i = 0; i < 3; i++) {
-        if (activeTiles.length >= 2) {
-          const idx1 = Math.floor(Math.random() * activeTiles.length);
-          let idx2 = Math.floor(Math.random() * activeTiles.length);
-          while (idx2 === idx1 && activeTiles.length > 1) {
-            idx2 = Math.floor(Math.random() * activeTiles.length);
-          }
-          const tmp = activeTiles[idx1].characterId;
-          activeTiles[idx1].characterId = activeTiles[idx2].characterId;
-          activeTiles[idx2].characterId = tmp;
+
+      if (activeTiles.length >= 2) {
+        const idx1 = Math.floor(Math.random() * activeTiles.length);
+        let idx2 = Math.floor(Math.random() * activeTiles.length);
+        let tries = 0;
+        while (
+          tries < 20 &&
+          (idx2 === idx1 || activeTiles[idx1].characterId === activeTiles[idx2].characterId)
+        ) {
+          idx2 = Math.floor(Math.random() * activeTiles.length);
+          tries++;
+        }
+        if (idx1 !== idx2 && activeTiles[idx1].characterId !== activeTiles[idx2].characterId) {
+          const t1 = activeTiles[idx1];
+          const t2 = activeTiles[idx2];
+          const tmp = t1.characterId;
+          t1.characterId = t2.characterId;
+          t2.characterId = tmp;
+          swappedPairs.push({ t1, t2 });
         }
       }
     }
@@ -156,7 +185,7 @@ export class BossManager {
       // Drained via onBossSkillTriggered callback in GameScene
     }
 
-    this.events.onBossSkillTriggered?.(skill.name, skill.description, skill.type);
+    this.events.onBossSkillTriggered?.(skill.name, skill.description, skill.type, swappedPairs);
   }
 
   public getHp(): number {

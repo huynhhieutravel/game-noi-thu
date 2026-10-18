@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>🔥 Hi-no-tori 3D Turntable</title>
+  <style>
+    body {
+      background: radial-gradient(circle at 50% 30%, #200808 0%, #070913 90%);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 24px;
+      user-select: none;
+    }
+    h2 {
+      color: #ff595e;
+      text-shadow: 0 0 15px rgba(255, 89, 94, 0.6);
+      margin-bottom: 6px;
+      font-size: 26px;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(255, 89, 94, 0.2);
+      border: 1px solid #ff595e;
+      color: #ffd700;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 16px;
+    }
+    #viewport {
+      width: 360px;
+      height: 360px;
+      margin: 10px auto;
+      border: 2px solid #ff595e;
+      border-radius: 24px;
+      background: radial-gradient(circle, #3d1414 0%, #150909 60%, #0d0f17 100%);
+      box-shadow: 0 0 35px rgba(255, 89, 94, 0.45), inset 0 0 20px rgba(255, 202, 58, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      position: relative;
+    }
+    #viewport:active {
+      cursor: grabbing;
+    }
+    #sprite {
+      width: 310px;
+      height: 310px;
+      pointer-events: none;
+      filter: drop-shadow(0 12px 24px rgba(255, 89, 94, 0.5));
+    }
+    .pedestal {
+      position: absolute;
+      bottom: 25px;
+      width: 200px;
+      height: 24px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(255, 202, 58, 0.6) 0%, rgba(255, 89, 94, 0.3) 50%, transparent 80%);
+      pointer-events: none;
+      animation: pulse 2.5s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.7; }
+      50% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 10px #ff595e); }
+    }
+    #angle-txt {
+      color: #ffbe0b;
+      font-size: 18px;
+      margin: 12px 0 6px 0;
+      font-weight: 800;
+    }
+    .btn {
+      background: #251214;
+      color: #ffd700;
+      border: 1px solid #ff595e;
+      padding: 10px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin: 6px;
+      font-weight: bold;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #ff595e;
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 89, 94, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <h2>🔥 Hi-no-tori 3D Turntable Player</h2>
+  <div class="badge">✦ BẤT TỬ HỎA ĐIỂU • 360° INTERACTIVE ✦</div>
+  
+  <div id="viewport">
+    <div class="pedestal"></div>
+    <img id="sprite" src="assets/companion/hinotori_3d/hinotori_3d_00.png" />
+  </div>
+
+  <h3 id="angle-txt">0° (Khung hình 00/18)</h3>
+  <p style="color: #adb5bd; font-size: 14px;">👆 Vuốt hoặc kéo chuột ngang để xoay 360° tự do</p>
+  
+  <div>
+    <button class="btn" id="btn-spin">🔄 Tự động xoay: BẬT</button>
+    <button class="btn" onclick="stepFrame(-1)">◀ Xoay Trái</button>
+    <button class="btn" onclick="stepFrame(1)">Xoay Phải ▶</button>
+    <button class="btn" onclick="setAngle(0)">🎯 Góc Chính Diện</button>
+  </div>
+
+  <script>
+    const totalFrames = 18;
+    let currentIdx = 0;
+    let autoSpin = true;
+
+    const sprite = document.getElementById('sprite');
+    const angleTxt = document.getElementById('angle-txt');
+    const btnSpin = document.getElementById('btn-spin');
+    const viewport = document.getElementById('viewport');
+
+    function update() {
+      const pad = currentIdx.toString().padStart(2, '0');
+      sprite.src = `assets/companion/hinotori_3d/hinotori_3d_${pad}.png`;
+      const deg = currentIdx * 20;
+      angleTxt.innerText = `${deg}° (Khung hình ${pad}/18)`;
+    }
+
+    function stepFrame(delta) {
+      currentIdx = ((currentIdx + delta) % totalFrames + totalFrames) % totalFrames;
+      update();
+    }
+
+    function setAngle(idx) {
+      currentIdx = idx;
+      update();
+    }
+
+    btnSpin.onclick = () => {
+      autoSpin = !autoSpin;
+      btnSpin.innerText = `🔄 Tự động xoay: ${autoSpin ? 'BẬT' : 'TẮT'}`;
+    };
+
+    setInterval(() => {
+      if (autoSpin) stepFrame(1);
+    }, 130);
+
+    // Touch & Mouse Drag
+    let isDragging = false;
+    let startX = 0;
+    let startFrame = 0;
+
+    viewport.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startFrame = currentIdx;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      const deltaFrames = Math.floor(dx / 14);
+      currentIdx = ((startFrame + deltaFrames) % totalFrames + totalFrames) % totalFrames;
+      update();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    // Touch events for mobile/tablet preview
+    viewport.addEventListener('touchstart', (e) => {
+      isDragging = true;
+      startX = e.touches[0].clientX;
+      startFrame = currentIdx;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      const dx = e.touches[0].clientX - startX;
+      const deltaFrames = Math.floor(dx / 14);
+      currentIdx = ((startFrame + deltaFrames) % totalFrames + totalFrames) % totalFrames;
+      update();
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => { isDragging = false; });
+
+    update();
+  </script>
+</body>
+</html>

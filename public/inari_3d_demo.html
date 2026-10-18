@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Cáo Inari 3D Interactive Turntable - Yokai Onet</title>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+body {
+  background: radial-gradient(circle at 50% 40%, #1e1b4b 0%, #0d0f17 80%);
+  color: #f8f9fa;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.header {
+  text-align: center;
+  margin-bottom: 10px;
+}
+.title {
+  font-size: 24px;
+  font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+}
+.subtitle {
+  font-size: 13px;
+  color: #00f5d4;
+  margin-top: 4px;
+}
+.stage-container {
+  position: relative;
+  width: 380px;
+  height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+}
+.stage-container:active {
+  cursor: grabbing;
+}
+.pedestal-glow {
+  position: absolute;
+  bottom: 25px;
+  width: 260px;
+  height: 50px;
+  background: radial-gradient(ellipse at center, rgba(255, 107, 107, 0.6) 0%, rgba(255, 215, 0, 0.25) 50%, transparent 80%);
+  border-radius: 50%;
+  filter: blur(8px);
+  pointer-events: none;
+}
+.pedestal-ring {
+  position: absolute;
+  bottom: 28px;
+  width: 240px;
+  height: 40px;
+  border: 2px solid rgba(255, 215, 0, 0.7);
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5), inset 0 0 15px rgba(255, 107, 107, 0.4);
+  background: rgba(19, 20, 36, 0.6);
+  pointer-events: none;
+}
+#fox-view {
+  width: 320px;
+  height: 320px;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.8));
+  transition: transform 0.1s ease;
+}
+.controls {
+  margin-top: 15px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.btn {
+  background: rgba(26, 29, 48, 0.9);
+  border: 1.5px solid #ffd700;
+  color: #ffd700;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  transition: all 0.2s;
+}
+.btn:active {
+  transform: scale(0.95);
+  background: #ffd700;
+  color: #131424;
+}
+.indicator {
+  font-size: 13px;
+  color: #ced4da;
+  margin-top: 10px;
+}
+.hint {
+  font-size: 11.5px;
+  color: #868e96;
+  margin-top: 6px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">⛩️ THẦN THÚ CÁO INARI 3D</div>
+  <div class="subtitle">Vuốt ngang màn hình để xoay linh thú 360 độ</div>
+</div>
+
+<div class="stage-container" id="stage">
+  <div class="pedestal-glow"></div>
+  <div class="pedestal-ring"></div>
+  <img id="fox-view" src="/assets/companion/inari_3d/inari_3d_00.png" alt="Inari 3D">
+</div>
+
+<div class="controls">
+  <button class="btn" id="btn-spin">🔄 TỰ QUAY: BẬT</button>
+  <button class="btn" id="btn-reset">🎯 VỀ CHÍNH DIỆN</button>
+</div>
+
+<div class="indicator" id="angle-text">Góc nhìn: 0° (Chính diện) • Khung hình: 0 / 17</div>
+<div class="hint">💡 Chạm / Kéo chuột hoặc ngón tay sang trái - phải để xoay linh thú</div>
+
+<script>
+const TOTAL_FRAMES = 18;
+const frames = [];
+for (let i = 0; i < TOTAL_FRAMES; i++) {
+  const img = new Image();
+  const pad = String(i).padStart(2, '0');
+  img.src = `/assets/companion/inari_3d/inari_3d_${pad}.png`;
+  frames.push(img);
+}
+
+const foxView = document.getElementById('fox-view');
+const stage = document.getElementById('stage');
+const angleText = document.getElementById('angle-text');
+const btnSpin = document.getElementById('btn-spin');
+const btnReset = document.getElementById('btn-reset');
+
+let currentFrame = 0;
+let isDragging = false;
+let startX = 0;
+let dragFrameStart = 0;
+let autoSpin = true;
+let spinTimer = null;
+
+function updateView(idx) {
+  currentFrame = ((idx % TOTAL_FRAMES) + TOTAL_FRAMES) % TOTAL_FRAMES;
+  const pad = String(currentFrame).padStart(2, '0');
+  foxView.src = `/assets/companion/inari_3d/inari_3d_${pad}.png`;
+  const angle = Math.round((currentFrame / TOTAL_FRAMES) * 360);
+  angleText.textContent = `Góc nhìn: ${angle}° • Khung hình: ${currentFrame + 1} / ${TOTAL_FRAMES}`;
+}
+
+// Drag logic
+stage.addEventListener('pointerdown', (e) => {
+  isDragging = true;
+  startX = e.clientX;
+  dragFrameStart = currentFrame;
+  autoSpin = false;
+  btnSpin.textContent = '🔄 TỰ QUAY: TẮT';
+  stage.setPointerCapture(e.pointerId);
+});
+
+stage.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - startX;
+  // Dragging right rotates clockwise, 18px per frame
+  const frameDelta = Math.floor(dx / 18);
+  updateView(dragFrameStart - frameDelta);
+});
+
+stage.addEventListener('pointerup', (e) => {
+  isDragging = false;
+  try { stage.releasePointerCapture(e.pointerId); } catch(err){}
+});
+
+stage.addEventListener('pointercancel', () => { isDragging = false; });
+
+// Click on fox to bounce
+foxView.addEventListener('click', () => {
+  foxView.style.transform = 'scale(1.15) translateY(-10px)';
+  setTimeout(() => { foxView.style.transform = 'scale(1)'; }, 200);
+});
+
+// Auto spin
+setInterval(() => {
+  if (autoSpin && !isDragging) {
+    updateView(currentFrame + 1);
+  }
+}, 110);
+
+btnSpin.addEventListener('click', () => {
+  autoSpin = !autoSpin;
+  btnSpin.textContent = autoSpin ? '🔄 TỰ QUAY: BẬT' : '🔄 TỰ QUAY: TẮT';
+});
+
+btnReset.addEventListener('click', () => {
+  updateView(0);
+  autoSpin = false;
+  btnSpin.textContent = '🔄 TỰ QUAY: TẮT';
+});
+</script>
+
+</body>
+</html>

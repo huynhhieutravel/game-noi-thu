@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Ryujin 3D Inspector</title>
+  <style>
+    body { background: #0b0c16; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; max-width: 1100px; margin: 20px auto; }
+    .card { background: #18192e; border: 1px solid #333; border-radius: 8px; padding: 8px; cursor: pointer; }
+    .card img { width: 100%; height: auto; display: block; }
+    .card span { font-size: 13px; font-weight: bold; color: #ffd700; margin-top: 6px; display: block; }
+    #turntable { width: 300px; height: 300px; margin: 20px auto; border: 2px solid #00f5d4; border-radius: 12px; background: radial-gradient(circle, #1e2942 0%, #0d111a 70%); }
+    #tt-img { width: 100%; height: 100%; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <h2>Ryujin Turntable Inspector (All 18 Processed Frames)</h2>
+  
+  <div id="turntable">
+    <img id="tt-img" src="assets/companion/ryujin_3d/proc/sheet2_00.png" />
+  </div>
+  <p id="cur-info">Click any card to preview in turntable, or drag turntable horizontally.</p>
+
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const sheets = [
+      'sheet2_00', 'sheet2_01', 'sheet2_02', 'sheet2_03', 'sheet2_04', 'sheet2_05',
+      'sheet3_00', 'sheet3_01', 'sheet3_02', 'sheet3_03', 'sheet3_04', 'sheet3_05',
+      'sheet1_00', 'sheet1_01', 'sheet1_02', 'sheet1_03', 'sheet1_04', 'sheet1_05'
+    ];
+
+    const grid = document.getElementById('grid');
+    const ttImg = document.getElementById('tt-img');
+    const curInfo = document.getElementById('cur-info');
+
+    sheets.forEach((s, idx) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<img src="assets/companion/ryujin_3d/proc/${s}.png"><span>${s}</span>`;
+      card.onclick = () => {
+        ttImg.src = `assets/companion/ryujin_3d/proc/${s}.png`;
+        curInfo.innerText = `Selected: ${s} (index ${idx})`;
+      };
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>

@@ -3,16 +3,28 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { GAME_HEIGHT, GAME_WIDTH, setupRetinaCamera } from '../constants';
 import charactersData from '../data/characters.json';
 import bossesData from '../data/bosses.json';
+import relicsData from '../data/relics.json';
 import { TextureGenerator } from '../game/TextureGenerator';
 import { SaveSystem } from '../systems/SaveSystem';
 import { CharacterData } from '../types';
 
 export class BootScene extends Phaser.Scene {
+  private hasTransitioned: boolean = false;
+
   constructor() {
     super('BootScene');
   }
 
+  private safeTransition(): void {
+    if (this.hasTransitioned) return;
+    this.hasTransitioned = true;
+    TextureGenerator.generateAll(this);
+    this.scene.start('MainMenuScene');
+    SplashScreen.hide().catch(() => {});
+  }
+
   public preload(): void {
+    this.hasTransitioned = false;
     setupRetinaCamera(this);
     const width = GAME_WIDTH;
     const height = GAME_HEIGHT;
@@ -66,22 +78,13 @@ export class BootScene extends Phaser.Scene {
       console.warn(`[BootScene] Warning: Asset ${fileObj?.key || 'unknown'} skipped.`);
     });
 
-    // Safety Watchdog: If offline I/O stalls, guarantee transition within 3.5s
-    let hasTransitioned = false;
-    const safeTransition = () => {
-      if (hasTransitioned) return;
-      hasTransitioned = true;
-      TextureGenerator.generateAll(this);
-      this.scene.start('MainMenuScene');
-      SplashScreen.hide().catch(() => {});
-    };
-
+    // Safety Watchdog: If offline I/O stalls, guarantee transition within 5s
     const watchdogTimer = setTimeout(() => {
-      if (this.scene.isActive('BootScene')) {
+      if (!this.hasTransitioned) {
         console.warn('[BootScene] Watchdog timer fired - proceeding to MainMenuScene');
-        safeTransition();
+        this.safeTransition();
       }
-    }, 3500);
+    }, 5000);
 
     this.load.once('complete', () => {
       clearTimeout(watchdogTimer);
@@ -101,6 +104,7 @@ export class BootScene extends Phaser.Scene {
     // Preload Main Menu & Gameplay HD Backgrounds & UI Assets
     this.load.image('bg_main_torii', resolveAsset('/assets/bg_main_torii.jpg'));
     this.load.image('bg_gameplay_shrine', resolveAsset('/assets/bg_gameplay_shrine.jpg'));
+    this.load.image('bg_egypt_nile', resolveAsset('/assets/themes/egypt/bg_egypt_nile.jpg'));
     this.load.image('album_book_icon', resolveAsset('/assets/album_book_icon.png'));
     this.load.image('avatar_inari', resolveAsset('/assets/avatar_inari.png'));
 
@@ -109,6 +113,51 @@ export class BootScene extends Phaser.Scene {
     this.load.image('portal_torii_a', resolveAsset('/assets/portal_torii_a.png'));
     this.load.image('portal_torii_b', resolveAsset('/assets/portal_torii_b.png'));
     this.load.image('shrine_roof', resolveAsset('/assets/shrine_roof.png'));
+    this.load.image('shrine_lantern', resolveAsset('/assets/shrine_lantern.png'));
+
+    // Preload initial Stage 1 to 10 backgrounds for instantaneous Chapter 1 launch
+    for (let stg = 1; stg <= 10; stg++) {
+      const stgPath = resolveAsset(`/assets/stages/stage_bg_${stg}.png`);
+      this.load.image(`stage_bg_${stg}`, stgPath);
+      this.load.image(`bg${stg}`, stgPath);
+    }
+
+    // Preload 30 Relics (if PNGs exist in public/assets/relics/)
+    for (const relic of (relicsData as any[])) {
+      this.load.image(relic.id, resolveAsset(`/${relic.image}`));
+      this.load.image(`relic_${relic.id}`, resolveAsset(`/${relic.image}`));
+    }
+
+    // Preload Inari Kitsune 3D Turntable Frames (18 frames across 360 degrees)
+    for (let i = 0; i < 18; i++) {
+      const pad = i.toString().padStart(2, '0');
+      this.load.image(`inari_3d_${pad}`, resolveAsset(`/assets/companion/inari_3d/inari_3d_${pad}.png`));
+    }
+
+    // Preload Ryujin Pearl 3D Turntable Frames (18 frames across 360 degrees)
+    for (let i = 0; i < 18; i++) {
+      const pad = i.toString().padStart(2, '0');
+      this.load.image(`ryujin_3d_${pad}`, resolveAsset(`/assets/companion/ryujin_3d/ryujin_3d_${pad}.png`));
+    }
+
+    // Preload Hi-no-tori 3D Turntable Frames (18 frames across 360 degrees)
+    for (let i = 0; i < 18; i++) {
+      const pad = i.toString().padStart(2, '0');
+      this.load.image(`hinotori_3d_${pad}`, resolveAsset(`/assets/companion/hinotori_3d/hinotori_3d_${pad}.png`));
+    }
+
+    // Preload ALL 10 Mythical Companions
+    const all10Companions = [
+      'inari_kitsune', 'ryujin_pearl', 'hi_no_tori',
+      'byakko_tiger', 'genbu_tortoise', 'kirin_sacred',
+      'raiju_thunder', 'yatagarasu_crow', 'nekomata_cat', 'orochi_serpent'
+    ];
+    for (const compId of all10Companions) {
+      const charPath = resolveAsset(`/assets/characters/${compId}.png`);
+      this.load.image(`char_${compId}`, charPath);
+      this.load.image(`avatar_${compId}`, charPath);
+      this.load.image(`comp_${compId}`, charPath);
+    }
 
     // Preload HD Booster Button Sprites (matching mockup)
     this.load.image('btn_booster_hint', resolveAsset('/assets/btn_booster_hint.png'));
@@ -136,12 +185,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   public create(): void {
-    // Generate procedural tile bases, borders, particles and fallbacks
-    TextureGenerator.generateAll(this);
-
-    this.time.delayedCall(200, () => {
-      this.scene.start('MainMenuScene');
-      SplashScreen.hide().catch(() => {});
-    });
+    this.safeTransition();
   }
 }

@@ -66,3 +66,88 @@ _Avoid_: Sound download, audio stream, music assets
 The client-side Service Worker caching strategy guaranteeing immediate cold-start execution and autonomous gameplay in disconnected environments.
 _Avoid_: Local cache, offline app, disk store
 
+## Records & Honor
+
+**Arcade Hall of Fame**:
+The localized, zero-cloud trophy pavilion recording the player's lifetime personal bests (speedrun clear times, maximum combo streaks, and pure wins without boosters).
+_Avoid_: Leaderboard, online ranking, global scoreboard
+
+**Speedrun Record**:
+The fastest recorded elapsed time in seconds to completely clear a playable board from first touch to final pair.
+_Avoid_: Clear time, best time, fast run
+
+**Iron Hand Streak**:
+The consecutive streak of campaign stages completed with zero booster activations (no hints, no shuffles, and no bombs).
+_Avoid_: No-booster streak, pure run, clean streak
+
+## Companions & Progression (Linh Thú & Tiến Hóa)
+
+**Companion Shard**:
+A collectible elemental relic fragment specific to each mythical companion, accumulated through 3-star chapter completions, Boss defeats, or Shinto Shrine exchanges to upgrade companion levels (1-5) and trigger awakenings.
+_Avoid_: Character card, duplicate hero, gacha shard
+
+**Spirit Gauge**:
+An energy meter filled incrementally as the player matches tile pairs and maintains combo streaks, unlocking the companion's active tactical skill upon reaching 100%.
+_Avoid_: Mana bar, rage meter, energy pool
+
+**Companion Awakening**:
+A qualitative milestone transformation occurring at level thresholds (Tier 1 to Tier 3) that evolves the visual aura and unlocks specialized secondary skill mechanics rather than inflating raw clear counts.
+_Avoid_: Star-up, limit break, stat boost
+
+**Rule-Bending Passive**:
+An innate companion trait that subtly bends standard board constraints (such as granting extra margin turns, preserving combo during deadlocks, or extra life protection) without automating puzzle clears.
+_Avoid_: Stat buff, passive boost, cheat perk
+
+**Archetype Affinity**:
+The design alignment between a companion's elemental domain and specific board obstacles or modes (e.g., Fire countering Ice/Bosses, Earth crushing Stone, Water regulating Survival blizzard tempo).
+_Avoid_: Hero class, counter meta, element advantage
+
+## Multiverse Campaign & Realm Fusion (Viễn Chinh Vạn Giới)
+
+**Multiverse Campaign (Viễn Chinh Vạn Giới)**:
+The overarching 100-level progression spanning 10 distinct mythological domains, featuring 495 hand-crafted mythical creatures across 16 world collections.
+_Avoid_: World map, level pack, level saga
+
+**Sister-Theme Pairing**:
+The structural fusion of complementary cultural and thematic character pools (e.g., Egypt + Desert Animals, Greece + Fantasy, Pirate + Underwater Abyss) to ensure deep, varied boards of 36–90+ candidate tiles per chapter without requiring new asset drawings.
+_Avoid_: Random mix, theme shuffle, mixed pack
+
+**Vanguard Ambassadors**:
+The quartet of canonical traveling companions (`inari_kitsune`, `nekomata_calico`, `bake_danuki`, `kappa_cucumber`) that accompany the player across all worlds, providing narrative continuity and visual anchors in foreign realms.
+_Avoid_: Mascots, starter squad, fixed helpers
+
+**Intra-Chapter Pacing Formula (60/40 -> 75/25 -> 50/50 -> Boss)**:
+The mathematical character distribution ratio within each 10-level chapter, shifting from introductory onboarding (levels 1–3) to deep cultural immersion (levels 4–7), high-entropy convergence (levels 8–9), and climax boss encounter (level 10).
+_Avoid_: Difficulty ramp, stage mix, random ratio
+
+## Companion Relics & 100-Shard Forging (Thần Khí & Đúc 100 Mảnh)
+
+**Companion Relic (Cổ Vật Thần Khí)**:
+A specialized mythical artifact (30 in total across 10 chapters) equipped prior to entering a stage, providing a high-impact ultimate tactical skill triggered when the rage gauge reaches 100%.
+_Avoid_: Equipment item, gear piece, weapon drop
+
+**100-Shard Forging (Quy Chuẩn Đúc 100 Mảnh)**:
+The fixed progression requirement of collecting exactly 100 unique shards of a relic to permanently forge and unlock it.
+_Avoid_: Gacha roll, random crafting, lucky drop
+
+**Surplus Shard Conversion (Quy Đổi Mảnh Thừa)**:
+The automated conversion of any additional shards acquired after forging a relic into 50 gold coins per shard at stage completion.
+_Avoid_: Shard burn, salvage scrap, trash selling
+
+**Three-Tier Drop Slicing (Phân Bổ 3 Cấp Bậc)**:
+The structural drop allocation of relics across stage types: Common (🟢 Hạ Phẩm) dropping in regular stages (2%–8%), Rare (🟡 Trung Phẩm) in Mini-Boss stages (10%–20%), and Epic (🔴 Thượng Phẩm) exclusively in World Boss stages (25%–40%, with ≥ 2 shards guaranteed on 3-Star Hard).
+_Avoid_: RNG rarity, item tier list, random loot
+
+## Economy & Supply (Kinh Tế & Tiếp Tế)
+
+**Tactical Supply Depot (Tiệm Đạo Cụ)**:
+The hub-based pre-stage merchant where players exchange accumulated soft currency for tactical puzzle boosters before entering a match.
+_Avoid_: In-game shop, cash shop, microtransaction store
+
+**Dual-Currency System (Hệ Thống Song Tệ)**:
+The macroeconomic architecture comprising Coins (earned soft currency for boosters and level-ups) and Diamonds (hard currency reserved for future live-service expansions).
+_Avoid_: Token economy, multi-currency wallet, point system
+
+**Non-Purchasable Relic (Thần Khí Bất Khả Mua)**:
+The gameplay integrity rule guaranteeing that relic shards and companion awakening fragments can only be earned through stage victories and boss battles, never bought in the shop.
+_Avoid_: Gacha pool, pay-to-win items, lootbox

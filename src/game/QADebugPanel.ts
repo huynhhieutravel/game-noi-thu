@@ -11,7 +11,7 @@ export class QADebugPanel {
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.createToggleButton();
+    // Visible QA button removed per user request. Keyboard shortcuts ('D' or '~') remain active.
     this.setupKeyboardShortcuts();
   }
 
@@ -89,6 +89,11 @@ export class QADebugPanel {
           // Shuffle
           if (typeof anyScene.triggerShuffleCheat === 'function') {
             anyScene.triggerShuffleCheat();
+          }
+        } else if (key === 'R') {
+          // Max Rage Cheat (Companion + Relic)
+          if (typeof anyScene.maxRageCheat === 'function') {
+            anyScene.maxRageCheat();
           }
         }
       }
@@ -200,6 +205,10 @@ export class QADebugPanel {
 
       createCheatButton('🔄 Đảo Bàn Reshuffle [Phím S]', 0x9d4edd, () => {
         if (typeof anyScene.triggerShuffleCheat === 'function') anyScene.triggerShuffleCheat();
+      });
+
+      createCheatButton('⚡ Tối Đa Nộ Linh Thú & Thần Khí [Phím R]', 0xffd700, () => {
+        if (typeof anyScene.maxRageCheat === 'function') anyScene.maxRageCheat();
       });
 
       createCheatButton('💀 Thua Màn Tức Thì [Phím L]', 0xd90429, () => {

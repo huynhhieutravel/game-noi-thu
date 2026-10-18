@@ -427,6 +427,35 @@ export class AudioSystem {
   }
 
   /**
+   * Hint booster chime (Sparkling celestial harp arpeggio)
+   */
+  public playHint(): void {
+    if (!this.isEnabled || !this.isSfxEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const notes = [659.25, 830.61, 987.77, 1318.51]; // E5, G#5, B5, E6
+    notes.forEach((freq, idx) => {
+      if (!this.ctx) return;
+      const startTime = this.ctx.currentTime + idx * 0.055;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, startTime);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.01, startTime + 0.35);
+
+      gain.gain.setValueAtTime(0.18, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.35);
+    });
+  }
+
+  /**
    * Victory grand Shinto chime
    */
   public playVictory(): void {
@@ -595,6 +624,119 @@ export class AudioSystem {
 
     osc.start(now);
     osc.stop(now + 0.35);
+  }
+
+  /**
+   * ⚡ Dynamic Mythic Soundscapes for 30 Relics (Web Audio API synthesizers)
+   * - 'boss' / 'combat': Thunderous strike with metallic impact & sub-bass drop
+   * - 'support' / 'time': Celestial crystal chimes & harmonic shimmer
+   * - 'board' / 'utility': Resonant pulse wave & astral sweep
+   */
+  public playRelicBurst(archetype: string = 'boss'): void {
+    if (!this.isEnabled || !this.isSfxEnabled) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+
+    if (archetype === 'boss' || archetype === 'combat') {
+      // 1. Sub-bass ground tremor
+      const sub = this.ctx.createOscillator();
+      const subGain = this.ctx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(140, now);
+      sub.frequency.exponentialRampToValueAtTime(30, now + 0.45);
+      subGain.gain.setValueAtTime(0.35, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      sub.connect(subGain);
+      subGain.connect(this.ctx.destination);
+      sub.start(now);
+      sub.stop(now + 0.45);
+
+      // 2. Crackling lightning slash (sawtooth sweep)
+      const bolt = this.ctx.createOscillator();
+      const boltGain = this.ctx.createGain();
+      bolt.type = 'sawtooth';
+      bolt.frequency.setValueAtTime(1400, now);
+      bolt.frequency.exponentialRampToValueAtTime(180, now + 0.25);
+      boltGain.gain.setValueAtTime(0.2, now);
+      boltGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      bolt.connect(boltGain);
+      boltGain.connect(this.ctx.destination);
+      bolt.start(now);
+      bolt.stop(now + 0.25);
+
+      // 3. Mythic metallic ringing resonance
+      const metal = this.ctx.createOscillator();
+      const metalGain = this.ctx.createGain();
+      metal.type = 'triangle';
+      metal.frequency.setValueAtTime(1760, now + 0.05);
+      metal.frequency.exponentialRampToValueAtTime(880, now + 0.55);
+      metalGain.gain.setValueAtTime(0.18, now + 0.05);
+      metalGain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      metal.connect(metalGain);
+      metalGain.connect(this.ctx.destination);
+      metal.start(now + 0.05);
+      metal.stop(now + 0.55);
+
+    } else if (archetype === 'support' || archetype === 'time') {
+      // Celestial crystal chimes: Pentatonic arpeggio [C6, E6, G6, B6, C7]
+      const notes = [1046.50, 1318.51, 1567.98, 1975.53, 2093.00];
+      notes.forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const noteStart = now + idx * 0.06;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, noteStart);
+        gain.gain.setValueAtTime(0.12, noteStart);
+        gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.6);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(noteStart);
+        osc.stop(noteStart + 0.6);
+      });
+
+      // Warm harmonic swell underneath
+      const swell = this.ctx.createOscillator();
+      const swellGain = this.ctx.createGain();
+      swell.type = 'triangle';
+      swell.frequency.setValueAtTime(440, now);
+      swell.frequency.linearRampToValueAtTime(523.25, now + 0.4);
+      swellGain.gain.setValueAtTime(0.001, now);
+      swellGain.gain.linearRampToValueAtTime(0.15, now + 0.15);
+      swellGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+      swell.connect(swellGain);
+      swellGain.connect(this.ctx.destination);
+      swell.start(now);
+      swell.stop(now + 0.65);
+
+    } else {
+      // 'board' / 'utility' / auto-match: Astral pulse wave & energy sweep
+      const sweep = this.ctx.createOscillator();
+      const sweepGain = this.ctx.createGain();
+      sweep.type = 'triangle';
+      sweep.frequency.setValueAtTime(320, now);
+      sweep.frequency.exponentialRampToValueAtTime(960, now + 0.35);
+      sweepGain.gain.setValueAtTime(0.2, now);
+      sweepGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      sweep.connect(sweepGain);
+      sweepGain.connect(this.ctx.destination);
+      sweep.start(now);
+      sweep.stop(now + 0.4);
+
+      // Sparkle ping
+      const ping = this.ctx.createOscillator();
+      const pingGain = this.ctx.createGain();
+      ping.type = 'sine';
+      ping.frequency.setValueAtTime(1480, now + 0.12);
+      pingGain.gain.setValueAtTime(0.15, now + 0.12);
+      pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      ping.connect(pingGain);
+      pingGain.connect(this.ctx.destination);
+      ping.start(now + 0.12);
+      ping.stop(now + 0.5);
+    }
   }
 
   /**

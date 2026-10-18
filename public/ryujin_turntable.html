@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Ryujin 3D Turntable</title>
+  <style>
+    body { background: #070913; color: #fff; font-family: -apple-system, sans-serif; text-align: center; margin: 0; padding: 20px; user-select: none; }
+    #viewport { width: 340px; height: 340px; margin: 20px auto; border: 2px solid #00f5d4; border-radius: 20px; background: radial-gradient(circle, #192a4a 0%, #080d1a 75%); display: flex; align-items: center; justify-content: center; cursor: grab; }
+    #viewport:active { cursor: grabbing; }
+    #sprite { width: 280px; height: 280px; pointer-events: none; }
+    .btn { background: #1a1a36; color: #ffd700; border: 1px solid #ff758f; padding: 8px 16px; border-radius: 8px; cursor: pointer; margin: 4px; font-weight: bold; }
+    .btn:hover { background: #ff758f; color: #000; }
+    #order-select { background: #1a1a36; color: #fff; border: 1px solid #00f5d4; padding: 8px; border-radius: 8px; font-size: 14px; margin: 10px; }
+  </style>
+</head>
+<body>
+  <h2>🐉 Rồng Ryujin 3D Turntable Player</h2>
+  <div id="viewport">
+    <img id="sprite" src="" />
+  </div>
+  <h3 id="angle-txt">0° (Frame 00)</h3>
+  <p>👆 Vuốt ngang hoặc nhấn các nút để kiểm tra độ mượt</p>
+  
+  <div>
+    <button class="btn" id="btn-spin">🔄 Tự động xoay: BẬT</button>
+    <button class="btn" onclick="stepFrame(-1)">◀ Trước</button>
+    <button class="btn" onclick="stepFrame(1)">Sau ▶</button>
+  </div>
+
+  <div style="margin-top: 15px;">
+    <label>Bộ thứ tự: </label>
+    <select id="order-select" onchange="changeOrder(this.value)">
+      <option value="orderA">Thứ tự A (Sheet 2 -> Sheet 3 -> Sheet 1)</option>
+      <option value="orderB">Thứ tự B (Theo góc xoay phân tích)</option>
+    </select>
+  </div>
+
+  <script>
+    // Let's test candidate sequences
+    const totalFrames = 18;
+    let currentIdx = 0;
+    let autoSpin = true;
+    let spinInterval = null;
+
+    const sprite = document.getElementById('sprite');
+    const angleTxt = document.getElementById('angle-txt');
+    const btnSpin = document.getElementById('btn-spin');
+    const viewport = document.getElementById('viewport');
+
+    function update() {
+      const pad = currentIdx.toString().padStart(2, '0');
+      sprite.src = `assets/companion/ryujin_3d/ryujin_3d_${pad}.png`;
+      const deg = currentIdx * 20;
+      angleTxt.innerText = `${deg}° (Frame ${pad}/18)`;
+    }
+
+    function stepFrame(delta) {
+      currentIdx = ((currentIdx + delta) % totalFrames + totalFrames) % totalFrames;
+      update();
+    }
+
+    function changeOrder(key) {
+      currentOrderKey = key;
+      currentIdx = 0;
+      update();
+    }
+
+    btnSpin.onclick = () => {
+      autoSpin = !autoSpin;
+      btnSpin.innerText = `🔄 Tự động xoay: ${autoSpin ? 'BẬT' : 'TẮT'}`;
+    };
+
+    setInterval(() => {
+      if (autoSpin) stepFrame(1);
+    }, 140);
+
+    // Drag interaction
+    let isDragging = false;
+    let startX = 0;
+    let startFrame = 0;
+
+    viewport.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startFrame = currentIdx;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      const deltaFrames = Math.floor(dx / 15);
+      const list = orders[currentOrderKey];
+      currentIdx = ((startFrame + deltaFrames) % list.length + list.length) % list.length;
+      update();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    update();
+  </script>
+</body>
+</html>
