@@ -302,37 +302,9 @@ export class MainMenuScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     diaHit.on('pointerdown', () => this.openShopModal());
 
-    // --- 4. Theme Dropdown Pill (x = 376, width = 118) ---
-    const themeW = 118;
-    const themeX = diaX + diaW + 8; // 376
-
-    const themeBg = this.add.graphics();
-    themeBg.fillStyle(0x1a0f18, 0.92);
-    themeBg.fillRoundedRect(themeX, topY, themeW, compH, 18);
-    themeBg.lineStyle(1.5, 0xd90429, 0.9);
-    themeBg.strokeRoundedRect(themeX, topY, themeW, compH, 18);
-
-    const themeIcon = this.add.text(themeX + 12, topY + compH / 2, '⛩️', { fontSize: '15px' }).setOrigin(0, 0.5);
-    const themeText = this.add.text(themeX + 34, topY + compH / 2, 'Bách Quỷ', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
-      fontStyle: '900',
-      color: '#ffffff'
-    }).setOrigin(0, 0.5);
-    const themeArrow = this.add.text(themeX + themeW - 14, topY + compH / 2, '▾', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
-      color: '#ffd166'
-    }).setOrigin(0.5);
-
-    const themeHit = this.add.zone(themeX, topY, themeW, compH)
-      .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true });
-    themeHit.on('pointerdown', () => this.openThemeSelectorModal());
-
-    // --- 5. Chapter Pill (x = 502, width = 112) ---
-    const chapW = 112;
-    const chapX = themeX + themeW + 8; // 502
+    // --- 4. Chapter Pill (x = 388, width = 118) ---
+    const chapW = 118;
+    const chapX = diaX + diaW + 10; // 388
 
     const chapBg = this.add.graphics();
     chapBg.fillStyle(0x111024, 0.92);
@@ -355,9 +327,9 @@ export class MainMenuScene extends Phaser.Scene {
       this.openStageSelectModal();
     });
 
-    // --- 6. 100 Màn Codex Button (x = 622, width = 108) ---
-    const codexW = 108;
-    const codexX = chapX + chapW + 8; // 622
+    // --- 5. 100 Màn Codex Button (x = 516, width = 118) ---
+    const codexW = 118;
+    const codexX = chapX + chapW + 10; // 516
 
     const codexBg = this.add.graphics();
     codexBg.fillStyle(0x1d1a12, 0.92);
@@ -381,9 +353,9 @@ export class MainMenuScene extends Phaser.Scene {
       this.scene.start('CollectionScene');
     });
 
-    // --- 7. Stars Pill (x = 738, width = 86) ---
-    const starW = 86;
-    const starX = codexX + codexW + 8; // 738
+    // --- 6. Stars Pill (x = 644, width = 92) ---
+    const starW = 92;
+    const starX = codexX + codexW + 10; // 644
 
     const starsBg = this.add.graphics();
     starsBg.fillStyle(0x111024, 0.92);
@@ -479,7 +451,6 @@ export class MainMenuScene extends Phaser.Scene {
       compBg, avItem, compNameTxt, lvlBg, lvlTxt, expTrack, expFill, compHit,
       coinsBg, coinIcon, coinText, coinPlus, coinPlusTxt, coinHit,
       diaBg, diaIcon, diaText, diaPlus, diaPlusTxt, diaHit,
-      themeBg, themeIcon, themeText, themeArrow, themeHit,
       chapBg, chapTxt, chapHit,
       codexBg, codexTxt, codexHit,
       starsBg, starIcon, starText,
