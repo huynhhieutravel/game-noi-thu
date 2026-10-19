@@ -1542,6 +1542,48 @@ export class TextureGenerator {
 
       scene.textures.addCanvas('torii_watermark', canvas);
     }
+
+    // 13. Fallback textures for EXP flame and Gold Coin (if assets not loaded)
+    if (!scene.textures.exists('icon_reward_exp')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d')!;
+      const grad = ctx.createRadialGradient(32, 32, 4, 32, 32, 30);
+      grad.addColorStop(0, '#38bdf8');
+      grad.addColorStop(0.7, '#0284c7');
+      grad.addColorStop(1, 'rgba(2, 132, 199, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(32, 32, 28, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('EXP', 32, 32);
+      scene.textures.addCanvas('icon_reward_exp', canvas);
+    }
+
+    if (!scene.textures.exists('icon_reward_coin')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(32, 32, 26, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#d4af37';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = '#78350f';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('8', 32, 32);
+      scene.textures.addCanvas('icon_reward_coin', canvas);
+    }
   }
 
   /**

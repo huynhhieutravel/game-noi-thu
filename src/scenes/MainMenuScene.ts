@@ -4605,15 +4605,39 @@ export class MainMenuScene extends Phaser.Scene {
     const validDiff = (chosenDiff === 'medium' || chosenDiff === 'hard') ? chosenDiff : 'easy';
     const matrix = stageLoot.rewardsMatrix[validDiff] || stageLoot.rewardsMatrix.easy;
 
-    // Top Row: Base Rewards (4 pods)
+    // Top Row: Base Rewards (4 pods) matching Image 1
     const baseRewards = [
-      { icon: '🔥', label: `+${matrix.exp} EXP`, sub: 'Kinh nghiệm', color: '#38bdf8' },
-      { icon: '🪙', label: `+${formatCurrency(matrix.coins)} Xu`, sub: 'Tiền thưởng', color: '#ffd166' },
-      { icon: '🐾', label: `${stageLoot.mainCompanionName || 'Cáo Inari'}`, sub: `(${matrix.mainShardPct || '1.0%'})`, color: '#ff758f' },
-      { icon: '🐱', label: `${stageLoot.subCompanionName || 'Mèo Nekomata'}`, sub: `(${matrix.subShardPct || '0.3%'})`, color: '#ff9ebb' }
+      {
+        iconKey: 'icon_reward_exp',
+        fallback: '🔥',
+        label: `+${matrix.exp} EXP`,
+        sub: 'Kinh nghiệm',
+        color: '#ffffff'
+      },
+      {
+        iconKey: 'icon_reward_coin',
+        fallback: '🪙',
+        label: `+${formatCurrency(matrix.coins)} Xu`,
+        sub: 'Tiền thưởng',
+        color: '#ffffff'
+      },
+      {
+        iconKey: null,
+        fallback: '🐾',
+        label: `${stageLoot.mainCompanionName || 'Cáo Inari'}`,
+        sub: `(${matrix.mainShardPct || '1.0%'})`,
+        color: '#ff758f'
+      },
+      {
+        iconKey: null,
+        fallback: '🐱',
+        label: `${stageLoot.subCompanionName || 'Mèo Nekomata'}`,
+        sub: `(${matrix.subShardPct || '0.3%'})`,
+        color: '#ff9ebb'
+      }
     ];
 
-    const rPodSpacing = 104;
+    const rPodSpacing = 106;
     const rPodStartX = -((4 - 1) * rPodSpacing) / 2;
     const rPodY = -bottomCardH / 2 + 48;
 
@@ -4621,37 +4645,47 @@ export class MainMenuScene extends Phaser.Scene {
       const rx = rPodStartX + idx * rPodSpacing;
       const podCont = this.add.container(rx, rPodY);
 
-      const pIcon = this.add.text(-24, 0, r.icon, { fontSize: '14px' }).setOrigin(0.5);
-      const pLabel = this.add.text(-10, -5, r.label, {
+      if (r.iconKey && this.textures.exists(r.iconKey)) {
+        const pImg = this.add.image(-26, 0, r.iconKey).setDisplaySize(32, 32);
+        podCont.add(pImg);
+      } else {
+        const pIcon = this.add.text(-24, 0, r.fallback, { fontSize: '16px' }).setOrigin(0.5);
+        podCont.add(pIcon);
+      }
+
+      const pLabel = this.add.text(-6, -6, r.label, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '9.5px',
+        fontSize: '11px',
         fontStyle: '900',
         color: r.color
       }).setOrigin(0, 0.5);
-      const pSub = this.add.text(-10, 7, r.sub, {
+
+      const pSub = this.add.text(-6, 8, r.sub, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '8.5px',
+        fontSize: '9px',
+        fontStyle: '600',
         color: '#94a3b8'
       }).setOrigin(0, 0.5);
 
-      podCont.add([pIcon, pLabel, pSub]);
+      podCont.add([pLabel, pSub]);
       lootBox.add(podCont);
     });
 
     // Subheader: THƯỞNG THEO ĐỘ KHÓ
     const diffSubheader = this.add.text(-colW / 2 + 20, -2, 'THƯỞNG THEO ĐỘ KHÓ', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10px',
+      fontSize: '10.5px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0, 0.5);
     lootBox.add(diffSubheader);
 
-    // 3 Treasure Chest Pods
+    // 3 Treasure Chest Pods matching Image 2
     const chestConfigs = [
       {
         diffKey: 'easy',
-        label: 'Dễ',
+        title: 'Dễ',
+        titleColor: '#ffffff',
         chestTex: 'chest_diff_easy',
         coins: '+100 Xu',
         exp: '+50 EXP',
@@ -4660,7 +4694,8 @@ export class MainMenuScene extends Phaser.Scene {
       },
       {
         diffKey: 'medium',
-        label: save.isLevelUnlocked(baseConfig.levelNumber, 'medium') ? 'Vừa' : 'Vừa 🔒',
+        title: 'Vừa',
+        titleColor: '#ffffff',
         chestTex: 'chest_diff_medium',
         coins: '+200 Xu',
         exp: '+100 EXP',
@@ -4669,7 +4704,8 @@ export class MainMenuScene extends Phaser.Scene {
       },
       {
         diffKey: 'hard',
-        label: save.isLevelUnlocked(baseConfig.levelNumber, 'hard') ? 'Khó' : 'Khó 🔒',
+        title: 'Khó',
+        titleColor: '#ff4d6d',
         chestTex: 'chest_diff_hard',
         coins: '+300 Xu',
         exp: '+150 EXP',
@@ -4704,32 +4740,63 @@ export class MainMenuScene extends Phaser.Scene {
       }
       podC.add(pBg);
 
-      // Chest Icon on Left of Pod (Show in full color like Image 2)
+      // Chest Icon on Left of Pod (Image 2 style)
       if (this.textures.exists(cp.chestTex)) {
-        const chImg = this.add.image(-cPodW / 2 + 28, 0, cp.chestTex).setDisplaySize(46, 40);
+        const chImg = this.add.image(-cPodW / 2 + 25, 0, cp.chestTex).setDisplaySize(44, 44);
         podC.add(chImg);
       }
 
-      // Text Info on Right of Pod
-      const lTxt = this.add.text(-cPodW / 2 + 54, -14, cp.label, {
+      // Difficulty Title on Right of Chest
+      const lTxt = this.add.text(-cPodW / 2 + 54, -15, cp.title, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '11px',
         fontStyle: '900',
-        color: isSel ? '#00f5d4' : (cp.isUnlocked ? '#ffffff' : '#94a3b8')
+        color: isSel ? '#00f5d4' : cp.titleColor
       });
-      const cTxt = this.add.text(-cPodW / 2 + 54, 2, cp.coins, {
+      podC.add(lTxt);
+
+      // Lock Icon if difficulty is still locked
+      if (!cp.isUnlocked) {
+        const lockIcon = this.add.text(-cPodW / 2 + 82, -15, '🔒', {
+          fontSize: '10px'
+        });
+        podC.add(lockIcon);
+      }
+
+      // Coins reward
+      const cTxt = this.add.text(-cPodW / 2 + 54, 1, cp.coins, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '9.5px',
-        fontStyle: 'bold',
-        color: isSel ? '#ffd166' : '#94a3b8'
+        fontStyle: '800',
+        color: isSel ? '#ffd166' : (cp.isUnlocked ? '#ffd166' : '#cbd5e1')
       });
-      const eTxt = this.add.text(-cPodW / 2 + 54, 15, cp.exp, {
+
+      // EXP reward
+      const eTxt = this.add.text(-cPodW / 2 + 54, 14, cp.exp, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '9.5px',
-        fontStyle: 'bold',
-        color: isSel ? '#38bdf8' : '#64748b'
+        fontStyle: '800',
+        color: isSel ? '#ffd166' : (cp.isUnlocked ? '#ffd166' : '#94a3b8')
       });
-      podC.add([lTxt, cTxt, eTxt]);
+      podC.add([cTxt, eTxt]);
+
+      // Interactive click to switch difficulty
+      podC.setSize(cPodW, cPodH).setInteractive({ useHandCursor: true });
+      podC.on('pointerdown', () => {
+        if (!cp.isUnlocked) {
+          this.audio.playTick();
+          if (cp.diffKey === 'medium') {
+            this.showFloatingToast(`🔒 Cần vượt hết 10 màn Dễ Chương ${ch.chapterNum} để mở Vừa!`, 0xffd166);
+          } else if (cp.diffKey === 'hard') {
+            this.showFloatingToast(`🔒 Cần vượt hết 10 màn Vừa Chương ${ch.chapterNum} để mở Khó!`, 0xef476f);
+          }
+          return;
+        }
+        if (chosenDiff !== cp.diffKey) {
+          this.audio.playSelect();
+          this.openStageDetailModal(baseConfig, cp.diffKey as DifficultyLevel);
+        }
+      });
 
       lootBox.add(podC);
     });

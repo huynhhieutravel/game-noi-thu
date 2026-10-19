@@ -113,6 +113,13 @@ export class BootScene extends Phaser.Scene {
     this.load.image('album_book_icon', resolveAsset('/assets/album_book_icon.png'));
     this.load.image('avatar_inari', resolveAsset('/assets/avatar_inari.png'));
 
+    // Preload Stage Loot Reward Icons & Difficulty Chests
+    this.load.image('icon_reward_exp', resolveAsset('/assets/icon_reward_exp.png'));
+    this.load.image('icon_reward_coin', resolveAsset('/assets/icon_reward_coin.png'));
+    this.load.image('chest_diff_easy', resolveAsset('/assets/chest_diff_easy.png'));
+    this.load.image('chest_diff_medium', resolveAsset('/assets/chest_diff_medium.png'));
+    this.load.image('chest_diff_hard', resolveAsset('/assets/chest_diff_hard.png'));
+
     // Preload Torii Gate high-res asset and new Cổng A / Cổng B portals
     this.load.image('torii_gate', resolveAsset('/assets/torii_gate.png'));
     this.load.image('portal_torii_a', resolveAsset('/assets/portal_torii_a.png'));
