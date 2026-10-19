@@ -1437,11 +1437,19 @@ export class GameScene extends Phaser.Scene {
     avatarHalo.fillStyle(0xff3366, 0.25);
     avatarHalo.fillCircle(-68, 0, 28);
 
-    const texKey = `char_${this.companionConfig.id}`;
-    if (this.textures.exists('avatar_inari')) {
+    const compId = this.companionConfig.id;
+    const skillKey = `skill_${compId}`;
+    const avatarKey = `avatar_${compId}`;
+    const charKey = `char_${compId}`;
+
+    if (compId === 'inari_kitsune' && this.textures.exists('avatar_inari')) {
       this.companionAvatarImg = this.add.image(-68, 0, 'avatar_inari').setDisplaySize(48, 48);
-    } else if (this.textures.exists(texKey)) {
-      this.companionAvatarImg = this.add.image(-68, 0, texKey).setDisplaySize(44, 44);
+    } else if (this.textures.exists(skillKey)) {
+      this.companionAvatarImg = this.add.image(-68, 0, skillKey).setDisplaySize(46, 46);
+    } else if (this.textures.exists(avatarKey)) {
+      this.companionAvatarImg = this.add.image(-68, 0, avatarKey).setDisplaySize(44, 44);
+    } else if (this.textures.exists(charKey)) {
+      this.companionAvatarImg = this.add.image(-68, 0, charKey).setDisplaySize(44, 44);
     } else {
       this.companionAvatarImg = this.add.text(-68, 0, this.companionConfig.icon, { fontSize: '24px' }).setOrigin(0.5);
     }

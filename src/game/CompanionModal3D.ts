@@ -926,38 +926,59 @@ export class CompanionModal3D {
     card1Gfx.strokeRoundedRect(colLeft, card1Top, cardW, card1H, 14);
     container.add(card1Gfx); // ADD BACKGROUND FIRST!
 
-    // Circular glowing skill icon on left
-    const icon1X = colLeft + 36;
-    const icon1Gfx = scene.add.graphics();
-    icon1Gfx.fillStyle(0xd90429, 0.95);
-    icon1Gfx.fillCircle(icon1X, card1Y, 21);
-    icon1Gfx.lineStyle(1.5, 0xff758f, 1);
-    icon1Gfx.strokeCircle(icon1X, card1Y, 21);
-    const icon1Emoji = scene.add.text(icon1X, card1Y, '🔥', { fontSize: '18px' }).setOrigin(0.5);
+    // Circular glowing skill icon on left (HD Skill Art)
+    const icon1X = colLeft + 40;
+    const skillTexKey = `skill_${activeCompId}`;
+    const skillIconBg = scene.add.graphics();
+    skillIconBg.fillStyle(0x0a0c16, 0.98);
+    skillIconBg.fillCircle(icon1X, card1Y, 26);
+    skillIconBg.lineStyle(2, 0xff3855, 0.95);
+    skillIconBg.strokeCircle(icon1X, card1Y, 26);
+    skillIconBg.lineStyle(1.2, 0xffd700, 0.75);
+    skillIconBg.strokeCircle(icon1X, card1Y, 28);
+    container.add(skillIconBg);
+
+    let skillIconElem: Phaser.GameObjects.GameObject;
+    if (scene.textures.exists(skillTexKey)) {
+      const skillImg = scene.add.image(icon1X, card1Y, skillTexKey);
+      skillImg.setDisplaySize(50, 50);
+      skillIconElem = skillImg;
+    } else {
+      skillIconElem = scene.add.text(icon1X, card1Y, '🔥', { fontSize: '24px' }).setOrigin(0.5);
+    }
+    container.add(skillIconElem);
+
+    // Make skill icon clickable to view large artwork preview
+    const skillHitZone = scene.add.zone(icon1X, card1Y, 56, 56).setInteractive({ useHandCursor: true });
+    skillHitZone.on('pointerdown', () => {
+      audio.playSelect();
+      CompanionModal3D.openSkillPreview(scene, activeCompId, tierInfo.skillName, tierInfo.skillDesc);
+    });
+    container.add(skillHitZone);
 
     // Card 1 Text Hierarchy: Row 1 Subtitle, Row 2 Skill Name, Row 3 Description
-    const c1Sub = scene.add.text(colLeft + 68, card1Top + 14, 'Tuyệt chiêu', {
+    const c1Sub = scene.add.text(colLeft + 76, card1Top + 14, 'Tuyệt chiêu', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '11px',
       fontStyle: '800',
       color: '#ff6b81'
     }).setOrigin(0, 0.5);
 
-    const c1Title = scene.add.text(colLeft + 68, card1Top + 33, tierInfo.skillName.toUpperCase(), {
+    const c1Title = scene.add.text(colLeft + 76, card1Top + 33, tierInfo.skillName.toUpperCase(), {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '15px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0, 0.5);
 
-    const c1Desc = scene.add.text(colLeft + 68, card1Top + 55, tierInfo.skillDesc, {
+    const c1Desc = scene.add.text(colLeft + 76, card1Top + 55, tierInfo.skillDesc, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '11.5px',
       color: '#cbd5e1',
-      wordWrap: { width: cardW - 85 }
+      wordWrap: { width: cardW - 95 }
     }).setOrigin(0, 0.5);
 
-    container.add([icon1Gfx, icon1Emoji, c1Sub, c1Title, c1Desc]);
+    container.add([c1Sub, c1Title, c1Desc]);
 
     // Right Badges & Info (i) - Perfectly aligned with Row 1
     const tag1RowY = card1Top + 16;
@@ -981,9 +1002,7 @@ export class CompanionModal3D {
     const info1Zone = scene.add.zone(info1X, tag1RowY, 26, 26).setInteractive({ useHandCursor: true });
     info1Zone.on('pointerdown', () => {
       audio.playSelect();
-      if ((scene as any).showNotice) {
-        (scene as any).showNotice(`⚡ TIẾN HÓA CHIÊU: Bậc 1: ${activeConfig.skillName} ➔ Bậc 2: Tăng cường & phá bẫy ➔ Bậc 3: Thần Linh Thức Tỉnh!`, 0xff758f);
-      }
+      CompanionModal3D.openSkillPreview(scene, activeCompId, tierInfo.skillName, tierInfo.skillDesc);
     });
     container.add([info1Gfx, info1Text, info1Zone]);
 
@@ -1001,37 +1020,53 @@ export class CompanionModal3D {
     container.add(card2Gfx); // ADD BACKGROUND FIRST!
 
     // Circular glowing passive icon on left
-    const icon2X = colLeft + 36;
+    const passiveIconsMap: Record<string, string> = {
+      inari_kitsune: '🦊',
+      ryujin_pearl: '🌊',
+      hi_no_tori: '🪶',
+      byakko_tiger: '⚡',
+      genbu_tortoise: '🛡️',
+      kirin_sacred: '🌸',
+      raiju_thunder: '⚡',
+      yatagarasu_crow: '☀️',
+      nekomata_cat: '🪙',
+      orochi_serpent: '👑'
+    };
+    const passiveEmoji = passiveIconsMap[activeCompId] || '💧';
+
+    const icon2X = colLeft + 40;
     const icon2Gfx = scene.add.graphics();
-    icon2Gfx.fillStyle(0x0077b6, 0.95);
-    icon2Gfx.fillCircle(icon2X, card2Y, 21);
-    icon2Gfx.lineStyle(1.5, 0x48cae4, 1);
-    icon2Gfx.strokeCircle(icon2X, card2Y, 21);
-    const icon2Emoji = scene.add.text(icon2X, card2Y, '💧', { fontSize: '18px' }).setOrigin(0.5);
+    icon2Gfx.fillStyle(0x051b2c, 0.98);
+    icon2Gfx.fillCircle(icon2X, card2Y, 26);
+    icon2Gfx.lineStyle(2, 0x00b4d8, 0.95);
+    icon2Gfx.strokeCircle(icon2X, card2Y, 26);
+    icon2Gfx.lineStyle(1.2, 0x48cae4, 0.65);
+    icon2Gfx.strokeCircle(icon2X, card2Y, 28);
+    const icon2TextElem = scene.add.text(icon2X, card2Y, passiveEmoji, { fontSize: '24px' }).setOrigin(0.5);
 
     // Card 2 Text Hierarchy
-    const c2Sub = scene.add.text(colLeft + 68, card2Top + 14, 'Nội tại', {
+    const c2Sub = scene.add.text(colLeft + 76, card2Top + 14, 'Nội tại', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '11px',
       fontStyle: '800',
       color: '#38bdf8'
     }).setOrigin(0, 0.5);
 
-    const c2Title = scene.add.text(colLeft + 68, card2Top + 33, (activeConfig.passiveName || 'GIA HỘ').toUpperCase(), {
+    const c2Title = scene.add.text(colLeft + 76, card2Top + 33, (activeConfig.passiveName || 'GIA HỘ').toUpperCase(), {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '15px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0, 0.5);
 
-    const c2Desc = scene.add.text(colLeft + 68, card2Top + 55, activeConfig.passiveDesc || '', {
+    const c2Desc = scene.add.text(colLeft + 76, card2Top + 55, activeConfig.passiveDesc || '', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '11.5px',
       color: '#cbd5e1',
-      wordWrap: { width: cardW - 85 }
+      wordWrap: { width: cardW - 95 }
     }).setOrigin(0, 0.5);
 
-    container.add([icon2Gfx, icon2Emoji, c2Sub, c2Title, c2Desc]);
+    container.add([icon2Gfx, icon2TextElem, c2Sub, c2Title, c2Desc]);
 
     // Right Badges & Info (i) - Perfectly aligned with Row 1
     const tag2RowY = card2Top + 16;
@@ -1220,5 +1255,141 @@ export class CompanionModal3D {
     });
 
     return container;
+  }
+
+  public static openSkillPreview(
+    scene: Phaser.Scene,
+    companionId: string,
+    skillName: string,
+    skillDesc: string
+  ): void {
+    const audio = AudioSystem.getInstance();
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+    const { width: screenW } = getScreenDimensions();
+    const compConfig = CompanionManager.get(companionId);
+
+    const previewModal = scene.add.container(width / 2, height / 2).setDepth(600);
+    previewModal.setScale(0.9);
+    previewModal.setAlpha(0);
+    scene.tweens.add({
+      targets: previewModal,
+      scale: 1,
+      alpha: 1,
+      duration: 200,
+      ease: 'Back.easeOut'
+    });
+
+    const closePreview = () => {
+      audio.playSelect();
+      scene.tweens.add({
+        targets: previewModal,
+        scale: 0.9,
+        alpha: 0,
+        duration: 150,
+        ease: 'Cubic.easeIn',
+        onComplete: () => previewModal.destroy()
+      });
+    };
+
+    // Dark backdrop
+    const bg = scene.add.graphics();
+    bg.fillStyle(0x060814, 0.88);
+    bg.fillRect(-screenW / 2, -height / 2, screenW, height);
+    bg.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
+    bg.on('pointerdown', closePreview);
+    previewModal.add(bg);
+
+    // Card frame
+    const pW = 460;
+    const pH = 470;
+    const pGfx = scene.add.graphics();
+    pGfx.fillStyle(0x0e111d, 0.98);
+    pGfx.fillRoundedRect(-pW / 2, -pH / 2, pW, pH, 16);
+    pGfx.lineStyle(2, 0xff3855, 0.95);
+    pGfx.strokeRoundedRect(-pW / 2, -pH / 2, pW, pH, 16);
+    pGfx.lineStyle(1.4, 0xffd700, 0.85);
+    pGfx.strokeRoundedRect(-pW / 2 + 4, -pH / 2 + 4, pW - 8, pH - 8, 12);
+    previewModal.add(pGfx);
+
+    // Header title
+    const headerTxt = scene.add.text(0, -pH / 2 + 24, `⚡ TUYỆT KỸ TRẤN PHÁI • ${compConfig.name.toUpperCase()}`, {
+      fontFamily: FONT_UI,
+      fontSize: '13px',
+      fontStyle: '900',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+    previewModal.add(headerTxt);
+
+    // Close button
+    const closeBtn = scene.add.text(pW / 2 - 24, -pH / 2 + 24, '✕', {
+      fontFamily: FONT_UI,
+      fontSize: '18px',
+      fontStyle: 'bold',
+      color: '#ff3855'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    closeBtn.on('pointerdown', closePreview);
+    previewModal.add(closeBtn);
+
+    // Big 210x210 Skill Artwork
+    const texKey = `skill_${companionId}`;
+    if (scene.textures.exists(texKey)) {
+      const artImg = scene.add.image(0, -45, texKey).setDisplaySize(210, 210);
+      previewModal.add(artImg);
+    }
+
+    // Skill Name
+    const nameTxt = scene.add.text(0, 80, skillName.toUpperCase(), {
+      fontFamily: FONT_UI,
+      fontSize: '17px',
+      fontStyle: '900',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    previewModal.add(nameTxt);
+
+    // Beast Name & Element
+    const beastTxt = scene.add.text(0, 104, `Hệ: ${compConfig.elementLabel} • ${compConfig.roleDescription}`, {
+      fontFamily: FONT_UI,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: '#ff758f'
+    }).setOrigin(0.5);
+    previewModal.add(beastTxt);
+
+    // Full Description Box
+    const descBox = scene.add.graphics();
+    descBox.fillStyle(0x1a1226, 0.95);
+    descBox.fillRoundedRect(-195, 122, 390, 56, 10);
+    descBox.lineStyle(1.2, 0xff3855, 0.6);
+    descBox.strokeRoundedRect(-195, 122, 390, 56, 10);
+    previewModal.add(descBox);
+
+    const descTxt = scene.add.text(0, 150, skillDesc, {
+      fontFamily: FONT_UI,
+      fontSize: '11.5px',
+      color: '#f1f5f9',
+      align: 'center',
+      lineSpacing: 2,
+      wordWrap: { width: 370 }
+    }).setOrigin(0.5);
+    previewModal.add(descTxt);
+
+    // Close button at bottom
+    const okBtn = scene.add.container(0, pH / 2 - 34);
+    const okGfx = scene.add.graphics();
+    okGfx.fillStyle(0xd90429, 0.95);
+    okGfx.fillRoundedRect(-65, -16, 130, 32, 8);
+    okGfx.lineStyle(1.2, 0xffd700, 0.85);
+    okGfx.strokeRoundedRect(-65, -16, 130, 32, 8);
+    const okTxt = scene.add.text(0, 0, 'ĐÃ HIỂU', {
+      fontFamily: FONT_UI,
+      fontSize: '12px',
+      fontStyle: '900',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    okBtn.add([okGfx, okTxt]);
+    okBtn.setSize(130, 32).setInteractive({ useHandCursor: true });
+    okBtn.on('pointerdown', closePreview);
+    previewModal.add(okBtn);
   }
 }
