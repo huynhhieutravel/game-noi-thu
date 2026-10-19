@@ -3,7 +3,7 @@ set -e
 
 DEVICE_UDID="00008130-0004111811E8001C"
 APP_PATH="/Users/huynhtronghieu/Library/Developer/Xcode/DerivedData/App-cvzlitrjpxugopekmssrgnjscbzc/Build/Products/Debug-iphoneos/App.app"
-ENTITLEMENTS="/tmp/entitlements.plist"
+ENTITLEMENTS="/Users/huynhtronghieu/Library/Developer/Xcode/DerivedData/App-cvzlitrjpxugopekmssrgnjscbzc/Build/Intermediates.noindex/App.build/Debug-iphoneos/App.build/App.app.xcent"
 SIGN_ID="Apple Development: hiepkhachsitinh395@gmail.com (N5CFMH5VY5)"
 
 echo "=== 🦊 CẬP NHẬT GAME LÊN IPHONE (LOKI PHONE) ==="
