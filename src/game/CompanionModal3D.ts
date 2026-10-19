@@ -928,7 +928,9 @@ export class CompanionModal3D {
 
     // Circular glowing skill icon on left (HD Skill Art)
     const icon1X = colLeft + 40;
-    const skillTexKey = `skill_${activeCompId}`;
+    const skillActKey = scene.textures.exists(`skill_act_${activeCompId}`)
+      ? `skill_act_${activeCompId}`
+      : `skill_${activeCompId}`;
     const skillIconBg = scene.add.graphics();
     skillIconBg.fillStyle(0x0a0c16, 0.98);
     skillIconBg.fillCircle(icon1X, card1Y, 26);
@@ -939,8 +941,8 @@ export class CompanionModal3D {
     container.add(skillIconBg);
 
     let skillIconElem: Phaser.GameObjects.GameObject;
-    if (scene.textures.exists(skillTexKey)) {
-      const skillImg = scene.add.image(icon1X, card1Y, skillTexKey);
+    if (scene.textures.exists(skillActKey)) {
+      const skillImg = scene.add.image(icon1X, card1Y, skillActKey);
       skillImg.setDisplaySize(50, 50);
       skillIconElem = skillImg;
     } else {
@@ -952,7 +954,7 @@ export class CompanionModal3D {
     const skillHitZone = scene.add.zone(icon1X, card1Y, 56, 56).setInteractive({ useHandCursor: true });
     skillHitZone.on('pointerdown', () => {
       audio.playSelect();
-      CompanionModal3D.openSkillPreview(scene, activeCompId, tierInfo.skillName, tierInfo.skillDesc);
+      CompanionModal3D.openSkillPreview(scene, activeCompId, tierInfo.skillName, tierInfo.skillDesc, 'active');
     });
     container.add(skillHitZone);
 
@@ -1002,7 +1004,7 @@ export class CompanionModal3D {
     const info1Zone = scene.add.zone(info1X, tag1RowY, 26, 26).setInteractive({ useHandCursor: true });
     info1Zone.on('pointerdown', () => {
       audio.playSelect();
-      CompanionModal3D.openSkillPreview(scene, activeCompId, tierInfo.skillName, tierInfo.skillDesc);
+      CompanionModal3D.openSkillPreview(scene, activeCompId, tierInfo.skillName, tierInfo.skillDesc, 'active');
     });
     container.add([info1Gfx, info1Text, info1Zone]);
 
@@ -1019,22 +1021,9 @@ export class CompanionModal3D {
     card2Gfx.strokeRoundedRect(colLeft, card2Top, cardW, card2H, 14);
     container.add(card2Gfx); // ADD BACKGROUND FIRST!
 
-    // Circular glowing passive icon on left
-    const passiveIconsMap: Record<string, string> = {
-      inari_kitsune: '🦊',
-      ryujin_pearl: '🌊',
-      hi_no_tori: '🪶',
-      byakko_tiger: '⚡',
-      genbu_tortoise: '🛡️',
-      kirin_sacred: '🌸',
-      raiju_thunder: '⚡',
-      yatagarasu_crow: '☀️',
-      nekomata_cat: '🪙',
-      orochi_serpent: '👑'
-    };
-    const passiveEmoji = passiveIconsMap[activeCompId] || '💧';
-
+    // Circular glowing passive icon on left (HD Skill Art)
     const icon2X = colLeft + 40;
+    const skillPasKey = `skill_pas_${activeCompId}`;
     const icon2Gfx = scene.add.graphics();
     icon2Gfx.fillStyle(0x051b2c, 0.98);
     icon2Gfx.fillCircle(icon2X, card2Y, 26);
@@ -1042,7 +1031,44 @@ export class CompanionModal3D {
     icon2Gfx.strokeCircle(icon2X, card2Y, 26);
     icon2Gfx.lineStyle(1.2, 0x48cae4, 0.65);
     icon2Gfx.strokeCircle(icon2X, card2Y, 28);
-    const icon2TextElem = scene.add.text(icon2X, card2Y, passiveEmoji, { fontSize: '24px' }).setOrigin(0.5);
+    container.add(icon2Gfx);
+
+    let icon2Elem: Phaser.GameObjects.GameObject;
+    if (scene.textures.exists(skillPasKey)) {
+      const pasImg = scene.add.image(icon2X, card2Y, skillPasKey);
+      pasImg.setDisplaySize(50, 50);
+      icon2Elem = pasImg;
+    } else {
+      const passiveIconsMap: Record<string, string> = {
+        inari_kitsune: '🦊',
+        ryujin_pearl: '🌊',
+        hi_no_tori: '🪶',
+        byakko_tiger: '⚡',
+        genbu_tortoise: '🛡️',
+        kirin_sacred: '🌸',
+        raiju_thunder: '⚡',
+        yatagarasu_crow: '☀️',
+        nekomata_cat: '🪙',
+        orochi_serpent: '👑'
+      };
+      const passiveEmoji = passiveIconsMap[activeCompId] || '💧';
+      icon2Elem = scene.add.text(icon2X, card2Y, passiveEmoji, { fontSize: '24px' }).setOrigin(0.5);
+    }
+    container.add(icon2Elem);
+
+    // Make passive icon clickable to view large artwork preview
+    const pasHitZone = scene.add.zone(icon2X, card2Y, 56, 56).setInteractive({ useHandCursor: true });
+    pasHitZone.on('pointerdown', () => {
+      audio.playSelect();
+      CompanionModal3D.openSkillPreview(
+        scene, 
+        activeCompId, 
+        activeConfig.passiveName || 'GIA HỘ NỘI TẠI', 
+        activeConfig.passiveDesc || 'Tăng cường sức mạnh liên tục trong trận đấu.', 
+        'passive'
+      );
+    });
+    container.add(pasHitZone);
 
     // Card 2 Text Hierarchy
     const c2Sub = scene.add.text(colLeft + 76, card2Top + 14, 'Nội tại', {
@@ -1066,7 +1092,7 @@ export class CompanionModal3D {
       wordWrap: { width: cardW - 95 }
     }).setOrigin(0, 0.5);
 
-    container.add([icon2Gfx, icon2TextElem, c2Sub, c2Title, c2Desc]);
+    container.add([c2Sub, c2Title, c2Desc]);
 
     // Right Badges & Info (i) - Perfectly aligned with Row 1
     const tag2RowY = card2Top + 16;
@@ -1090,9 +1116,13 @@ export class CompanionModal3D {
     const info2Zone = scene.add.zone(info2X, tag2RowY, 26, 26).setInteractive({ useHandCursor: true });
     info2Zone.on('pointerdown', () => {
       audio.playSelect();
-      if ((scene as any).showNotice) {
-        (scene as any).showNotice(`✨ NỘI TẠI: Tăng cường sức mạnh liên tục trong suốt trận đấu!`, 0x48cae4);
-      }
+      CompanionModal3D.openSkillPreview(
+        scene, 
+        activeCompId, 
+        activeConfig.passiveName || 'GIA HỘ NỘI TẠI', 
+        activeConfig.passiveDesc || 'Tăng cường sức mạnh liên tục trong trận đấu.', 
+        'passive'
+      );
     });
     container.add([info2Gfx, info2Text, info2Zone]);
 
@@ -1261,7 +1291,8 @@ export class CompanionModal3D {
     scene: Phaser.Scene,
     companionId: string,
     skillName: string,
-    skillDesc: string
+    skillDesc: string,
+    skillType: 'active' | 'passive' = 'active'
   ): void {
     const audio = AudioSystem.getInstance();
     const width = GAME_WIDTH;
@@ -1306,18 +1337,22 @@ export class CompanionModal3D {
     const pGfx = scene.add.graphics();
     pGfx.fillStyle(0x0e111d, 0.98);
     pGfx.fillRoundedRect(-pW / 2, -pH / 2, pW, pH, 16);
-    pGfx.lineStyle(2, 0xff3855, 0.95);
+    const borderColor = skillType === 'passive' ? 0x00b4d8 : 0xff3855;
+    pGfx.lineStyle(2, borderColor, 0.95);
     pGfx.strokeRoundedRect(-pW / 2, -pH / 2, pW, pH, 16);
     pGfx.lineStyle(1.4, 0xffd700, 0.85);
     pGfx.strokeRoundedRect(-pW / 2 + 4, -pH / 2 + 4, pW - 8, pH - 8, 12);
     previewModal.add(pGfx);
 
     // Header title
-    const headerTxt = scene.add.text(0, -pH / 2 + 24, `⚡ TUYỆT KỸ TRẤN PHÁI • ${compConfig.name.toUpperCase()}`, {
+    const headerTitle = skillType === 'passive'
+      ? `✨ GIA HỘ NỘI TẠI • ${compConfig.name.toUpperCase()}`
+      : `⚡ TUYỆT KỸ TRẤN PHÁI • ${compConfig.name.toUpperCase()}`;
+    const headerTxt = scene.add.text(0, -pH / 2 + 24, headerTitle, {
       fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: '900',
-      color: '#ffd700'
+      color: skillType === 'passive' ? '#38bdf8' : '#ffd700'
     }).setOrigin(0.5);
     previewModal.add(headerTxt);
 
@@ -1332,9 +1367,11 @@ export class CompanionModal3D {
     previewModal.add(closeBtn);
 
     // Big 210x210 Skill Artwork
-    const texKey = `skill_${companionId}`;
-    if (scene.textures.exists(texKey)) {
-      const artImg = scene.add.image(0, -45, texKey).setDisplaySize(210, 210);
+    const texKey = skillType === 'passive' ? `skill_pas_${companionId}` : `skill_act_${companionId}`;
+    const fallbackKey = `skill_${companionId}`;
+    const effectiveKey = scene.textures.exists(texKey) ? texKey : fallbackKey;
+    if (scene.textures.exists(effectiveKey)) {
+      const artImg = scene.add.image(0, -45, effectiveKey).setDisplaySize(210, 210);
       previewModal.add(artImg);
     }
 

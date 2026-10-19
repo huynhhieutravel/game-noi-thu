@@ -196,7 +196,9 @@ export class BootScene extends Phaser.Scene {
       if (compArtMap[compId]) {
         this.load.image(`comp_art_${compId}`, resolveAsset(compArtMap[compId]));
       }
-      this.load.image(`skill_${compId}`, resolveAsset(`/assets/skills/skill_${compId}.jpg`));
+      this.load.image(`skill_${compId}`, resolveAsset(`/assets/skills/skill_act_${compId}.png`));
+      this.load.image(`skill_act_${compId}`, resolveAsset(`/assets/skills/skill_act_${compId}.png`));
+      this.load.image(`skill_pas_${compId}`, resolveAsset(`/assets/skills/skill_pas_${compId}.png`));
     }
 
     // Preload HD Booster Button Sprites (matching mockup)
