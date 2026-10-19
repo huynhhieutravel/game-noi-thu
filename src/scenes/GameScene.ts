@@ -19,6 +19,7 @@ import { TextureGenerator } from '../game/TextureGenerator';
 import { QADebugPanel } from '../game/QADebugPanel';
 import { SettingsModal } from '../game/SettingsModal';
 import { LootManager, CalculatedLootResult } from '../game/LootManager';
+import { formatCurrency, FONT_UI, FONT_DISPLAY, FONT_WEIGHT } from '../styles/typography';
 
 export class GameScene extends Phaser.Scene {
   private levelConfig!: LevelConfig;
@@ -559,11 +560,11 @@ export class GameScene extends Phaser.Scene {
       onBoardCleared: () => {
         if (this.isSurvivalMode) {
           this.score += 1000;
-          this.scoreText.setText(`${this.score} PTS`);
+          this.updateScoreDisplay();
           this.save.saveSurvivalRecord(this.score, this.survivalWave);
           this.audio.playVictory();
           this.haptic.combo();
-          this.showNotice('🌸 QUÉT SẠCH TOÀN BÀN! THƯỞNG +1,000 PTS! ❄️', 0xffd700);
+          this.showNotice('🌸 QUÉT SẠCH TOÀN BÀN! THƯỞNG +1.000 PTS! ❄️', 0xffd700);
           this.feverParticles.explode(30, GAME_WIDTH / 2, GAME_HEIGHT / 2);
           this.time.delayedCall(1000, () => {
             if (!this.isGameOver) {
@@ -572,7 +573,7 @@ export class GameScene extends Phaser.Scene {
           });
         } else if (this.isZenMode) {
           this.score += 500;
-          this.scoreText.setText(`${this.score} PTS`);
+          this.updateScoreDisplay();
           this.save.saveZenHighScore(this.score);
           this.audio.playVictory();
           this.haptic.combo();
@@ -768,12 +769,12 @@ export class GameScene extends Phaser.Scene {
       : (this.isZenMode ? '🌸 TĨNH TÂM VÔ TẬN' : this.levelConfig.title.replace(/\s*\([^)]*\)/g, '').trim());
 
     const titleText = this.add.text(width / 2, 17, cleanTitle, {
-      fontFamily: 'Zen Maru Gothic, Plus Jakarta Sans, sans-serif',
-      fontSize: '18px',
-      fontStyle: '900',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '20px',
+      fontStyle: 'bold',
       color: this.isSurvivalMode ? '#90e0ef' : '#ffd700',
       stroke: '#0e0b17',
-      strokeThickness: 2.5
+      strokeThickness: 3
     }).setOrigin(0.5);
     this.levelTitleText = titleText;
 
@@ -940,10 +941,10 @@ export class GameScene extends Phaser.Scene {
       fontSize: '16px'
     }).setOrigin(0.5);
 
-    this.scoreText = this.add.text(scoreCapX + 10, scoreCapY, `${this.score} PTS`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16.5px',
-      fontStyle: '900',
+    this.scoreText = this.add.text(scoreCapX + 10, scoreCapY, `${formatCurrency(this.score)} PTS`, {
+      fontFamily: FONT_UI,
+      fontSize: '15px',
+      fontStyle: '800',
       color: '#ffffff'
     }).setOrigin(0.5);
 
@@ -1336,16 +1337,22 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private updateScoreDisplay(): void {
+    if (this.scoreText) {
+      this.scoreText.setText(`${formatCurrency(this.score)} PTS`);
+    }
+  }
+
   private buildBoosterTray(width: number, height: number): void {
     const saveData = this.save.getData();
-    // Anchored cleanly at height - 28 so buttons sit below board with guaranteed safety gap
-    const tray = this.add.container(width / 2, height - 28).setDepth(20);
+    // 3 Circular Tactical Booster Action Gems (42px) anchored at height - 24
+    // Compact spacing (58px) guarantees a massive 50px+ air gap below the board frame
+    const tray = this.add.container(width / 2, height - 24).setDepth(20);
 
-    const btnWidth = 118;
-    const spacing = 126;
+    const spacing = 58;
 
-    // 1. Hint Button (Amber glowing)
-    const hintBtn = this.createBoosterButton(-spacing, 0, btnWidth, '💡', 'Gợi Ý', `x${saveData.boosters.hint}`, 0xffa200, () => {
+    // 1. Hint Gem (💡 - Amber radiant glow)
+    const hintBtn = this.createBoosterButton(-spacing, 0, 42, '💡', 'Gợi Ý', `${saveData.boosters.hint}`, 0xffa200, () => {
       if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
       if (this.save.getData().boosters.hint <= 0) {
         this.showNotice('Hết Gợi Ý! (Kiếm thêm trong màn sau)', 0xff99c8);
@@ -1362,11 +1369,11 @@ export class GameScene extends Phaser.Scene {
         this.showNotice('Không tìm thấy nước đi phù hợp!', 0xffd166);
         this.audio.playError();
       }
-    }, 'btn_booster_hint');
+    });
     this.hintCountText = hintBtn.countText;
 
-    // 2. Shuffle Button (Cyan glowing - matching Image 2)
-    const shuffleBtn = this.createBoosterButton(0, 0, btnWidth, '🔄', 'Đổi Vị Trí', `x${saveData.boosters.shuffle}`, 0x00b4d8, () => {
+    // 2. Shuffle Gem (🔄 - Cyan electric glow)
+    const shuffleBtn = this.createBoosterButton(0, 0, 42, '🔄', 'Đổi Vị Trí', `${saveData.boosters.shuffle}`, 0x00b4d8, () => {
       if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
       if (this.save.getData().boosters.shuffle <= 0) {
         this.showNotice('Hết Lượt Đảo! (Kiếm thêm trong màn sau)', 0xff99c8);
@@ -1380,11 +1387,11 @@ export class GameScene extends Phaser.Scene {
         this.audio.playShuffle();
         this.updateBoosterCounts();
       }
-    }, 'btn_booster_shuffle');
+    });
     this.shuffleCountText = shuffleBtn.countText;
 
-    // 3. Bomb Button (Purple glowing - matching Image 2)
-    const bombBtn = this.createBoosterButton(spacing, 0, btnWidth, '💣', 'Phá Cặp', `x${saveData.boosters.bomb}`, 0x9d4edd, () => {
+    // 3. Bomb Gem (💣 - Amethyst purple glow)
+    const bombBtn = this.createBoosterButton(spacing, 0, 42, '💣', 'Phá Cặp', `${saveData.boosters.bomb}`, 0x9d4edd, () => {
       if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
       if (this.save.getData().boosters.bomb <= 0) {
         this.showNotice('Hết Bom! (Kiếm thêm trong màn sau)', 0xff99c8);
@@ -1401,7 +1408,7 @@ export class GameScene extends Phaser.Scene {
         this.showNotice('Không tìm thấy cặp ô để phá!', 0xffd166);
         this.audio.playError();
       }
-    }, 'btn_booster_bomb');
+    });
     this.bombCountText = bombBtn.countText;
 
     tray.add([hintBtn.container, shuffleBtn.container, bombBtn.container]);
@@ -1639,7 +1646,7 @@ export class GameScene extends Phaser.Scene {
         (p1, p2, idx) => {
           this.audio.playLaserZap();
           this.score += 200;
-          this.scoreText.setText(`${this.score} PTS`);
+          this.updateScoreDisplay();
           const wPos = this.boardManager.gridToWorld(p1.r, p1.c);
           this.feverParticles.explode(16, wPos.x, wPos.y);
           if (idx === 1) {
@@ -1668,7 +1675,7 @@ export class GameScene extends Phaser.Scene {
 
       if (this.isZenMode) {
         this.score += 500;
-        this.scoreText.setText(`${this.score} PTS`);
+        this.updateScoreDisplay();
         this.showNotice('🐉 Long Vương gia hộ Zen: Thưởng ngay +500 PTS! ❄️', 0x00f5d4);
       }
     } else if (comp.id === 'hi_no_tori') {
@@ -1699,11 +1706,11 @@ export class GameScene extends Phaser.Scene {
           if (cleared > 0) {
             const bonusPts = cleared * 150;
             this.score += bonusPts;
-            this.scoreText.setText(`${this.score} PTS`);
+            this.updateScoreDisplay();
             this.showNotice(`🔥 Phượng Hoàng thiêu rụi ${cleared} chướng ngại vật! +${bonusPts} PTS!`, 0xff595e);
           } else {
             this.score += 300;
-            this.scoreText.setText(`${this.score} PTS`);
+            this.updateScoreDisplay();
             this.showNotice('🔥 Hỏa Điểu thanh tẩy toàn bàn cờ! Thưởng +300 PTS!', 0xffd166);
           }
         }
@@ -1730,7 +1737,7 @@ export class GameScene extends Phaser.Scene {
       if (straightMatch) {
         this.audio.playLaserZap();
         this.score += 250;
-        this.scoreText.setText(`${this.score} PTS`);
+        this.updateScoreDisplay();
         this.boardManager.triggerPairClear(straightMatch.p1, straightMatch.p2);
         const wPos = this.boardManager.gridToWorld(straightMatch.p1.r, straightMatch.p1.c);
         this.feverParticles.explode(20, wPos.x, wPos.y);
@@ -1760,7 +1767,7 @@ export class GameScene extends Phaser.Scene {
       const smashed = this.boardManager.destroyObstaclesOfType(['stone', 'lock', 'barricade'], smashCount);
       if (smashed > 0) {
         this.score += smashed * 200;
-        this.scoreText.setText(`${this.score} PTS`);
+        this.updateScoreDisplay();
       }
 
       if (shieldCharges > 0) {
@@ -1811,7 +1818,7 @@ export class GameScene extends Phaser.Scene {
 
       if (farthestMatch) {
         this.score += 300;
-        this.scoreText.setText(`${this.score} PTS`);
+        this.updateScoreDisplay();
         this.boardManager.triggerPairClear(farthestMatch.p1, farthestMatch.p2);
         const wPos = this.boardManager.gridToWorld(farthestMatch.p1.r, farthestMatch.p1.c);
         this.feverParticles.explode(24, wPos.x, wPos.y);
@@ -1885,7 +1892,7 @@ export class GameScene extends Phaser.Scene {
         if (match) {
           this.audio.playLaserZap();
           this.score += 300;
-          this.scoreText.setText(`${this.score} PTS`);
+          this.updateScoreDisplay();
           this.boardManager.triggerPairClear(match.p1, match.p2);
           const wPos = this.boardManager.gridToWorld(match.p1.r, match.p1.c);
           this.feverParticles.explode(20, wPos.x, wPos.y);
@@ -2265,7 +2272,7 @@ export class GameScene extends Phaser.Scene {
   private createBoosterButton(
     x: number,
     y: number,
-    btnWidth: number,
+    size: number,
     icon: string,
     label: string,
     countStr: string,
@@ -2274,121 +2281,68 @@ export class GameScene extends Phaser.Scene {
     spriteKey?: string
   ): { container: Phaser.GameObjects.Container; countText: Phaser.GameObjects.Text } {
     const container = this.add.container(x, y);
-    const btnHeight = Math.round(btnWidth * (132 / 290)); // ~66px
+    const radius = 21; // 42px diameter circular action gem
 
-    if (spriteKey && this.textures.exists(spriteKey)) {
-      const btnSprite = this.add.image(0, 0, spriteKey);
-      btnSprite.setDisplaySize(btnWidth, btnHeight);
+    // 1. Soft glowing outer neon aura
+    const aura = this.add.graphics();
+    aura.fillStyle(color, 0.25);
+    aura.fillCircle(0, 0, radius + 4);
 
-      // Precisely aligned with the golden circular badge on the artwork
-      const badgeXNorm = spriteKey === 'btn_booster_hint' ? 0.386 : 0.404;
-      const badgeX = Math.round(btnWidth * badgeXNorm);
-      const badgeY = Math.round(-btnHeight * 0.265);
-
-      const count = this.add.text(badgeX, badgeY, countStr, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
-        fontStyle: '900',
-        color: '#ffd700',
-        stroke: '#0d0d14',
-        strokeThickness: 2.2
-      }).setOrigin(0.5);
-
-      container.add([btnSprite, count]);
-      container.setSize(btnWidth, btnHeight);
-      container.setInteractive({ useHandCursor: true });
-
-      container.on('pointerover', () => {
-        this.tweens.add({
-          targets: container,
-          scaleX: 1.06,
-          scaleY: 1.06,
-          duration: 140,
-          ease: 'Back.easeOut'
-        });
-      });
-
-      container.on('pointerout', () => {
-        this.tweens.add({
-          targets: container,
-          scaleX: 1.0,
-          scaleY: 1.0,
-          duration: 140,
-          ease: 'Sine.easeOut'
-        });
-      });
-
-      container.on('pointerdown', () => {
-        this.tweens.add({
-          targets: container,
-          scaleX: 0.93,
-          scaleY: 0.93,
-          duration: 80,
-          yoyo: true,
-          onComplete: onClick
-        });
-      });
-
-      return { container, countText: count };
-    }
-
-    // Fallback procedural capsule
-    // 1. Soft glowing outer aura
-    const glow = this.add.graphics();
-    glow.fillStyle(color, 0.2);
-    glow.fillRoundedRect(-btnWidth / 2 - 3, -btnHeight / 2 - 3, btnWidth + 6, btnHeight + 6, 16);
-
-    // 2. Dark glass capsule background
+    // 2. Obsidian glass disc background
     const bg = this.add.graphics();
-    bg.fillStyle(0x131224, 0.96);
-    bg.fillRoundedRect(-btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight, 14);
+    bg.fillStyle(0x121124, 0.98);
+    bg.fillCircle(0, 0, radius);
 
-    // 3. Vibrant neon border
-    bg.lineStyle(2, color, 0.95);
-    bg.strokeRoundedRect(-btnWidth / 2, -btnHeight / 2, btnWidth, btnHeight, 14);
+    // 3. Vibrant neon border ring
+    bg.lineStyle(1.8, color, 0.95);
+    bg.strokeCircle(0, 0, radius);
 
-    // 4. Icon & Label
-    const iconTxt = this.add.text(-btnWidth / 2 + 22, 0, icon, {
+    // 4. Inner subtle bevel highlight ring
+    bg.lineStyle(1.0, 0xffffff, 0.22);
+    bg.strokeCircle(0, 0, radius - 2.5);
+
+    // 5. Center Neon Action Icon
+    const iconTxt = this.add.text(0, 0, icon, {
       fontSize: '20px'
     }).setOrigin(0.5);
 
-    const txt = this.add.text(8, 0, label, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+    // 6. Mini Count Badge (Top-Right Pill, e.g. "15", "10")
+    const badgeW = 22;
+    const badgeH = 14;
+    const badgeX = radius - 4;
+    const badgeY = -radius + 4;
+
+    const badgeGfx = this.add.graphics();
+    badgeGfx.fillStyle(0xd90429, 0.98); // Rich crimson / gold accent
+    badgeGfx.fillRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 6);
+    badgeGfx.lineStyle(1.2, 0xffd700, 0.95);
+    badgeGfx.strokeRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 6);
+
+    const count = this.add.text(badgeX, badgeY, countStr.replace(/^x/, ''), {
+      fontFamily: FONT_UI,
+      fontSize: '9.5px',
       fontStyle: '900',
-      color: '#f8f9fa'
+      color: '#ffffff'
     }).setOrigin(0.5);
 
-    // 5. Circular gold badge at top-right corner
-    const badgeX = btnWidth / 2 - 4;
-    const badgeY = -btnHeight / 2 + 4;
-
-    const badgeBg = this.add.graphics();
-    badgeBg.fillStyle(0xffd700, 1);
-    badgeBg.fillCircle(badgeX, badgeY, 13);
-    badgeBg.lineStyle(1.5, 0x111111, 0.9);
-    badgeBg.strokeCircle(badgeX, badgeY, 13);
-
-    const count = this.add.text(badgeX, badgeY, countStr, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      fontStyle: '900',
-      color: '#111111'
-    }).setOrigin(0.5);
-
-    container.add([glow, bg, iconTxt, txt, badgeBg, count]);
-    container.setSize(btnWidth, btnHeight);
-    container.setInteractive({ useHandCursor: true });
+    container.add([aura, bg, iconTxt, badgeGfx, count]);
+    container.setSize(radius * 2, radius * 2);
+    container.setInteractive(new Phaser.Geom.Circle(0, 0, radius + 4), Phaser.Geom.Circle.Contains);
+    if (container.input) {
+      container.input.cursor = 'pointer';
+    }
 
     container.on('pointerover', () => {
       this.tweens.add({
         targets: container,
-        scaleX: 1.05,
-        scaleY: 1.05,
-        duration: 140,
+        scaleX: 1.12,
+        scaleY: 1.12,
+        duration: 120,
         ease: 'Back.easeOut'
       });
-      glow.alpha = 1.4;
+      aura.clear();
+      aura.fillStyle(color, 0.5);
+      aura.fillCircle(0, 0, radius + 6);
     });
 
     container.on('pointerout', () => {
@@ -2396,18 +2350,20 @@ export class GameScene extends Phaser.Scene {
         targets: container,
         scaleX: 1.0,
         scaleY: 1.0,
-        duration: 140,
+        duration: 120,
         ease: 'Sine.easeOut'
       });
-      glow.alpha = 1.0;
+      aura.clear();
+      aura.fillStyle(color, 0.25);
+      aura.fillCircle(0, 0, radius + 4);
     });
 
     container.on('pointerdown', () => {
       this.tweens.add({
         targets: container,
-        scaleX: 0.93,
-        scaleY: 0.93,
-        duration: 80,
+        scaleX: 0.90,
+        scaleY: 0.90,
+        duration: 70,
         yoyo: true,
         onComplete: onClick
       });
@@ -2573,9 +2529,9 @@ export class GameScene extends Phaser.Scene {
     this.nightParadeTimerBarGfx = this.add.graphics();
 
     this.nightParadeTimerText = this.add.text(0, 0, '🌙 BÁCH QUỶ DẠ HÀNH: 10s • XUYÊN THẤU ⚡', {
-      fontFamily: 'Zen Maru Gothic, Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12px',
-      fontStyle: '900',
+      fontStyle: '800',
       color: '#ffffff',
       stroke: '#240046',
       strokeThickness: 2
@@ -2731,9 +2687,9 @@ export class GameScene extends Phaser.Scene {
 
   private updateBoosterCounts(): void {
     const b = this.save.getData().boosters;
-    this.hintCountText.setText(`x${b.hint}`);
-    this.shuffleCountText.setText(`x${b.shuffle}`);
-    this.bombCountText.setText(`x${b.bomb}`);
+    this.hintCountText.setText(`${b.hint}`);
+    this.shuffleCountText.setText(`${b.shuffle}`);
+    this.bombCountText.setText(`${b.bomb}`);
   }
 
   private handleMatchSuccess(t1: TileState, t2: TileState, path?: GridPoint[], isAutoClear: boolean = false): void {
@@ -2753,7 +2709,7 @@ export class GameScene extends Phaser.Scene {
       earnedPts *= 3; // 🌙 x3 Điểm thưởng trong Giờ Bách Quỷ Dạ Hành!
     }
     this.score += earnedPts;
-    this.scoreText.setText(`${this.score} PTS`);
+    this.updateScoreDisplay();
 
     if (this.isZenMode) {
       this.save.saveZenHighScore(this.score);
@@ -2851,7 +2807,7 @@ export class GameScene extends Phaser.Scene {
           this.drawChainLightningBolt(midX, midY, targetMidX, targetMidY);
           this.audio.playLaserZap();
           this.score += 200;
-          this.scoreText.setText(`${this.score} PTS`);
+          this.updateScoreDisplay();
           this.boardManager.triggerPairClear(nextMatch.p1, nextMatch.p2);
         }
       });
@@ -2860,7 +2816,7 @@ export class GameScene extends Phaser.Scene {
     // 🏺 Special: Hũ Vàng May Mắn (Lucky Coin Pot) - Cơn mưa tiền vàng
     if (t1.isLuckyPot || t2.isLuckyPot || t1.modifier === 'lucky_pot' || t2.modifier === 'lucky_pot') {
       this.score += 300;
-      this.scoreText.setText(`${this.score} PTS`);
+      this.updateScoreDisplay();
       this.save.addCoins(50);
       this.timeRemaining = Math.min(this.levelConfig.timeLimit + 30, this.timeRemaining + 5);
       this.showNotice('🏺 HŨ VÀNG MAY MẮN! +300 PTS & +50 XU! 💰', 0xffd700);
@@ -3518,7 +3474,7 @@ export class GameScene extends Phaser.Scene {
       this.survivalWave++;
       const waveBonus = this.survivalWave * 150;
       this.score += waveBonus;
-      this.scoreText.setText(`${this.score} PTS`);
+      this.updateScoreDisplay();
 
       this.showNotice(`❄️ ĐỢT ${this.survivalWave}: BĂNG DÂNG LÊN! (+${waveBonus} PTS)`, 0x90e0ef);
       this.blizzardTimeRemaining = this.BLIZZARD_WAVE_INTERVAL;
@@ -3613,7 +3569,7 @@ export class GameScene extends Phaser.Scene {
       ? Math.max(300, Math.floor(((this.levelConfig.targetSilverSeconds || 75) - this.elapsedTimeSeconds) * 40))
       : Math.floor(this.timeRemaining * 50);
     this.score += Math.max(0, timeBonus);
-    this.scoreText.setText(`${this.score} PTS`);
+    this.updateScoreDisplay();
 
     // 4. ⭐ Dynamic Star Quests Evaluation
     const quests = this.levelConfig.quests || [
@@ -3655,7 +3611,7 @@ export class GameScene extends Phaser.Scene {
       const bonusPct = bLvl >= 5 ? 0.25 : bLvl >= 4 ? 0.18 : bLvl >= 3 ? 0.15 : bLvl >= 2 ? 0.12 : 0.10;
       const speedrunBonus = Math.round(this.score * bonusPct);
       this.score += speedrunBonus;
-      this.scoreText.setText(`${this.score} PTS`);
+      this.updateScoreDisplay();
     }
 
     // 🐾 Nekomata Passive: Chiêu Tài Lội Ngược (Thắng khi < 15s nhân x1.5 đến x2.0 Mảnh & Xu)
@@ -3866,9 +3822,9 @@ export class GameScene extends Phaser.Scene {
 
     // 1. Header: Title
     const title = this.add.text(0, -258, '🏆 CHIẾN THẮNG HUY HOÀNG! 🏆', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '32px',
-      fontStyle: '900',
+      fontStyle: 'bold',
       color: '#ffd700',
       stroke: '#000000',
       strokeThickness: 5
@@ -4081,7 +4037,7 @@ export class GameScene extends Phaser.Scene {
     rewardCards.push({
       type: 'coins',
       title: coinTag,
-      amount: `+${coins} XU`,
+      amount: `+${formatCurrency(coins)} XU`,
       sub: 'VÀNG CHIẾN LỢI',
       icon: '🪙',
       borderColor: 0xffd700,
@@ -4685,21 +4641,21 @@ export class GameScene extends Phaser.Scene {
       color: '#00f5d4'
     }).setOrigin(0.5);
 
-    const scoreText = this.add.text(0, -38, `Điểm số: ${this.score.toLocaleString()} PTS`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const scoreText = this.add.text(0, -38, `Điểm số: ${formatCurrency(this.score)} PTS`, {
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    const recordText = this.add.text(0, -15, `Kỷ lục: ${record.maxWaves} Đợt • ${record.highScore.toLocaleString()} PTS${isNewRecord ? ' 🔥 MỚI!' : ''}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const recordText = this.add.text(0, -15, `Kỷ lục: ${record.maxWaves} Đợt • ${formatCurrency(record.highScore)} PTS${isNewRecord ? ' 🔥 MỚI!' : ''}`, {
+      fontFamily: FONT_UI,
       fontSize: '13.5px',
       fontStyle: '900',
       color: isNewRecord ? '#ffb703' : '#ced4da'
     }).setOrigin(0.5);
 
-    const coinsText = this.add.text(0, 10, `+${earnedCoins} 💰 Ngân lượng nhận được`, {
+    const coinsText = this.add.text(0, 10, `+${formatCurrency(earnedCoins)} 💰 Ngân lượng nhận được`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '14.5px',
       fontStyle: '900',

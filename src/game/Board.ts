@@ -246,9 +246,9 @@ export class BoardManager {
     // Boss header: Boss avatar & HP bar end at y=110 -> topReserved = 118px
     const isBoss = !!this.config.boss;
     const topReserved = isBoss ? 118 : 72;
-    // Bottom reserved: Booster tray sits at height - 28 (652px), top of buttons at ~625px
-    // Reserving 68px strictly guarantees the board frame never extends below 606px (giving a clean 19px+ safety gap)
-    const bottomReserved = 68;
+    // Bottom reserved: Booster tray sits at height - 24 (656px), top of buttons at ~635px
+    // Reserving 78px guarantees the board frame never extends below 585px (giving a massive 50px+ air gap)
+    const bottomReserved = 78;
 
     const availableWidth = screenWidth - 64;
     const availableHeight = screenHeight - topReserved - bottomReserved;
@@ -256,7 +256,9 @@ export class BoardManager {
     const maxTileW = Math.floor(availableWidth / this.cols);
     const maxTileH = Math.floor(availableHeight / this.rows);
     // Dynamic Tile Scaling: tactile tiles on mobile, scaled safely for 8 rows in Hard/Boss modes
-    const maxCap = this.rows <= 4 ? 92 : (this.rows <= 6 && this.cols <= 8) ? 84 : (this.rows <= 6 ? 76 : (isBoss ? 56 : 62));
+    const maxCap = isBoss
+      ? (this.rows <= 4 ? 80 : (this.rows <= 6 ? 72 : 52))
+      : (this.rows <= 4 ? 92 : (this.rows <= 6 && this.cols <= 8) ? 82 : (this.rows <= 6 ? 74 : 58));
     this.tileSize = Math.min(maxTileW, maxTileH, maxCap);
 
     const boardWidth = this.cols * this.tileSize;

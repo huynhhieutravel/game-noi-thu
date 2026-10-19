@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../constants';
 import { SaveSystem } from '../systems/SaveSystem';
 import { LevelManager } from './LevelManager';
+import { formatCurrency } from '../styles/typography';
 
 export class QADebugPanel {
   private scene: Phaser.Scene;
@@ -147,7 +148,7 @@ export class QADebugPanel {
     }).setOrigin(0.5);
 
     const currentLvl = (anyScene.levelConfig?.levelNumber) || save.getHighestLevel();
-    const subTitle = this.scene.add.text(width / 2, modalY + 60, `Current Level: ${currentLvl}/100 | Coins: ${save.getCoins()} | Stars: ${save.getStars()}`, {
+    const subTitle = this.scene.add.text(width / 2, modalY + 60, `Current Level: ${currentLvl}/100 | Coins: ${formatCurrency(save.getCoins())} | Stars: ${save.getStars()}`, {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '13px',
       color: '#94a3b8'

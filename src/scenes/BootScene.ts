@@ -7,6 +7,7 @@ import relicsData from '../data/relics.json';
 import { TextureGenerator } from '../game/TextureGenerator';
 import { SaveSystem } from '../systems/SaveSystem';
 import { CharacterData } from '../types';
+import { FONT_DISPLAY, FONT_UI } from '../styles/typography';
 
 export class BootScene extends Phaser.Scene {
   private hasTransitioned: boolean = false;
@@ -31,14 +32,14 @@ export class BootScene extends Phaser.Scene {
 
     // Loading Screen
     const loadingText = this.add.text(width / 2, height / 2 - 20, 'YOKAI ONET', {
-      fontFamily: 'Zen Maru Gothic, sans-serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '32px',
       color: '#ffd700',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     const subText = this.add.text(width / 2, height / 2 + 25, 'Đang triệu hồi Bách Quỷ Linh Giới...', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '14px',
       color: '#adb5bd'
     }).setOrigin(0.5);

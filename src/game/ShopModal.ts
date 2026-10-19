@@ -3,6 +3,7 @@ import { GAME_HEIGHT, GAME_WIDTH, getScreenDimensions } from '../constants';
 import { AudioSystem } from '../systems/AudioSystem';
 import { HapticSystem } from '../systems/HapticSystem';
 import { SaveSystem } from '../systems/SaveSystem';
+import { formatCurrency, FONT_UI, FONT_DISPLAY } from '../styles/typography';
 
 export class ShopModal {
   public static open(
@@ -91,15 +92,15 @@ export class ShopModal {
     supplyBtn.setSize(supplyBtnW, supplyBtnH).setInteractive({ useHandCursor: true });
 
     // Wallet Pills in Header Right
-    const walletCoinsText = scene.add.text(frameW / 2 - 150, headerY, `💰 ${save.getCoins()} Xu`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const walletCoinsText = scene.add.text(frameW / 2 - 150, headerY, `💰 ${formatCurrency(save.getCoins())} Xu`, {
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(1, 0.5);
 
-    const walletDiamondsText = scene.add.text(frameW / 2 - 55, headerY, `💎 ${save.getDiamonds()} KC`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const walletDiamondsText = scene.add.text(frameW / 2 - 55, headerY, `💎 ${formatCurrency(save.getDiamonds())} KC`, {
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#00f5d4'
@@ -147,8 +148,8 @@ export class ShopModal {
     };
 
     const updateWalletUI = () => {
-      walletCoinsText.setText(`💰 ${save.getCoins()} Xu`);
-      walletDiamondsText.setText(`💎 ${save.getDiamonds()} KC`);
+      walletCoinsText.setText(`💰 ${formatCurrency(save.getCoins())} Xu`);
+      walletDiamondsText.setText(`💎 ${formatCurrency(save.getDiamonds())} KC`);
     };
 
     // Store dynamic stock labels to update counts when bought
@@ -170,7 +171,7 @@ export class ShopModal {
       save.addCoins(5000);
       audio.playVictory();
       haptic.medium();
-      showToast('🎉 Đã tiếp tế thành công +5,000 Xu Vàng vào ngân khố!');
+      showToast('🎉 Đã tiếp tế thành công +5.000 Xu Vàng vào ngân khố!');
       updateWalletUI();
       refreshAllButtons();
     });
@@ -344,14 +345,14 @@ export class ShopModal {
           bsBg.fillRoundedRect(-btnSingleW / 2, -btnSingleH / 2, btnSingleW, btnSingleH, 9);
           bsBg.lineStyle(1.4, 0xffd700, 0.85);
           bsBg.strokeRoundedRect(-btnSingleW / 2, -btnSingleH / 2, btnSingleW, btnSingleH, 9);
-          bsTxt.setText(`1 cái • ${cfg.priceSingle} 💰`);
+          bsTxt.setText(`1 cái • ${formatCurrency(cfg.priceSingle)} 💰`);
           bsTxt.setColor('#ffd700');
         } else {
           bsBg.fillStyle(0x1a1b2a, 0.85);
           bsBg.fillRoundedRect(-btnSingleW / 2, -btnSingleH / 2, btnSingleW, btnSingleH, 9);
           bsBg.lineStyle(1.2, 0xef4444, 0.5);
           bsBg.strokeRoundedRect(-btnSingleW / 2, -btnSingleH / 2, btnSingleW, btnSingleH, 9);
-          bsTxt.setText(`Thiếu ${cfg.priceSingle - coins} 💰`);
+          bsTxt.setText(`Thiếu ${formatCurrency(cfg.priceSingle - coins)} 💰`);
           bsTxt.setColor('#f87171');
         }
       };
@@ -369,14 +370,14 @@ export class ShopModal {
             yoyo: true,
             repeat: 3
           });
-          showToast(`⚠️ Cần thêm ${cfg.priceSingle - coins} Xu Vàng! (Bạn có ${coins} Xu)`, true);
+          showToast(`⚠️ Cần thêm ${formatCurrency(cfg.priceSingle - coins)} Xu Vàng! (Bạn có ${formatCurrency(coins)} Xu)`, true);
           return;
         }
 
         const res = save.buyBoosterWithCoins(cfg.id, 1, cfg.priceSingle);
         if (res.success) {
           audio.playVictory();
-          showToast(`🎉 Mua thành công 1 ${cfg.title}! (-${cfg.priceSingle} Xu)`);
+          showToast(`🎉 Mua thành công 1 ${cfg.title}! (-${formatCurrency(cfg.priceSingle)} Xu)`);
           updateWalletUI();
           updateStockUI();
           refreshAllButtons();
@@ -437,14 +438,14 @@ export class ShopModal {
           bpBg.fillRoundedRect(-btnPackW / 2, -btnPackH / 2, btnPackW, btnPackH, 9);
           bpBg.lineStyle(1.4, 0x00f5d4, 0.9);
           bpBg.strokeRoundedRect(-btnPackW / 2, -btnPackH / 2, btnPackW, btnPackH, 9);
-          bpTxt.setText(`Gói x5 • ${cfg.pricePack} 💰`);
+          bpTxt.setText(`Gói x5 • ${formatCurrency(cfg.pricePack)} 💰`);
           bpTxt.setColor('#ffffff');
         } else {
           bpBg.fillStyle(0x1f142b, 0.85);
           bpBg.fillRoundedRect(-btnPackW / 2, -btnPackH / 2, btnPackW, btnPackH, 9);
           bpBg.lineStyle(1.2, 0xef4444, 0.5);
           bpBg.strokeRoundedRect(-btnPackW / 2, -btnPackH / 2, btnPackW, btnPackH, 9);
-          bpTxt.setText(`Thiếu ${cfg.pricePack - coins} 💰`);
+          bpTxt.setText(`Thiếu ${formatCurrency(cfg.pricePack - coins)} 💰`);
           bpTxt.setColor('#f87171');
         }
       };
@@ -462,14 +463,14 @@ export class ShopModal {
             yoyo: true,
             repeat: 3
           });
-          showToast(`⚠️ Cần thêm ${cfg.pricePack - coins} Xu Vàng! (Bạn có ${coins} Xu)`, true);
+          showToast(`⚠️ Cần thêm ${formatCurrency(cfg.pricePack - coins)} Xu Vàng! (Bạn có ${formatCurrency(coins)} Xu)`, true);
           return;
         }
 
         const res = save.buyBoosterWithCoins(cfg.id, cfg.packCount, cfg.pricePack);
         if (res.success) {
           audio.playVictory();
-          showToast(`🎉 Mua thành công Gói x5 ${cfg.title}! (-${cfg.pricePack} Xu)`);
+          showToast(`🎉 Mua thành công Gói x5 ${cfg.title}! (-${formatCurrency(cfg.pricePack)} Xu)`);
           updateWalletUI();
           updateStockUI();
           refreshAllButtons();
@@ -533,14 +534,14 @@ export class ShopModal {
           bp10Bg.fillRoundedRect(-btnPack10W / 2, -btnPack10H / 2, btnPack10W, btnPack10H, 11);
           bp10Bg.lineStyle(2, 0xffd700, 0.95);
           bp10Bg.strokeRoundedRect(-btnPack10W / 2, -btnPack10H / 2, btnPack10W, btnPack10H, 11);
-          bp10Txt.setText(`⚡ MUA GÓI x10 • ${cfg.pricePack10} 💰`);
+          bp10Txt.setText(`⚡ MUA GÓI x10 • ${formatCurrency(cfg.pricePack10)} 💰`);
           bp10Txt.setColor('#ffd700');
         } else {
           bp10Bg.fillStyle(0x1e122b, 0.85);
           bp10Bg.fillRoundedRect(-btnPack10W / 2, -btnPack10H / 2, btnPack10W, btnPack10H, 11);
           bp10Bg.lineStyle(1.2, 0xef4444, 0.5);
           bp10Bg.strokeRoundedRect(-btnPack10W / 2, -btnPack10H / 2, btnPack10W, btnPack10H, 11);
-          bp10Txt.setText(`Gói x10 • Thiếu ${cfg.pricePack10 - coins} 💰`);
+          bp10Txt.setText(`Gói x10 • Thiếu ${formatCurrency(cfg.pricePack10 - coins)} 💰`);
           bp10Txt.setColor('#f87171');
         }
       };
@@ -558,14 +559,14 @@ export class ShopModal {
             yoyo: true,
             repeat: 3
           });
-          showToast(`⚠️ Cần thêm ${cfg.pricePack10 - coins} Xu Vàng để mua Gói x10! (Bạn có ${coins} Xu)`, true);
+          showToast(`⚠️ Cần thêm ${formatCurrency(cfg.pricePack10 - coins)} Xu Vàng để mua Gói x10! (Bạn có ${formatCurrency(coins)} Xu)`, true);
           return;
         }
 
         const res = save.buyBoosterWithCoins(cfg.id, 10, cfg.pricePack10);
         if (res.success) {
           audio.playVictory();
-          showToast(`🎉 MUA THÀNH CÔNG GÓI x10 ${cfg.title}! (-${cfg.pricePack10} Xu)`);
+          showToast(`🎉 MUA THÀNH CÔNG GÓI x10 ${cfg.title}! (-${formatCurrency(cfg.pricePack10)} Xu)`);
           updateWalletUI();
           updateStockUI();
           refreshAllButtons();
@@ -689,7 +690,7 @@ export class ShopModal {
         bbBg.fillRoundedRect(-bBtnW / 2, -bBtnH / 2, bBtnW, bBtnH, 16);
         bbBg.lineStyle(1.5, 0xef4444, 0.5);
         bbBg.strokeRoundedRect(-bBtnW / 2, -bBtnH / 2, bBtnW, bBtnH, 16);
-        bbTxt.setText(`Thiếu ${3600 - coins} 💰`);
+        bbTxt.setText(`Thiếu ${formatCurrency(3600 - coins)} 💰`);
         bbTxt.setColor('#f87171');
       }
     };
@@ -707,7 +708,7 @@ export class ShopModal {
           yoyo: true,
           repeat: 3
         });
-        showToast(`⚠️ Cần thêm ${3600 - coins} Xu Vàng để mua Rương! (Bạn có ${coins} Xu)`, true);
+        showToast(`⚠️ Cần thêm ${formatCurrency(3600 - coins)} Xu Vàng để mua Rương! (Bạn có ${formatCurrency(coins)} Xu)`, true);
         return;
       }
 

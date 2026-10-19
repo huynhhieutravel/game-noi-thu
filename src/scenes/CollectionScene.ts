@@ -9,9 +9,9 @@ import { SaveSystem } from '../systems/SaveSystem';
 import { CharacterData, ElementType, Rarity } from '../types';
 import levelsData from '../data/levels.json';
 import bossesData from '../data/bosses.json';
-import relicsData from '../data/relics.json';
 import { RelicManager } from '../game/RelicManager';
 import { LevelManager } from '../game/LevelManager';
+import { formatCurrency, FONT_UI, FONT_DISPLAY } from '../styles/typography';
 
 export class CollectionScene extends Phaser.Scene {
   private audio!: AudioSystem;
@@ -407,9 +407,9 @@ export class CollectionScene extends Phaser.Scene {
     const titleY = 24;
 
     this.mainTitleText = this.add.text(width / 2, titleY, realm.name, {
-      fontFamily: 'Zen Maru Gothic, Plus Jakarta Sans, sans-serif',
-      fontSize: '25px',
-      fontStyle: '900',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '26px',
+      fontStyle: 'bold',
       color: '#ffffff',
       stroke: '#c1121f',
       strokeThickness: 5,
@@ -429,7 +429,7 @@ export class CollectionScene extends Phaser.Scene {
       : `✦  🌸  ${realm.kanji}  •  ${realm.sub}  🌸  ✦`;
 
     this.subTitleText = this.add.text(width / 2, titleY + 22, subStr, {
-      fontFamily: 'Zen Maru Gothic, serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '12.5px',
       fontStyle: 'bold',
       color: '#ffccd5'
@@ -470,7 +470,7 @@ export class CollectionScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Coins Pill: [ 💰 620 + ]
-    const coinW = 100;
+    const coinW = 108;
     const coinX = width - 215;
     const coinsBg = this.add.graphics();
     coinsBg.fillStyle(0x131124, 0.88);
@@ -478,9 +478,9 @@ export class CollectionScene extends Phaser.Scene {
     coinsBg.lineStyle(1.2, 0xffd166, 0.8);
     coinsBg.strokeRoundedRect(coinX - coinW / 2, 12, coinW, 32, 16);
 
-    this.add.text(coinX - 8, 28, `💰 ${save.coins}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+    this.add.text(coinX - 8, 28, `💰 ${formatCurrency(save.coins)}`, {
+      fontFamily: FONT_UI,
+      fontSize: '13.5px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -968,9 +968,9 @@ export class CollectionScene extends Phaser.Scene {
     }
 
     const titleText = this.add.text(barCenterX, barY, titleString, {
-      fontFamily: 'Zen Maru Gothic, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13px',
-      fontStyle: '900',
+      fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5);
     this.chapterNavContainer.add(titleText);
@@ -1122,8 +1122,8 @@ export class CollectionScene extends Phaser.Scene {
 
       // Kanji / Subtitle
       const kanji = this.add.text(0, 58, char.japaneseName || '', {
-        fontFamily: 'Zen Maru Gothic, sans-serif',
-        fontSize: '12px',
+        fontFamily: FONT_DISPLAY,
+        fontSize: '13px',
         fontStyle: 'bold',
         color: '#ced4da'
       }).setOrigin(0.5);
@@ -1201,8 +1201,8 @@ export class CollectionScene extends Phaser.Scene {
 
       // Subtitle
       const kanji = this.add.text(0, 58, char.japaneseName || '', {
-        fontFamily: 'Zen Maru Gothic, sans-serif',
-        fontSize: '11.5px',
+        fontFamily: FONT_DISPLAY,
+        fontSize: '12.5px',
         fontStyle: 'bold',
         color: '#6c757d'
       }).setOrigin(0.5);
@@ -1338,7 +1338,7 @@ export class CollectionScene extends Phaser.Scene {
 
     // Right side: Info and lore
     const kanji = this.add.text(125, -145, char.japaneseName || '', {
-      fontFamily: 'Zen Maru Gothic, sans-serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '22px',
       color: '#ffd700',
       fontStyle: 'bold'
@@ -1411,7 +1411,7 @@ export class CollectionScene extends Phaser.Scene {
         btnTxtColor = '#ffffff';
       } else if (!isUnlocked) {
         btnColor = 0xffd166;
-        btnLabel = `🔒 MỞ (${compData.cost} XU)`;
+        btnLabel = `🔒 MỞ (${formatCurrency(compData.cost)} XU)`;
         btnTxtColor = '#000000';
       }
 

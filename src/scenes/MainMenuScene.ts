@@ -17,6 +17,7 @@ import { LootManager } from '../game/LootManager';
 import { QADebugPanel } from '../game/QADebugPanel';
 import { SettingsModal } from '../game/SettingsModal';
 import { ShopModal } from '../game/ShopModal';
+import { formatCurrency, FONT_UI, FONT_DISPLAY, FONT_WEIGHT } from '../styles/typography';
 
 export class MainMenuScene extends Phaser.Scene {
   private saveSystem!: SaveSystem;
@@ -229,8 +230,8 @@ export class MainMenuScene extends Phaser.Scene {
       });
     });
 
-    // --- 2. Coins Pill (x = 174, width = 98) ---
-    const coinW = 98;
+    // --- 2. Coins Pill (x = 174, width = 108) ---
+    const coinW = 108;
     const coinX = compX + compW + 8; // 174
 
     const coinsBg = this.add.graphics();
@@ -240,10 +241,10 @@ export class MainMenuScene extends Phaser.Scene {
     coinsBg.strokeRoundedRect(coinX, topY, coinW, compH, 18);
 
     const coinIcon = this.add.text(coinX + 9, topY + 8, '💰', { fontSize: '15px' });
-    const coinText = this.add.text(coinX + 28, topY + 9, `${save.coins}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      fontStyle: '900',
+    const coinText = this.add.text(coinX + 28, topY + 9, formatCurrency(save.coins), {
+      fontFamily: FONT_UI,
+      fontSize: '12.5px',
+      fontStyle: '800',
       color: '#ffd700'
     });
 
@@ -254,9 +255,9 @@ export class MainMenuScene extends Phaser.Scene {
     coinPlus.strokeCircle(coinX + coinW - 13, topY + compH / 2, 8);
 
     const coinPlusTxt = this.add.text(coinX + coinW - 13, topY + compH / 2 - 1, '+', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12px',
-      fontStyle: '900',
+      fontStyle: '800',
       color: '#ffd700'
     }).setOrigin(0.5);
 
@@ -265,9 +266,9 @@ export class MainMenuScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     coinHit.on('pointerdown', () => this.openShopModal());
 
-    // --- 3. Diamonds Pill (x = 280, width = 88) ---
+    // --- 3. Diamonds Pill (x = 290, width = 88) ---
     const diaW = 88;
-    const diaX = coinX + coinW + 8; // 280
+    const diaX = coinX + coinW + 8; // 290
 
     const diaBg = this.add.graphics();
     diaBg.fillStyle(0x111024, 0.92);
@@ -276,10 +277,10 @@ export class MainMenuScene extends Phaser.Scene {
     diaBg.strokeRoundedRect(diaX, topY, diaW, compH, 18);
 
     const diaIcon = this.add.text(diaX + 8, topY + 8, '💎', { fontSize: '15px' });
-    const diaText = this.add.text(diaX + 27, topY + 9, `${this.saveSystem.getDiamonds()}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13px',
-      fontStyle: '900',
+    const diaText = this.add.text(diaX + 27, topY + 9, formatCurrency(this.saveSystem.getDiamonds()), {
+      fontFamily: FONT_UI,
+      fontSize: '12.5px',
+      fontStyle: '800',
       color: '#00f5d4'
     });
 
@@ -780,7 +781,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Japanese subtitle above logo
     const subTitle = this.add.text(-40, -42, '坨坨皮鸟店', {
-      fontFamily: 'Zen Maru Gothic, serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '12px',
       fontStyle: 'bold',
       color: '#ffccd5'
@@ -788,9 +789,9 @@ export class MainMenuScene extends Phaser.Scene {
 
     // YOKAI (Dynamic Brush font styling)
     const titleYokai = this.add.text(-42, -12, 'YOKAI', {
-      fontFamily: 'Zen Maru Gothic, sans-serif',
-      fontSize: '38px',
-      fontStyle: '900',
+      fontFamily: FONT_DISPLAY,
+      fontSize: '40px',
+      fontStyle: 'bold',
       color: '#ffffff',
       stroke: '#d90429',
       strokeThickness: 8,
@@ -833,7 +834,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Rotating rune effect on dais
     const runeText = this.add.text(leftCenterX, daisY + 76, '✦  ⛩️  ✦  ⛩️  ✦', {
-      fontFamily: 'Zen Maru Gothic, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '14px',
       color: '#ffd166'
     }).setOrigin(0.5).setAlpha(0.85);
@@ -2860,10 +2861,10 @@ export class MainMenuScene extends Phaser.Scene {
       const math2 = this.add.text(0, -colH / 2 + 38, `Base: 35 + ⌊(${curLevel}-1)*1.65⌋ = ${activeStage.baseCoins}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '9.5px', fontStyle: 'bold', color: '#94a3b8' }).setOrigin(0.5);
 
       const rates2 = [
-        { label: '🟢 DỄ:', val: `+${activeStage.rewardsMatrix.easy.coins} Xu`, sub: 'x1.0 Multiplier', color: '#06d6a0' },
-        { label: '🟡 VỪA:', val: `+${activeStage.rewardsMatrix.medium.coins} Xu`, sub: 'x1.2 Multiplier', color: '#ffd166' },
-        { label: '🔴 KHÓ:', val: `+${activeStage.rewardsMatrix.hard.coins} Xu`, sub: 'x1.5 Multiplier', color: '#ef476f' },
-        { label: '⭐ THƯỞNG:', val: activeStage.stageType === 'boss' ? '+100 Xu' : '+50 Xu', sub: activeStage.rewardsMatrix.threeStarCoinBonus, color: '#ffd700' }
+        { label: '🟢 DỄ:', val: `+${formatCurrency(activeStage.rewardsMatrix.easy.coins)} Xu`, sub: 'x1.0 Multiplier', color: '#06d6a0' },
+        { label: '🟡 VỪA:', val: `+${formatCurrency(activeStage.rewardsMatrix.medium.coins)} Xu`, sub: 'x1.2 Multiplier', color: '#ffd166' },
+        { label: '🔴 KHÓ:', val: `+${formatCurrency(activeStage.rewardsMatrix.hard.coins)} Xu`, sub: 'x1.5 Multiplier', color: '#ef476f' },
+        { label: '⭐ THƯỞNG:', val: activeStage.stageType === 'boss' ? `+${formatCurrency(100)} Xu` : `+${formatCurrency(50)} Xu`, sub: activeStage.rewardsMatrix.threeStarCoinBonus, color: '#ffd700' }
       ];
 
       rates2.forEach((r, idx) => {
@@ -3004,7 +3005,7 @@ export class MainMenuScene extends Phaser.Scene {
         const c1 = this.add.text(-tW / 2 + 35, rowH / 2, `${tag} ${st.levelNumber}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '11px', fontStyle: '900', color: isSelected ? '#00f5d4' : '#ffffff' }).setOrigin(0.5);
         const c2 = this.add.text(-tW / 2 + 80, rowH / 2, st.stageName.replace(/👑 |⚔️ /g, '').substring(0, 26), { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: 'bold', color: '#e2e8f0' }).setOrigin(0, 0.5);
         const c3 = this.add.text(-tW / 2 + 390, rowH / 2, `${st.rewardsMatrix.easy.exp} / ${st.rewardsMatrix.medium.exp} / ${st.rewardsMatrix.hard.exp}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: '900', color: '#00f5d4' }).setOrigin(0.5);
-        const c4 = this.add.text(-tW / 2 + 520, rowH / 2, `${st.rewardsMatrix.easy.coins} / ${st.rewardsMatrix.medium.coins} / ${st.rewardsMatrix.hard.coins}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: '900', color: '#ffd166' }).setOrigin(0.5);
+        const c4 = this.add.text(-tW / 2 + 520, rowH / 2, `${formatCurrency(st.rewardsMatrix.easy.coins)} / ${formatCurrency(st.rewardsMatrix.medium.coins)} / ${formatCurrency(st.rewardsMatrix.hard.coins)}`, { fontFamily: FONT_UI, fontSize: '10.5px', fontStyle: '800', color: '#ffd166' }).setOrigin(0.5);
         const c5 = this.add.text(-tW / 2 + 645, rowH / 2, `${st.rewardsMatrix.hard.mainShardPct} (K)`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: 'bold', color: '#ff758f' }).setOrigin(0.5);
         const c6 = this.add.text(-tW / 2 + 760, rowH / 2, st.stageType === 'boss' ? '—' : `${st.rewardsMatrix.hard.subShardPct} (K)`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: 'bold', color: '#adb5bd' }).setOrigin(0.5);
         const c7 = this.add.text(-tW / 2 + 875, rowH / 2, `${st.itemIcon} ${st.rewardsMatrix.hard.itemPct}`, { fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: '10.5px', fontStyle: '900', color: '#c77dff' }).setOrigin(0.5);
@@ -3367,9 +3368,9 @@ export class MainMenuScene extends Phaser.Scene {
     // --- 2. GRAND GOLDEN FANTASY TITLE ---
     const headerY = -236;
     const title = this.add.text(0, headerY, 'CHIẾN DỊCH VIỄN CHINH • 100 MÀN CHƠI', {
-      fontFamily: 'Cinzel, "Playfair Display", "Plus Jakarta Sans", serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '26px',
-      fontStyle: '900',
+      fontStyle: 'bold',
       color: '#ffd700',
       stroke: '#1a0d00',
       strokeThickness: 2.5,
@@ -4124,7 +4125,7 @@ export class MainMenuScene extends Phaser.Scene {
     bannerContainer.add(toriiIcon);
 
     const levelNumTxt = this.add.text(-bannerW / 2 + 56, -28, `Màn ${baseConfig.levelNumber}`, {
-      fontFamily: 'Cinzel, Georgia, serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '18px',
       fontStyle: 'bold',
       color: '#ffd700',
@@ -4134,9 +4135,9 @@ export class MainMenuScene extends Phaser.Scene {
     bannerContainer.add(levelNumTxt);
 
     const mainTitleTxt = this.add.text(-bannerW / 2 + 56, -3, cleanTitle, {
-      fontFamily: 'Philosopher, "Cinzel", Georgia, serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '23px',
-      fontStyle: '900',
+      fontStyle: 'bold',
       color: '#ffffff',
       stroke: '#05070e',
       strokeThickness: 4
@@ -4361,7 +4362,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Right Side Information
     const rStartX = -colW / 2 + 154;
     const rTitleTxt = this.add.text(rStartX, -topCardH / 2 + 18, relic?.name || 'Gương Thần Yata', {
-      fontFamily: 'Philosopher, "Cinzel", Georgia, serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '18px',
       fontStyle: 'bold',
       color: '#ffd700',
@@ -4499,7 +4500,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Header Emblem & Title
     const qEmblem = this.add.text(-colW / 2 + 20, -topCardH / 2 + 18, '🔥', { fontSize: '15px' }).setOrigin(0, 0.5);
     const qHeader = this.add.text(-colW / 2 + 42, -topCardH / 2 + 18, 'NHIỆM VỤ 3 SAO', {
-      fontFamily: 'Cinzel, Georgia, serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '13px',
       fontStyle: 'bold',
       color: '#ffd700'
@@ -4545,7 +4546,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Header Emblem & Title
     const mEmblem = this.add.text(-colW / 2 + 20, -bottomCardH / 2 + 18, '🔥', { fontSize: '15px' }).setOrigin(0, 0.5);
     const mHeader = this.add.text(-colW / 2 + 42, -bottomCardH / 2 + 18, 'LINH THÚ CÓ THỂ GẶP TRONG MAP', {
-      fontFamily: 'Cinzel, Georgia, serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '12px',
       fontStyle: 'bold',
       color: '#ffd700'
@@ -4622,7 +4623,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Header Emblem & Title
     const lEmblem = this.add.text(-colW / 2 + 20, -bottomCardH / 2 + 18, '🎁', { fontSize: '15px' }).setOrigin(0, 0.5);
     const lHeader = this.add.text(-colW / 2 + 42, -bottomCardH / 2 + 18, 'PHẦN THƯỞNG', {
-      fontFamily: 'Cinzel, Georgia, serif',
+      fontFamily: FONT_DISPLAY,
       fontSize: '13px',
       fontStyle: 'bold',
       color: '#ffd700'
@@ -4636,7 +4637,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Top Row: Base Rewards (4 pods)
     const baseRewards = [
       { icon: '🔥', label: `+${matrix.exp} EXP`, sub: 'Kinh nghiệm', color: '#38bdf8' },
-      { icon: '🪙', label: `+${matrix.coins} Xu`, sub: 'Tiền thưởng', color: '#ffd166' },
+      { icon: '🪙', label: `+${formatCurrency(matrix.coins)} Xu`, sub: 'Tiền thưởng', color: '#ffd166' },
       { icon: '🐾', label: `${stageLoot.mainCompanionName || 'Cáo Inari'}`, sub: `(${matrix.mainShardPct || '1.0%'})`, color: '#ff758f' },
       { icon: '🐱', label: `${stageLoot.subCompanionName || 'Mèo Nekomata'}`, sub: `(${matrix.subShardPct || '0.3%'})`, color: '#ff9ebb' }
     ];

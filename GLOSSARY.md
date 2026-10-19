@@ -32,6 +32,18 @@ _Avoid_: Rating formula, star algorithm, score bonus
 The queuing and instant registration of user touch selections during tile-clear animation frames, guaranteeing zero dropped clicks and fluid 60fps pacing when executing rapid consecutive matches.
 _Avoid_: Buffer clicks, click spam, queue taps
 
+**Retina Canvas Scaling**:
+The high-DPI rasterization strategy matching the Phaser canvas render resolution to the physical device pixel ratio (capped at 2x for optimal battery and GPU thermal balance), eliminating blurry or pixelated text on Retina OLED mobile displays.
+_Avoid_: Screen zoom, pixel smoothing, canvas upscaling
+
+**Typography Hierarchy**:
+The standardized two-tier font architecture segregating display headings (cinematic Japanese fantasy serif) from functional telemetry (clean, high-legibility geometric sans-serif for HUD, timers, and badges) across all game scenes.
+_Avoid_: Font mixing, random fonts, ad-hoc styling
+
+**Tactical Booster Dock**:
+The compact, non-intrusive action container housing player consumables (Hint, Shuffle, Bomb) with an ultra-low vertical footprint, mathematically isolated from the board grid to guarantee zero tile obstruction.
+_Avoid_: Item bar, booster tray, bottom buttons
+
 ## Board Dynamics & Obstacles
 
 **Board Modifier**:

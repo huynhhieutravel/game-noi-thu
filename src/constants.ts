@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 
 export const GAME_WIDTH = 1080;
 export const GAME_HEIGHT = 680;
-export const DPR = 1;
+export const DPR = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1;
 
 /**
  * Calculates adaptive screen dimensions matching the device aspect ratio.

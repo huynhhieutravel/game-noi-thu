@@ -1,5 +1,6 @@
 import { COMPANION_UPGRADE_COSTS, DifficultyLevel, UserSaveData } from '../types';
 import relicsData from '../data/relics.json';
+import { formatCurrency } from '../styles/typography';
 
 const RELIC_FORGE_MAP: Record<string, { shardsRequired: number; surplusExchangeRate: number }> = {};
 for (const r of (relicsData as any[])) {
@@ -536,7 +537,7 @@ export class SaveSystem {
     const safeCost = Math.floor(cost);
     const safeCount = Math.floor(count);
     if (this.data.coins < safeCost) {
-      return { success: false, reason: `Cần thêm ${safeCost - this.data.coins} Xu Vàng!` };
+      return { success: false, reason: `Cần thêm ${formatCurrency(safeCost - this.data.coins)} Xu Vàng!` };
     }
     this.data.coins -= safeCost;
     this.data.boosters[type] += safeCount;
@@ -550,7 +551,7 @@ export class SaveSystem {
     }
     const safeCost = Math.floor(cost);
     if (this.data.coins < safeCost) {
-      return { success: false, reason: `Cần thêm ${safeCost - this.data.coins} Xu Vàng!` };
+      return { success: false, reason: `Cần thêm ${formatCurrency(safeCost - this.data.coins)} Xu Vàng!` };
     }
     this.data.coins -= safeCost;
     this.data.boosters.hint += Math.max(0, Math.floor(hints));
@@ -840,7 +841,7 @@ export class SaveSystem {
     const curCoins = this.getCoins();
 
     if (curCoins < requiredCoins) {
-      return { canLevelUp: false, reason: `Cần thêm ${requiredCoins - curCoins} Xu Vàng!`, requiredCoins, nextLevel: curLevel + 1 };
+      return { canLevelUp: false, reason: `Cần thêm ${formatCurrency(requiredCoins - curCoins)} Xu Vàng!`, requiredCoins, nextLevel: curLevel + 1 };
     }
     return { canLevelUp: true, requiredCoins, nextLevel: curLevel + 1 };
   }
@@ -877,7 +878,7 @@ export class SaveSystem {
       return { canEvolve: false, reason: `Cần thêm ${costs.shards - curShards} Mảnh Linh Thú!`, requiredShards: costs.shards, requiredCoins: costs.coins, nextTier: tier + 1 };
     }
     if (curCoins < costs.coins) {
-      return { canEvolve: false, reason: `Cần thêm ${costs.coins - curCoins} Xu Vàng!`, requiredShards: costs.shards, requiredCoins: costs.coins, nextTier: tier + 1 };
+      return { canEvolve: false, reason: `Cần thêm ${formatCurrency(costs.coins - curCoins)} Xu Vàng!`, requiredShards: costs.shards, requiredCoins: costs.coins, nextTier: tier + 1 };
     }
 
     return { canEvolve: true, requiredShards: costs.shards, requiredCoins: costs.coins, nextTier: tier + 1 };

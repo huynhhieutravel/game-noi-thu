@@ -4,6 +4,7 @@ import { CompanionManager } from './CompanionManager';
 import { CompanionConfig } from '../types';
 import { SaveSystem } from '../systems/SaveSystem';
 import { AudioSystem } from '../systems/AudioSystem';
+import { formatCurrency, FONT_UI } from '../styles/typography';
 
 export class CompanionModal3D {
   private static readonly TOTAL_FRAMES = 18;
@@ -191,15 +192,15 @@ export class CompanionModal3D {
     coinPillGfx.lineStyle(1.2, 0xd4af37, 0.85);
     coinPillGfx.strokeRoundedRect(coinPillX - coinPillW / 2, headerY - coinPillH / 2, coinPillW, coinPillH, 14);
 
-    const coinText = scene.add.text(coinPillX - 10, headerY, `🪙 ${save.getCoins()}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const coinText = scene.add.text(coinPillX - 10, headerY, `🪙 ${formatCurrency(save.getCoins())}`, {
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
     const coinPlus = scene.add.text(coinPillX + 38, headerY, '+', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#ffd700'
@@ -214,8 +215,8 @@ export class CompanionModal3D {
     gemPillGfx.lineStyle(1.2, 0x00b4d8, 0.85);
     gemPillGfx.strokeRoundedRect(gemPillX - gemPillW / 2, headerY - coinPillH / 2, gemPillW, coinPillH, 14);
 
-    const gemText = scene.add.text(gemPillX - 8, headerY, `💎 ${save.getDiamonds()}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const gemText = scene.add.text(gemPillX - 8, headerY, `💎 ${formatCurrency(save.getDiamonds())}`, {
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: '900',
       color: '#48cae4'
