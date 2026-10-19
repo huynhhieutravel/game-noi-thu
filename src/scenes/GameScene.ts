@@ -1369,7 +1369,7 @@ export class GameScene extends Phaser.Scene {
         this.showNotice('Không tìm thấy nước đi phù hợp!', 0xffd166);
         this.audio.playError();
       }
-    });
+    }, 'item_booster_hint');
     this.hintCountText = hintBtn.countText;
 
     // 2. Shuffle Gem (🔄 - Cyan electric glow)
@@ -1387,7 +1387,7 @@ export class GameScene extends Phaser.Scene {
         this.audio.playShuffle();
         this.updateBoosterCounts();
       }
-    });
+    }, 'item_booster_shuffle');
     this.shuffleCountText = shuffleBtn.countText;
 
     // 3. Bomb Gem (💣 - Amethyst purple glow)
@@ -1408,7 +1408,7 @@ export class GameScene extends Phaser.Scene {
         this.showNotice('Không tìm thấy cặp ô để phá!', 0xffd166);
         this.audio.playError();
       }
-    });
+    }, 'item_booster_bomb');
     this.bombCountText = bombBtn.countText;
 
     tray.add([hintBtn.container, shuffleBtn.container, bombBtn.container]);
@@ -2281,7 +2281,7 @@ export class GameScene extends Phaser.Scene {
     spriteKey?: string
   ): { container: Phaser.GameObjects.Container; countText: Phaser.GameObjects.Text } {
     const container = this.add.container(x, y);
-    const radius = 21; // 42px diameter circular action gem
+    const radius = 22; // 44px diameter circular action gem
 
     // 1. Soft glowing outer neon aura
     const aura = this.add.graphics();
@@ -2301,16 +2301,21 @@ export class GameScene extends Phaser.Scene {
     bg.lineStyle(1.0, 0xffffff, 0.22);
     bg.strokeCircle(0, 0, radius - 2.5);
 
-    // 5. Center Neon Action Icon
-    const iconTxt = this.add.text(0, 0, icon, {
-      fontSize: '20px'
-    }).setOrigin(0.5);
+    // 5. Center Neon Action Icon / Sprite
+    let centerIcon: Phaser.GameObjects.GameObject;
+    if (spriteKey && this.textures.exists(spriteKey)) {
+      centerIcon = this.add.image(0, 0, spriteKey).setDisplaySize(34, 34);
+    } else {
+      centerIcon = this.add.text(0, 0, icon, {
+        fontSize: '20px'
+      }).setOrigin(0.5);
+    }
 
     // 6. Mini Count Badge (Top-Right Pill, e.g. "15", "10")
     const badgeW = 22;
     const badgeH = 14;
-    const badgeX = radius - 4;
-    const badgeY = -radius + 4;
+    const badgeX = radius - 3;
+    const badgeY = -radius + 3;
 
     const badgeGfx = this.add.graphics();
     badgeGfx.fillStyle(0xd90429, 0.98); // Rich crimson / gold accent
@@ -2325,7 +2330,7 @@ export class GameScene extends Phaser.Scene {
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    container.add([aura, bg, iconTxt, badgeGfx, count]);
+    container.add([aura, bg, centerIcon, badgeGfx, count]);
     container.setSize(radius * 2, radius * 2);
     container.setInteractive(new Phaser.Geom.Circle(0, 0, radius + 4), Phaser.Geom.Circle.Contains);
     if (container.input) {
