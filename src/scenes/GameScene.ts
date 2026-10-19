@@ -1338,12 +1338,13 @@ export class GameScene extends Phaser.Scene {
 
   private buildBoosterTray(width: number, height: number): void {
     const saveData = this.save.getData();
-    const tray = this.add.container(width / 2, height - 40).setDepth(20);
+    // Anchored cleanly at height - 28 so buttons sit below board with guaranteed safety gap
+    const tray = this.add.container(width / 2, height - 28).setDepth(20);
 
-    const btnWidth = 146;
-    const spacing = 154;
+    const btnWidth = 118;
+    const spacing = 126;
 
-    // 1. Hint Button (Amber glowing - matching Image 2)
+    // 1. Hint Button (Amber glowing)
     const hintBtn = this.createBoosterButton(-spacing, 0, btnWidth, '💡', 'Gợi Ý', `x${saveData.boosters.hint}`, 0xffa200, () => {
       if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
       if (this.save.getData().boosters.hint <= 0) {
@@ -2286,11 +2287,11 @@ export class GameScene extends Phaser.Scene {
 
       const count = this.add.text(badgeX, badgeY, countStr, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '15px',
+        fontSize: '13px',
         fontStyle: '900',
         color: '#ffd700',
         stroke: '#0d0d14',
-        strokeThickness: 2.5
+        strokeThickness: 2.2
       }).setOrigin(0.5);
 
       container.add([btnSprite, count]);

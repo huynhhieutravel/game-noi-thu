@@ -241,28 +241,30 @@ export class BoardManager {
     const screenWidth = GAME_WIDTH;
     const screenHeight = GAME_HEIGHT;
 
-    // Top reserved for Header HUD (Score, Timer, Lives) ~ 100px (or ~135px if Boss)
-    // Bottom reserved for Boosters ~ 78px
+    // Top reserved:
+    // Non-boss header: Timer bar & plaque end at y=52 -> topReserved = 72px
+    // Boss header: Boss avatar & HP bar end at y=110 -> topReserved = 118px
     const isBoss = !!this.config.boss;
-    const topReserved = isBoss ? 135 : 100;
-    const bottomReserved = 78;
+    const topReserved = isBoss ? 118 : 72;
+    // Bottom reserved: Booster tray sits at height - 28 (652px), top of buttons at ~625px
+    // Reserving 68px strictly guarantees the board frame never extends below 606px (giving a clean 19px+ safety gap)
+    const bottomReserved = 68;
 
     const availableWidth = screenWidth - 64;
     const availableHeight = screenHeight - topReserved - bottomReserved;
 
     const maxTileW = Math.floor(availableWidth / this.cols);
     const maxTileH = Math.floor(availableHeight / this.rows);
-    // Dynamic Tile Scaling: prominent, tactile tiles on mobile for smaller grids (4x6, 6x6, 6x8)
-    const maxCap = this.rows <= 4 ? 92 : (this.rows <= 6 && this.cols <= 8) ? 84 : (this.rows <= 6 ? 76 : 70);
+    // Dynamic Tile Scaling: tactile tiles on mobile, scaled safely for 8 rows in Hard/Boss modes
+    const maxCap = this.rows <= 4 ? 92 : (this.rows <= 6 && this.cols <= 8) ? 84 : (this.rows <= 6 ? 76 : (isBoss ? 56 : 62));
     this.tileSize = Math.min(maxTileW, maxTileH, maxCap);
 
     const boardWidth = this.cols * this.tileSize;
     const boardHeight = this.rows * this.tileSize;
 
     this.boardOffsetX = (screenWidth - boardWidth) / 2 + this.tileSize / 2;
-    const calcGridTop = isBoss
-      ? topReserved + 15
-      : Math.min(160, topReserved + Math.max(16, (availableHeight - boardHeight) / 2));
+    // Strictly center board within available vertical bounds, mathematically guaranteeing no bottom overflow
+    const calcGridTop = topReserved + Math.max(0, Math.floor((availableHeight - boardHeight) / 2));
     this.boardOffsetY = calcGridTop + this.tileSize / 2;
 
     // Torii Portals coordinates at midRow
