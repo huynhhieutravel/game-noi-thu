@@ -1237,7 +1237,7 @@ export class GameScene extends Phaser.Scene {
     this.bossHpBar = this.add.graphics();
     this.updateBossHpVisual(this.bossManager!.getHp(), this.bossManager!.getMaxHp());
 
-    this.bossHpText = this.add.text(contentX, 2, `${this.bossManager!.getHp()} / ${this.bossManager!.getMaxHp()} HP`, {
+    this.bossHpText = this.add.text(contentX, 2, `${formatCurrency(this.bossManager!.getHp())} / ${formatCurrency(this.bossManager!.getMaxHp())} HP`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '13px',
       fontStyle: '900',
@@ -1269,7 +1269,7 @@ export class GameScene extends Phaser.Scene {
     this.bossHpBar.fillRoundedRect(contentX - 168, -5, barWidth, 14, 7);
 
     if (this.bossHpText) {
-      this.bossHpText.setText(`${Math.max(0, Math.ceil(currentHp))} / ${maxHp} HP`);
+      this.bossHpText.setText(`${formatCurrency(Math.max(0, Math.ceil(currentHp)))} / ${formatCurrency(maxHp)} HP`);
     }
   }
 
@@ -4130,7 +4130,7 @@ export class GameScene extends Phaser.Scene {
       const relic = questStats.relicReward;
       const surplusCoins = questStats.relicSurplusCoins || 0;
       const amountTxt = surplusCoins > 0 
-        ? `+${surplusCoins} XU` 
+        ? `+${formatCurrency(surplusCoins)} XU` 
         : `+${questStats.relicShardsEarned} MẢNH`;
       const subTxt = surplusCoins > 0
         ? '★5 Tối Đa • Tự Đổi Xu'
@@ -4177,7 +4177,7 @@ export class GameScene extends Phaser.Scene {
       rewardCards.push({
         type: 'speed',
         title: '⚡ TỐC CHIẾN',
-        amount: `+${timeBonus} PTS`,
+        amount: `+${formatCurrency(timeBonus)} PTS`,
         sub: 'ĐIỂM TỐC ĐỘ',
         icon: '⏱️',
         borderColor: 0x4cc9f0,

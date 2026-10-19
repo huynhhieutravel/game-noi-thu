@@ -240,7 +240,7 @@ export class QADebugPanel {
       this.jumpToLevel(100);
     });
 
-    createCheatButton('💰 +50,000 Coins & +300 Stars', 0xffb703, () => {
+    createCheatButton('💰 +50.000 Xu & +300 Sao', 0xffb703, () => {
       save.addCoins(50000);
       for (let i = 1; i <= 50; i++) {
         save.recordLevelCompleted(`level_${String(i).padStart(2, '0')}`, i, 3);

@@ -819,7 +819,7 @@ export class CompanionModal3D {
 
     const expBarTextStr = isMaxTierMaxLevel
       ? 'MAX LEVEL'
-      : `${curExp}/${reqExp} EXP`;
+      : `${formatCurrency(curExp)}/${formatCurrency(reqExp)} EXP`;
 
     const expBarText = scene.add.text(expBarX + expBarW / 2, expRowY, expBarTextStr, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
