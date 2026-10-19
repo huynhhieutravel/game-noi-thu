@@ -31,12 +31,21 @@ export class AudioSystem {
         }
       };
 
+      const pauseAudio = () => {
+        if (this.ctx && this.ctx.state === 'running') {
+          this.ctx.suspend().catch(() => {});
+        }
+      };
+
       document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) {
+        if (document.hidden) {
+          pauseAudio();
+        } else {
           resumeAudio();
         }
       });
       window.addEventListener('pageshow', resumeAudio);
+      window.addEventListener('pagehide', pauseAudio);
       window.addEventListener('focus', resumeAudio);
 
       const unlockAudio = () => {

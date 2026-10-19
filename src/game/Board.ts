@@ -63,6 +63,24 @@ export class BoardManager {
           this.processingMatchWatchdog = null;
           this.clearHint();
           this.checkBoardStatus();
+          this.processQueuedInput();
+        }
+      });
+    } else {
+      this.processQueuedInput();
+    }
+  }
+
+  /**
+   * ⚡ Process queued tile tap pipelining
+   */
+  private processQueuedInput(): void {
+    if (this.queuedInput && !this.isProcessingMatch) {
+      const next = this.queuedInput;
+      this.queuedInput = null;
+      this.scene.time.delayedCall(16, () => {
+        if (!this.isProcessingMatch && this.grid[next.r]?.[next.c] && !this.grid[next.r][next.c].isCleared) {
+          this.handleTileClick(next.r, next.c);
         }
       });
     }
@@ -109,6 +127,9 @@ export class BoardManager {
 
   // 🔄 Pending deadlock auto-shuffle timer
   private pendingShuffleTimer: Phaser.Time.TimerEvent | null = null;
+
+  // ⚡ Input Pipelining (Thao tác gối đầu: lưu cú nhấp chuột kế tiếp khi đang hoạt ảnh kết nối)
+  private queuedInput: GridPoint | null = null;
 
   constructor(scene: Phaser.Scene, config: LevelConfig, events: BoardEvents = {}) {
     this.scene = scene;
@@ -441,10 +462,19 @@ export class BoardManager {
   private createPortalGate(x: number, y: number, label: string, color: number, gateW: number, gateH: number): Phaser.GameObjects.Container {
     const cont = this.scene.add.container(x, y).setDepth(1);
 
-    // 1. Soft static elemental aura (no scaling tween to guarantee 60 FPS)
+    // 1. Soft ethereal elemental aura with subtle breathing pulse
     const glow = this.scene.add.graphics();
     glow.fillStyle(color, 0.22);
     glow.fillCircle(0, 0, Math.round(gateW * 0.44));
+
+    this.scene.tweens.add({
+      targets: glow,
+      alpha: { from: 0.6, to: 1.0 },
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
 
     // 2. High-res Torii Gate image (portal_torii_a for A, portal_torii_b for B)
     const texKey = label === 'A' ? 'portal_torii_a' : 'portal_torii_b';
@@ -728,7 +758,26 @@ export class BoardManager {
   }
 
   public handleTileClick(r: number, c: number): void {
+    try {
+      this.handleTileClickInternal(r, c);
+    } catch (err) {
+      console.error(`[BoardManager] Exception in handleTileClick at (${r}, ${c}):`, err);
+      // Failsafe recovery: release processing lock and clear selection so player can continue playing
+      this.setProcessingMatch(false);
+      this.selectedTile = null;
+      try {
+        this.clearHint();
+      } catch {}
+    }
+  }
+
+  private handleTileClickInternal(r: number, c: number): void {
     if (this.isProcessingMatch) {
+      // ⚡ Input Pipelining: Ghi nhận cú click kế tiếp trên ô hợp lệ để tự động xử lý ngay khi animation nối hoàn tất
+      const targetTile = this.grid[r]?.[c];
+      if (targetTile && !targetTile.isCleared && targetTile.characterId) {
+        this.queuedInput = { r, c };
+      }
       return;
     }
 
@@ -869,7 +918,12 @@ export class BoardManager {
 
     // Draw connecting laser path
     this.drawMatchPath(matchPath, () => {
-      this.processClearedTiles(firstTile, secondTile, matchPath.points, false);
+      try {
+        this.processClearedTiles(firstTile, secondTile, matchPath.points, false);
+      } catch (err) {
+        console.error('[BoardManager] Exception in processClearedTiles:', err);
+        this.setProcessingMatch(false);
+      }
     });
   }
 
@@ -1073,6 +1127,13 @@ export class BoardManager {
         for (let i = 0; i < pts.length - 1; i++) {
           const pA = pts[i];
           const pB = pts[i + 1];
+
+          // 🛡️ Skip non-orthogonal wormhole jumps between Torii portals
+          // Laser beams only travel horizontally or vertically; diagonal jumps represent wormholes
+          if (pA.r !== pB.r && pA.c !== pB.c) {
+            continue;
+          }
+
           const minR = Math.min(pA.r, pB.r);
           const maxR = Math.max(pA.r, pB.r);
           const minC = Math.min(pA.c, pB.c);
@@ -1495,57 +1556,63 @@ export class BoardManager {
   }
 
   public checkBoardStatus(): void {
-    this.setProcessingMatch(false);
+    try {
+      this.setProcessingMatch(false);
 
-    // 🛡️ Ironclad Parity Audit & Auto-Heal before status check
-    this.auditAndHealParity();
+      // 🛡️ Ironclad Parity Audit & Auto-Heal before status check
+      this.auditAndHealParity();
 
-    // Check if all playable tiles cleared
-    let remainingPlayable = 0;
-    for (let r = 1; r <= this.rows; r++) {
-      for (let c = 1; c <= this.cols; c++) {
-        const cell = this.grid[r][c];
-        if (!cell.isCleared && cell.characterId && cell.modifier !== 'stone') {
-          remainingPlayable++;
+      // Check if all playable tiles cleared
+      let remainingPlayable = 0;
+      for (let r = 1; r <= this.rows; r++) {
+        for (let c = 1; c <= this.cols; c++) {
+          const cell = this.grid[r][c];
+          if (!cell.isCleared && cell.characterId && cell.modifier !== 'stone') {
+            remainingPlayable++;
+          }
         }
       }
-    }
 
-    if (remainingPlayable === 0) {
-      this.events.onBoardCleared?.();
-      return;
-    }
-
-    // Check for available matches (accounting for Torii Portals if active)
-    let available = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, this.getPortals());
-
-    // ⛩️ Rescue Mechanism: If regular moves are stuck on a map without portals, check if Torii Rescue Portals can unlock matches!
-    if (!available && !this.hasPortals && !this.isRescuePortalsActive && !this.isPiercingLaserActive) {
-      const portalMatch = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, {
-        portalA: this.portalGridA,
-        portalB: this.portalGridB
-      });
-      if (portalMatch) {
-        // Unlock Cổng Cứu Hộ A-B dynamically to save the player from deadlock!
-        this.activateRescuePortals(25);
-        available = portalMatch;
+      if (remainingPlayable === 0) {
+        this.events.onBoardCleared?.();
+        return;
       }
-    }
 
-    if (available && this.pendingShuffleTimer) {
-      this.pendingShuffleTimer.destroy();
-      this.pendingShuffleTimer = null;
-    }
+      // Check for available matches (accounting for Torii Portals if active)
+      let available = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, this.getPortals());
 
-    // CRITICAL: Do NOT auto-shuffle deadlock if Piercing Laser or Rescue Portals is handling it!
-    if (!available && !this.isPiercingLaserActive) {
-      if (this.pendingShuffleTimer) {
+      // ⛩️ Rescue Mechanism: If regular moves are stuck on a map without portals, check if Torii Rescue Portals can unlock matches!
+      if (!available && !this.hasPortals && !this.isRescuePortalsActive && !this.isPiercingLaserActive) {
+        const portalMatch = BoardGenerator.findFirstAvailableMatch(this.grid, this.rows, this.cols, {
+          portalA: this.portalGridA,
+          portalB: this.portalGridB
+        });
+        if (portalMatch) {
+          // Unlock Cổng Cứu Hộ A-B dynamically to save the player from deadlock!
+          this.activateRescuePortals(25);
+          available = portalMatch;
+        }
+      }
+
+      if (available && this.pendingShuffleTimer) {
         this.pendingShuffleTimer.destroy();
-      }
-      this.pendingShuffleTimer = this.scene.time.delayedCall(350, () => {
         this.pendingShuffleTimer = null;
-        this.performShuffle(true);
-      });
+      }
+
+      // CRITICAL: Do NOT auto-shuffle deadlock if Piercing Laser or Rescue Portals is handling it!
+      if (!available && !this.isPiercingLaserActive) {
+        if (this.pendingShuffleTimer) {
+          this.pendingShuffleTimer.destroy();
+        }
+        this.pendingShuffleTimer = this.scene.time.delayedCall(350, () => {
+          this.pendingShuffleTimer = null;
+          this.performShuffle(true);
+        });
+      }
+    } catch (err) {
+      console.error('[BoardManager] Exception in checkBoardStatus:', err);
+    } finally {
+      this.setProcessingMatch(false);
     }
   }
 
@@ -1688,6 +1755,7 @@ export class BoardManager {
   }
 
   public clearSelection(): void {
+    this.queuedInput = null;
     if (this.selectedTile) {
       this.tileViews[this.selectedTile.r]?.[this.selectedTile.c]?.setSelected(false);
       this.selectedTile = null;
@@ -2408,6 +2476,7 @@ export class BoardManager {
   }
 
   public destroy(): void {
+    this.queuedInput = null;
     if (this.processingMatchWatchdog) {
       this.processingMatchWatchdog.destroy();
       this.processingMatchWatchdog = null;

@@ -887,6 +887,8 @@ export const COMPANION_TIERS: Record<string, Record<number, CompanionTierInfo>> 
   }
 };
 
+COMPANION_TIERS.genbu_tortoise = COMPANION_TIERS.genbu_turtle;
+
 export class CompanionManager {
   public static get(id: string): CompanionConfig {
     return COMPANIONS[id] || COMPANIONS['inari_kitsune'];

@@ -532,7 +532,7 @@ export class CollectionScene extends Phaser.Scene {
     const tabs = [
       { id: 'yokai_library', icon: '🌐', label: 'Thư Viện Vạn Giới' },
       { id: 'relics', icon: '🏺', label: 'Thần Khí Cổ Vật' },
-      { id: 'badges', icon: '🎖️', label: 'Huy Hiệu Quái' },
+      { id: 'badges', icon: '🎖️', label: 'Huy Hiệu Màn' },
       { id: 'companions', icon: '🦊', label: 'Linh Thú' },
       { id: 'items', icon: '🎒', label: 'Vật Phẩm' },
       { id: 'story', icon: '📖', label: 'Cốt Truyện' },
@@ -1543,20 +1543,22 @@ export class CollectionScene extends Phaser.Scene {
 
     const card = this.add.graphics();
     card.fillStyle(0x161426, 0.96);
-    card.fillRoundedRect(-260, -180, 520, 360, 20);
+    card.fillRoundedRect(-260, -190, 520, 385, 20);
     card.lineStyle(2, 0xffd166, 1);
-    card.strokeRoundedRect(-260, -180, 520, 360, 20);
+    card.strokeRoundedRect(-260, -190, 520, 385, 20);
 
-    const title = this.add.text(0, -135, '🎒 KHO VẬT PHẨM & PHÁP BẢO', {
+    const title = this.add.text(0, -155, '🎒 KHO VẬT PHẨM & PHÁP BẢO', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '18px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
+    const boosters = this.save.getBoosters();
     const items = [
-      { id: 'talisman', icon: '📜', name: 'Bùa Trừ Tà (Hint)', desc: 'Gợi ý ngay lập tức 1 cặp Yokai có thể nối trên bàn cờ.', qty: 'x5', usage: 'Bấm nút Gợi Ý 💡 trong màn chơi hoặc khi bí đường.', obtain: 'Thưởng 3★ mỗi màn chơi hoặc nhận từ Rương Thần Thoại.' },
-      { id: 'fan', icon: '🌪️', name: 'Quạt Ba Tiêu (Shuffle)', desc: 'Đảo lộn vị trí toàn bộ bàn cờ khi không còn đường đi hợp lệ.', qty: 'x3', usage: 'Bấm nút Đổi Cờ 🔄 hoặc tự động kích hoạt khi bàn cờ deadlock.', obtain: 'Nhận từ Điểm Danh Hàng Ngày & Khiêu Chiến Boss.' },
+      { id: 'hint', spriteKey: 'item_booster_hint', icon: '💡', name: 'Bình Gợi Ý (Hint Bottle)', desc: 'Soi sáng tức thì 1 cặp Yokai có thể kết nối ngay trên bàn.', qty: `x${boosters.hint}`, usage: 'Bấm nút Gợi Ý 💡 trong màn chơi hoặc khi bí đường.', obtain: 'Mua tại Cửa Hàng Xu Vàng hoặc Thưởng 3★ mỗi màn chơi.' },
+      { id: 'shuffle', spriteKey: 'item_booster_shuffle', icon: '🔀', name: 'Quạt Đổi Bảng (Shuffle Fan)', desc: 'Xáo trộn lại toàn bộ bàn cờ khi các cặp thẻ bị phân tán hiểm hóc.', qty: `x${boosters.shuffle}`, usage: 'Bấm nút Đổi Cờ 🔄 hoặc tự động kích hoạt khi bàn cờ bế tắc.', obtain: 'Mua tại Cửa Hàng Xu Vàng & Điểm Danh Hàng Ngày.' },
+      { id: 'bomb', spriteKey: 'item_booster_bomb', icon: '⚡', name: 'Búa Sét Trảm Quái (Thunder Hammer)', desc: 'Gọi sấm sét tiêu diệt tức thì 1 cặp thẻ bất kỳ trên bàn cờ.', qty: `x${boosters.bomb}`, usage: 'Bấm nút Phá Cặp 💣 để trảm ngay cặp cờ hiểm hóc.', obtain: 'Mua tại Cửa Hàng Quân Nhu hoặc Thưởng Boss Thế Giới.' },
       { id: 'hourglass', icon: '⏳', name: 'Đồng Hồ Cát (+15s)', desc: 'Cộng thêm +15 giây sinh tồn khẩn cấp trong màn chơi.', qty: 'x2', usage: 'Tự động kích hoạt khi Thần Khí Thời Gian phát động chiêu.', obtain: 'Phần thưởng diệt Boss thế giới.' },
       { id: 'elixir', icon: '❤️', name: 'Linh Đan Trường Sinh', desc: 'Hồi phục lại 1 Trái Tim sinh mệnh khi nối sai ô.', qty: 'x10', usage: 'Bảo hộ thanh sinh mệnh không bị trừ hết mạng.', obtain: 'Phần thưởng Cổ Vật Bất Tử Ankh.' }
     ];
@@ -1566,22 +1568,30 @@ export class CollectionScene extends Phaser.Scene {
     let itemDetailBox: Phaser.GameObjects.Text;
 
     items.forEach((it, i) => {
-      const y = -70 + i * 46;
+      const y = -112 + i * 44;
       const iContainer = this.add.container(0, y);
       const iBg = this.add.graphics();
       iBg.fillStyle(0x211f36, 0.9);
-      iBg.fillRoundedRect(-220, -18, 440, 40, 10);
+      iBg.fillRoundedRect(-220, -18, 440, 38, 10);
       iBg.lineStyle(1.2, 0x4d4668, 0.8);
-      iBg.strokeRoundedRect(-220, -18, 440, 40, 10);
+      iBg.strokeRoundedRect(-220, -18, 440, 38, 10);
 
-      const ic = this.add.text(-200, 0, it.icon, { fontSize: '20px' }).setOrigin(0, 0.5);
-      const nm = this.add.text(-165, -7, it.name, {
+      let ic: Phaser.GameObjects.GameObject;
+      if (it.spriteKey && this.textures.exists(it.spriteKey)) {
+        const itemImg = this.add.image(-198, 0, it.spriteKey);
+        itemImg.setDisplaySize(30, 30);
+        ic = itemImg;
+      } else {
+        ic = this.add.text(-200, 0, it.icon, { fontSize: '20px' }).setOrigin(0, 0.5);
+      }
+
+      const nm = this.add.text(-170, -7, it.name, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '12px',
         fontStyle: '800',
         color: '#ffd700'
       });
-      const dc = this.add.text(-165, 8, it.desc, {
+      const dc = this.add.text(-170, 8, it.desc, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '9.5px',
         color: '#adb5bd'
@@ -1594,20 +1604,20 @@ export class CollectionScene extends Phaser.Scene {
       }).setOrigin(1, 0.5);
 
       iContainer.add([iBg, ic, nm, dc, qt]);
-      iContainer.setSize(440, 40).setInteractive({ useHandCursor: true });
+      iContainer.setSize(440, 38).setInteractive({ useHandCursor: true });
 
       iContainer.on('pointerover', () => {
         iBg.lineStyle(1.8, 0xffd166, 1);
-        iBg.strokeRoundedRect(-220, -18, 440, 40, 10);
+        iBg.strokeRoundedRect(-220, -18, 440, 38, 10);
       });
       iContainer.on('pointerout', () => {
         iBg.lineStyle(1.2, 0x4d4668, 0.8);
-        iBg.strokeRoundedRect(-220, -18, 440, 40, 10);
+        iBg.strokeRoundedRect(-220, -18, 440, 38, 10);
       });
       iContainer.on('pointerdown', () => {
         this.audio.playSelect();
         itemDetailBox.setText(
-          `✨ ${it.icon} ${it.name} • Đang có: ${it.qty}\n` +
+          `✨ ${it.name} • Đang có: ${it.qty}\n` +
           `⚡ Hiệu Quả: ${it.desc}\n` +
           `🎮 Cách Dùng: ${it.usage}\n` +
           `🎁 Cách Kiếm: ${it.obtain}`
@@ -1619,7 +1629,7 @@ export class CollectionScene extends Phaser.Scene {
     });
 
     // Detail Info Box at bottom
-    itemDetailBox = this.add.text(0, 118, '💡 Chạm vào bất kỳ vật phẩm nào ở trên để xem chi tiết cách dùng & cách nhận.', {
+    itemDetailBox = this.add.text(0, 122, '💡 Chạm vào bất kỳ vật phẩm nào ở trên để xem chi tiết cách dùng & cách nhận.', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '10.5px',
       color: '#ced4da',
@@ -1629,7 +1639,7 @@ export class CollectionScene extends Phaser.Scene {
     }).setOrigin(0.5);
     itemElements.push(itemDetailBox);
 
-    const closeBtn = this.add.container(0, 155);
+    const closeBtn = this.add.container(0, 162);
     const clBg = this.add.graphics();
     clBg.fillStyle(0xd90429, 1);
     clBg.fillRoundedRect(-60, -14, 120, 28, 8);
@@ -2022,9 +2032,6 @@ export class CollectionScene extends Phaser.Scene {
     const save = this.save;
     const relicMgr = RelicManager.getInstance();
 
-    // Mở full toàn bộ 30 Thần Khí ("để full đại đi")
-    save.unlockAllRelics();
-
     const allRelics = relicMgr.getAllRelics();
     const PAGE_SIZE = 8;
     const totalPages = Math.ceil(allRelics.length / PAGE_SIZE); // 4 trang
@@ -2120,14 +2127,24 @@ export class CollectionScene extends Phaser.Scene {
 
       const rBox = this.add.container(posX, posY);
 
-      const isEquipped = save.getEquippedRelicId() === r.id;
+      const stars = save.getRelicStar(r.id);
+      const shards = save.getRelicShards(r.id);
+      const reqShards = save.getRelicRequiredShards(r.id);
+      const isUnlocked = stars > 0;
+      const isEquipped = isUnlocked && save.getEquippedRelicId() === r.id;
+      const canUnlock = !isUnlocked && shards >= reqShards;
+      const mults = [1.0, 1.0, 1.25, 1.5, 2.0];
+      const nextStarCost = Math.round(reqShards * (mults[stars] || 1.0));
+      const canUpgrade = isUnlocked && stars < 5 && shards >= nextStarCost;
       const colors = relicMgr.getTierColor(r.tier);
 
       // Card BG
       const cG = this.add.graphics();
-      cG.fillStyle(isEquipped ? 0x1d2138 : colors.fill, 0.95);
+      const cardBgColor = isEquipped ? 0x1d2138 : (isUnlocked ? colors.fill : 0x10131f);
+      const cardBorderColor = isEquipped ? 0x00f5d4 : (isUnlocked ? colors.stroke : 0x2b3045);
+      cG.fillStyle(cardBgColor, 0.95);
       cG.fillRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
-      cG.lineStyle(isEquipped ? 2.5 : 1.6, isEquipped ? 0x00f5d4 : colors.stroke, 0.9);
+      cG.lineStyle(isEquipped ? 2.5 : 1.4, cardBorderColor, 0.9);
       cG.strokeRoundedRect(-colW / 2, -colH / 2, colW, colH, 12);
       rBox.add(cG);
 
@@ -2135,63 +2152,132 @@ export class CollectionScene extends Phaser.Scene {
       const slotSize = 54;
       const slotY = -colH / 2 + 36;
       const sG = this.add.graphics();
-      sG.fillStyle(0x0a0c16, 0.95);
+      sG.fillStyle(isUnlocked ? 0x0a0c16 : 0x070810, 0.95);
       sG.fillRoundedRect(-slotSize / 2, slotY - slotSize / 2, slotSize, slotSize, 8);
-      sG.lineStyle(1.4, isEquipped ? 0x00f5d4 : colors.stroke, 0.9);
+      sG.lineStyle(1.4, isEquipped ? 0x00f5d4 : (isUnlocked ? colors.stroke : 0x363c54), 0.9);
       sG.strokeRoundedRect(-slotSize / 2, slotY - slotSize / 2, slotSize, slotSize, 8);
       rBox.add(sG);
 
       const texKey = `relic_${r.id}`;
       if (this.textures.exists(texKey)) {
-        const img = this.add.image(0, slotY, texKey).setDisplaySize(slotSize - 6, slotSize - 6);
+        const img = this.add.image(0, slotY, texKey).setDisplaySize(slotSize - 8, slotSize - 8);
+        if (!isUnlocked) {
+          img.setTint(0x666666);
+          img.setAlpha(0.48);
+        }
         rBox.add(img);
       } else {
-        const iconTxt = this.add.text(0, slotY, r.icon, { fontSize: '28px' }).setOrigin(0.5);
+        const iconTxt = this.add.text(0, slotY, r.icon || '🏺', { fontSize: '26px' }).setOrigin(0.5);
+        if (!isUnlocked) {
+          iconTxt.setAlpha(0.45);
+        }
         rBox.add(iconTxt);
       }
 
-      // Title & Japanese Name
+      // If locked, overlay lock circle badge
+      if (!isUnlocked) {
+        const lockCircle = this.add.graphics();
+        lockCircle.fillStyle(0x000000, 0.65);
+        lockCircle.fillCircle(0, slotY, 13);
+        rBox.add(lockCircle);
+        const lockIcon = this.add.text(0, slotY, '🔒', { fontSize: '13px' }).setOrigin(0.5);
+        rBox.add(lockIcon);
+      } else {
+        // Star badge on top-right of slot
+        const starBadge = this.add.graphics();
+        starBadge.fillStyle(0x1a1506, 0.95);
+        starBadge.fillRoundedRect(slotSize / 2 - 24, slotY - slotSize / 2 - 4, 28, 14, 4);
+        starBadge.lineStyle(1, 0xffd700, 0.9);
+        starBadge.strokeRoundedRect(slotSize / 2 - 24, slotY - slotSize / 2 - 4, 28, 14, 4);
+        rBox.add(starBadge);
+        const starTxt = this.add.text(slotSize / 2 - 10, slotY - slotSize / 2 + 3, `★${stars}`, {
+          fontFamily: 'Plus Jakarta Sans, sans-serif',
+          fontSize: '9px',
+          fontStyle: '900',
+          color: '#ffd700'
+        }).setOrigin(0.5);
+        rBox.add(starTxt);
+      }
+
+      // Bottom pill on slot showing shards (e.g. 0/40 M)
+      const slotShardPill = this.add.graphics();
+      const pillW = 52;
+      const pillH = 14;
+      const pillY = slotY + slotSize / 2 - 4;
+      slotShardPill.fillStyle(0x0a0c16, 0.95);
+      slotShardPill.fillRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 4);
+      slotShardPill.lineStyle(1, isUnlocked ? 0x00f5d4 : (canUnlock ? 0xff9f1c : 0x363c54), 0.85);
+      slotShardPill.strokeRoundedRect(-pillW / 2, pillY - pillH / 2, pillW, pillH, 4);
+      rBox.add(slotShardPill);
+
+      const slotShardStr = isUnlocked 
+        ? (stars >= 5 ? 'MAX' : `${shards}/${nextStarCost}`)
+        : `${shards}/${reqShards}`;
+      const slotShardTxt = this.add.text(0, pillY, slotShardStr, {
+        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontSize: '8px',
+        fontStyle: '900',
+        color: isUnlocked ? '#00f5d4' : (canUnlock ? '#ff9f1c' : '#adb5bd')
+      }).setOrigin(0.5);
+      rBox.add(slotShardTxt);
+
+      // Title & SubName
       const nameTxt = this.add.text(0, slotY + 38, r.name, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12.5px',
+        fontSize: '12px',
         fontStyle: '900',
-        color: isEquipped ? '#00f5d4' : '#ffd700',
+        color: isEquipped ? '#00f5d4' : (isUnlocked ? '#ffd700' : '#e0e1dd'),
         align: 'center'
       }).setOrigin(0.5);
       rBox.add(nameTxt);
 
       // Tier & SubName
-      const tierTxt = this.add.text(0, slotY + 54, `${r.tierName} • ${r.subName}`, {
+      const tierTxt = this.add.text(0, slotY + 53, `${r.tierName} • ${r.subName}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '10px',
+        fontSize: '9.5px',
         fontStyle: 'bold',
         color: colors.hexStr
       }).setOrigin(0.5);
       rBox.add(tierTxt);
 
       // Skill Title
-      const skillTitle = this.add.text(0, slotY + 70, `⚡ ${r.skillName} (Nộ: ${r.rageCost}%)`, {
+      const skillTitle = this.add.text(0, slotY + 68, `⚡ ${r.skillName} (Nộ: ${r.rageCost}%)`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '10.5px',
+        fontSize: '10px',
         fontStyle: '900',
         color: '#00f5d4'
       }).setOrigin(0.5);
       rBox.add(skillTitle);
 
       // Skill Short Desc
-      const skillDesc = this.add.text(0, slotY + 84, r.skillDesc, {
+      const skillDesc = this.add.text(0, slotY + 81, r.skillDesc, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '9.5px',
+        fontSize: '9px',
         color: '#ced4da',
         align: 'center',
         wordWrap: { width: colW - 16 }
       }).setOrigin(0.5, 0);
       rBox.add(skillDesc);
 
-      // Action / Equip Pill Button (Full 5 sao)
-      const btnW = 144;
+      // Shard Mini Progress Bar
+      const pBarW = 160;
+      const pBarH = 4;
+      const pBarY = colH / 2 - 28;
+      const pBarBg = this.add.graphics();
+      pBarBg.fillStyle(0x0a0c16, 0.9);
+      pBarBg.fillRoundedRect(-pBarW / 2, pBarY - pBarH / 2, pBarW, pBarH, 2);
+      const curMax = isUnlocked ? nextStarCost : reqShards;
+      const pRatio = stars >= 5 ? 1 : Math.min(1, shards / Math.max(1, curMax));
+      if (pRatio > 0) {
+        pBarBg.fillStyle(isUnlocked ? 0xffd700 : (canUnlock ? 0xff9f1c : 0x00f5d4), 1);
+        pBarBg.fillRoundedRect(-pBarW / 2, pBarY - pBarH / 2, pBarW * pRatio, pBarH, 2);
+      }
+      rBox.add(pBarBg);
+
+      // Action / Equip Pill Button
+      const btnW = 160;
       const btnH = 22;
-      const btnY = colH / 2 - 16;
+      const btnY = colH / 2 - 13;
       const bG = this.add.graphics();
 
       let btnLabel = '';
@@ -2200,21 +2286,35 @@ export class CollectionScene extends Phaser.Scene {
       if (isEquipped) {
         bG.fillStyle(0x00f5d4, 1);
         bG.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
-        btnLabel = '✨ ĐANG DÙNG (★5)';
+        btnLabel = `✨ ĐANG DÙNG (★${stars})`;
         btnColor = '#0b1320';
-      } else {
+      } else if (isUnlocked) {
         bG.fillStyle(0x192238, 0.95);
         bG.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
         bG.lineStyle(1.2, 0xffd700, 0.9);
         bG.strokeRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
-        btnLabel = '⚡ TRANG BỊ (★5)';
+        btnLabel = canUpgrade ? `🔥 NÂNG CẤP (★${stars + 1})` : `⚡ TRANG BỊ (★${stars})`;
         btnColor = '#ffd700';
+      } else if (canUnlock) {
+        bG.fillStyle(0xff9f1c, 1);
+        bG.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
+        bG.lineStyle(1.2, 0xffd700, 1);
+        bG.strokeRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
+        btnLabel = `🔥 ĐÚC THẦN KHÍ (${shards}/${reqShards})`;
+        btnColor = '#1a0f00';
+      } else {
+        bG.fillStyle(0x121422, 0.95);
+        bG.fillRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
+        bG.lineStyle(1, 0x363c54, 0.8);
+        bG.strokeRoundedRect(-btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
+        btnLabel = `🔒 CẦN ${reqShards} MẢNH (${shards}/${reqShards})`;
+        btnColor = '#7d859b';
       }
       rBox.add(bG);
 
       const bTxt = this.add.text(0, btnY, btnLabel, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '10px',
+        fontSize: '9.5px',
         fontStyle: '900',
         color: btnColor
       }).setOrigin(0.5);
@@ -2222,9 +2322,21 @@ export class CollectionScene extends Phaser.Scene {
 
       rBox.setSize(colW, colH).setInteractive({ useHandCursor: true });
       rBox.on('pointerdown', () => {
-        save.equipRelic(r.id);
-        this.audio.playSelect();
-        this.openFull30RelicsCodex(safePage);
+        if (isEquipped) {
+          this.audio.playTick();
+        } else if (isUnlocked) {
+          save.equipRelic(r.id);
+          this.audio.playSelect();
+          this.openFull30RelicsCodex(safePage);
+        } else if (canUnlock) {
+          const success = save.unlockOrUpgradeRelic(r.id);
+          if (success) {
+            this.audio.playVictory();
+            this.openFull30RelicsCodex(safePage);
+          }
+        } else {
+          this.audio.playError();
+        }
       });
 
       modal.add(rBox);
@@ -2275,7 +2387,7 @@ export class CollectionScene extends Phaser.Scene {
     card.lineStyle(2, 0x00f5d4, 0.95);
     card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
 
-    const title = this.add.text(0, -228, '🎖️ BỘ SƯU TẬP HUY HIỆU QUÁI VẬT (MONSTER BADGES)', {
+    const title = this.add.text(0, -228, '🎖️ HUY HIỆU VƯỢT MÀN (STAGE BADGES)', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '16.5px',
       fontStyle: '900',
@@ -2283,7 +2395,7 @@ export class CollectionScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const totalBadges = this.save.getCollectedBadgesCount();
-    const subTitle = this.add.text(0, -202, `Đã thu thập: ${totalBadges}/30 Huy hiệu • 3 Cấp: 🟢 Đồng (Dễ) | ⚪ Bạc (Vừa) | 🟡 Vàng (Khó)`, {
+    const subTitle = this.add.text(0, -202, `Chiến tích vượt 100 Màn Onet • ${totalBadges}/30 Huy hiệu • 🟢 Đồng | ⚪ Bạc | 🟡 Vàng`, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '12px',
       fontStyle: 'bold',
@@ -2367,19 +2479,19 @@ export class CollectionScene extends Phaser.Scene {
     }).setOrigin(0.5);
     elements.push(tooltipTxt);
 
-    // Close button
+    // Return to Library button
     const closeBtn = this.add.container(0, 226);
     const clBg = this.add.graphics();
-    clBg.fillStyle(0xd90429, 1);
-    clBg.fillRoundedRect(-65, -15, 130, 30, 10);
-    const clTxt = this.add.text(0, 0, 'ĐÓNG', {
+    clBg.fillStyle(0x00b4d8, 1);
+    clBg.fillRoundedRect(-110, -15, 220, 30, 10);
+    const clTxt = this.add.text(0, 0, '🌐 VỀ THƯ VIỆN VẠN GIỚI', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '12px',
-      fontStyle: '800',
-      color: '#ffffff'
+      fontStyle: '900',
+      color: '#05192d'
     }).setOrigin(0.5);
     closeBtn.add([clBg, clTxt]);
-    closeBtn.setSize(130, 30).setInteractive({ useHandCursor: true });
+    closeBtn.setSize(220, 30).setInteractive({ useHandCursor: true });
     closeBtn.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
     elements.push(closeBtn);
 

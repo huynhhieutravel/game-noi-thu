@@ -171,6 +171,7 @@ const DEFAULT_SAVE: UserSaveData = {
     sacred_lotus_padma: { discoveredAt: Date.now(), count: 1 },
   },
   selectedTheme: 'yokai',
+  selectedWallpaper: 'bg_night_shrine',
   selectedCompanion: 'inari_kitsune',
   unlockedCompanions: ['inari_kitsune'],
   companionTiers: {
@@ -222,16 +223,10 @@ const DEFAULT_SAVE: UserSaveData = {
     music: true,
     vibration: true
   },
-  relicsCollected: {
-    relic_yokai_01: true
-  },
-  relicShards: {
-    relic_yokai_01: 100
-  },
-  relicStars: {
-    relic_yokai_01: 1
-  },
-  equippedRelicId: 'relic_yokai_01',
+  relicsCollected: {},
+  relicShards: {},
+  relicStars: {},
+  equippedRelicId: '',
   badgesCollected: {},
   completedDifficulties: {},
   unlockedRealms: ['yokai'],
@@ -337,6 +332,7 @@ export class SaveSystem {
       diamonds: typeof parsed.diamonds === 'number' ? Math.max(parsed.diamonds, 100) : 100,
       highestLevel,
       selectedTheme: (parsed.selectedTheme && parsed.selectedTheme !== 'pikachu') ? parsed.selectedTheme : 'yokai',
+      selectedWallpaper: parsed.selectedWallpaper || 'bg_night_shrine',
       companionTiers: { ...DEFAULT_SAVE.companionTiers, ...(parsed.companionTiers || {}) },
       companionLevels: { ...DEFAULT_SAVE.companionLevels, ...(parsed.companionLevels || {}) },
       companionShards: { ...DEFAULT_SAVE.companionShards, ...(parsed.companionShards || {}) },
@@ -349,10 +345,35 @@ export class SaveSystem {
         bomb: Math.max(parsed.boosters?.bomb ?? 0, 10)
       },
       discoveredCharacters: { ...DEFAULT_SAVE.discoveredCharacters, ...(parsed.discoveredCharacters || {}) },
-      relicsCollected: { ...(DEFAULT_SAVE.relicsCollected || {}), ...(parsed.relicsCollected || {}) },
-      relicShards: { ...(DEFAULT_SAVE.relicShards || {}), ...(parsed.relicShards || {}) },
-      relicStars: { ...(DEFAULT_SAVE.relicStars || {}), ...(parsed.relicStars || {}) },
-      equippedRelicId: parsed.equippedRelicId || DEFAULT_SAVE.equippedRelicId || 'relic_yokai_01',
+      ...(() => {
+        const parsedStars = parsed.relicStars || {};
+        const parsedShards = parsed.relicShards || {};
+        const cheatMatches = Object.keys(parsedStars).filter(k => parsedStars[k] === 5 && parsedShards[k] === 100);
+        const isCheatedRelics = cheatMatches.length >= 10;
+
+        let relicsCollected: Record<string, boolean> = {};
+        let relicShards: Record<string, number> = {};
+        let relicStars: Record<string, number> = {};
+        let equippedRelicId = '';
+
+        if (!isCheatedRelics) {
+          relicsCollected = { ...(DEFAULT_SAVE.relicsCollected || {}), ...(parsed.relicsCollected || {}) };
+          relicShards = { ...(DEFAULT_SAVE.relicShards || {}), ...(parsed.relicShards || {}) };
+          relicStars = { ...(DEFAULT_SAVE.relicStars || {}), ...(parsed.relicStars || {}) };
+          equippedRelicId = parsed.equippedRelicId || DEFAULT_SAVE.equippedRelicId || '';
+        }
+
+        if (equippedRelicId && (!relicsCollected[equippedRelicId] || (relicStars[equippedRelicId] || 0) < 1)) {
+          equippedRelicId = '';
+        }
+
+        return {
+          relicsCollected,
+          relicShards,
+          relicStars,
+          equippedRelicId
+        };
+      })(),
       badgesCollected: { ...(DEFAULT_SAVE.badgesCollected || {}), ...(parsed.badgesCollected || {}) },
       completedDifficulties,
       unlockedRealms: (Array.isArray(parsed.unlockedRealms) && parsed.unlockedRealms.length > 0) ? parsed.unlockedRealms : ['yokai'],
@@ -393,14 +414,17 @@ export class SaveSystem {
   }
 
   public addCoins(amount: number): number {
-    this.data.coins += amount;
+    if (!Number.isFinite(amount) || amount <= 0) return this.data.coins;
+    this.data.coins += Math.floor(amount);
     this.save();
     return this.data.coins;
   }
 
   public spendCoins(amount: number): boolean {
-    if (this.data.coins >= amount) {
-      this.data.coins -= amount;
+    if (!Number.isFinite(amount) || amount <= 0) return false;
+    const cost = Math.floor(amount);
+    if (this.data.coins >= cost) {
+      this.data.coins -= cost;
       this.save();
       return true;
     }
@@ -412,15 +436,18 @@ export class SaveSystem {
   }
 
   public addDiamonds(amount: number): number {
-    this.data.diamonds = (this.data.diamonds || 0) + amount;
+    if (!Number.isFinite(amount) || amount <= 0) return this.getDiamonds();
+    this.data.diamonds = (this.data.diamonds || 0) + Math.floor(amount);
     this.save();
     return this.data.diamonds;
   }
 
   public spendDiamonds(amount: number): boolean {
+    if (!Number.isFinite(amount) || amount <= 0) return false;
+    const cost = Math.floor(amount);
     const cur = this.getDiamonds();
-    if (cur >= amount) {
-      this.data.diamonds = cur - amount;
+    if (cur >= cost) {
+      this.data.diamonds = cur - cost;
       this.save();
       return true;
     }
@@ -503,23 +530,32 @@ export class SaveSystem {
   }
 
   public buyBoosterWithCoins(type: 'hint' | 'shuffle' | 'bomb', count: number, cost: number): { success: boolean; reason?: string } {
-    if (this.data.coins < cost) {
-      return { success: false, reason: `Cần thêm ${cost - this.data.coins} Xu Vàng!` };
+    if (!Number.isFinite(cost) || cost <= 0 || !Number.isFinite(count) || count <= 0) {
+      return { success: false, reason: 'Giao dịch không hợp lệ!' };
     }
-    this.data.coins -= cost;
-    this.data.boosters[type] += count;
+    const safeCost = Math.floor(cost);
+    const safeCount = Math.floor(count);
+    if (this.data.coins < safeCost) {
+      return { success: false, reason: `Cần thêm ${safeCost - this.data.coins} Xu Vàng!` };
+    }
+    this.data.coins -= safeCost;
+    this.data.boosters[type] += safeCount;
     this.save();
     return { success: true };
   }
 
   public buyBundleWithCoins(hints: number, shuffles: number, bombs: number, cost: number): { success: boolean; reason?: string } {
-    if (this.data.coins < cost) {
-      return { success: false, reason: `Cần thêm ${cost - this.data.coins} Xu Vàng!` };
+    if (!Number.isFinite(cost) || cost <= 0) {
+      return { success: false, reason: 'Giao dịch không hợp lệ!' };
     }
-    this.data.coins -= cost;
-    this.data.boosters.hint += hints;
-    this.data.boosters.shuffle += shuffles;
-    this.data.boosters.bomb += bombs;
+    const safeCost = Math.floor(cost);
+    if (this.data.coins < safeCost) {
+      return { success: false, reason: `Cần thêm ${safeCost - this.data.coins} Xu Vàng!` };
+    }
+    this.data.coins -= safeCost;
+    this.data.boosters.hint += Math.max(0, Math.floor(hints));
+    this.data.boosters.shuffle += Math.max(0, Math.floor(shuffles));
+    this.data.boosters.bomb += Math.max(0, Math.floor(bombs));
     this.save();
     return { success: true };
   }
@@ -530,6 +566,15 @@ export class SaveSystem {
 
   public setSelectedTheme(theme: string): void {
     this.data.selectedTheme = theme;
+    this.save();
+  }
+
+  public getSelectedWallpaper(): string {
+    return this.data.selectedWallpaper || 'bg_night_shrine';
+  }
+
+  public setSelectedWallpaper(wp: string): void {
+    this.data.selectedWallpaper = wp;
     this.save();
   }
 
@@ -919,12 +964,20 @@ export class SaveSystem {
   }
 
   public getEquippedRelicId(): string {
-    return this.data.equippedRelicId || 'relic_yokai_01';
+    const id = this.data.equippedRelicId || '';
+    if (id && this.hasRelic(id)) {
+      return id;
+    }
+    return '';
   }
 
-  public equipRelic(relicId: string): void {
-    this.data.equippedRelicId = relicId;
-    this.save();
+  public equipRelic(relicId: string): boolean {
+    if (this.hasRelic(relicId)) {
+      this.data.equippedRelicId = relicId;
+      this.save();
+      return true;
+    }
+    return false;
   }
 
   /**

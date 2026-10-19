@@ -200,10 +200,12 @@ export class ShopModal {
     const boosterConfigs = [
       {
         id: 'hint' as const,
+        itemKey: 'item_booster_hint',
         icon: '💡',
         title: 'BÌNH GỢI Ý',
         desc: 'Soi sáng tức thì 1 cặp thẻ hợp lệ có thể kết nối ngay trên bàn.',
         badgeColor: 0xffbe0b,
+        unit: 'bình',
         priceSingle: 500,
         pricePack: 2100,
         pricePack10: 3500,
@@ -214,10 +216,12 @@ export class ShopModal {
       },
       {
         id: 'shuffle' as const,
+        itemKey: 'item_booster_shuffle',
         icon: '🔀',
         title: 'QUẠT ĐỔI BẢNG',
         desc: 'Xáo trộn lại toàn bộ bàn cờ khi các cặp thẻ bị phân tán hiểm hóc.',
         badgeColor: 0x9d4edd,
+        unit: 'quạt',
         priceSingle: 800,
         pricePack: 3400,
         pricePack10: 5600,
@@ -228,10 +232,12 @@ export class ShopModal {
       },
       {
         id: 'bomb' as const,
+        itemKey: 'item_booster_bomb',
         icon: '⚡',
         title: 'BÚA SÉT TRẢM QUÁI',
         desc: 'Gọi sấm sét tiêu diệt tức thì 1 cặp thẻ bất kỳ trên bàn cờ.',
         badgeColor: 0xff0054,
+        unit: 'búa',
         priceSingle: 1200,
         pricePack: 5100,
         pricePack10: 8400,
@@ -251,25 +257,50 @@ export class ShopModal {
       cardBg.lineStyle(1.8, cfg.badgeColor, 0.85);
       cardBg.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 16);
 
-      // Icon halo
-      const halo = scene.add.graphics();
-      halo.fillStyle(cfg.badgeColor, 0.15);
-      halo.fillCircle(0, -cardH / 2 + 30, 24);
-      halo.lineStyle(1.5, cfg.badgeColor, 0.9);
-      halo.strokeCircle(0, -cardH / 2 + 30, 24);
+      // Artwork or Fallback Halo
+      const itemKey = cfg.itemKey;
+      let itemHalo: Phaser.GameObjects.Graphics;
+      let itemObj: Phaser.GameObjects.GameObject;
+      if (scene.textures.exists(itemKey)) {
+        // Soft aura glow behind the item
+        itemHalo = scene.add.graphics();
+        itemHalo.fillStyle(cfg.badgeColor, 0.22);
+        itemHalo.fillCircle(0, -cardH / 2 + 38, 28);
 
-      const iconText = scene.add.text(0, -cardH / 2 + 30, cfg.icon, {
-        fontSize: '24px'
-      }).setOrigin(0.5);
+        const itemImg = scene.add.image(0, -cardH / 2 + 38, itemKey);
+        itemImg.setDisplaySize(58, 58);
+        itemObj = itemImg;
 
-      const titleText = scene.add.text(0, -cardH / 2 + 62, cfg.title, {
+        // Subtle gentle breathing animation
+        scene.tweens.add({
+          targets: itemImg,
+          scaleX: itemImg.scaleX * 1.05,
+          scaleY: itemImg.scaleY * 1.05,
+          duration: 1600,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      } else {
+        itemHalo = scene.add.graphics();
+        itemHalo.fillStyle(cfg.badgeColor, 0.15);
+        itemHalo.fillCircle(0, -cardH / 2 + 32, 24);
+        itemHalo.lineStyle(1.5, cfg.badgeColor, 0.9);
+        itemHalo.strokeCircle(0, -cardH / 2 + 32, 24);
+
+        itemObj = scene.add.text(0, -cardH / 2 + 32, cfg.icon, {
+          fontSize: '24px'
+        }).setOrigin(0.5);
+      }
+
+      const titleText = scene.add.text(0, -cardH / 2 + 73, cfg.title, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '16px',
+        fontSize: '15.5px',
         fontStyle: '900',
         color: '#ffffff'
       }).setOrigin(0.5);
 
-      const descText = scene.add.text(0, -cardH / 2 + 88, cfg.desc, {
+      const descText = scene.add.text(0, -cardH / 2 + 97, cfg.desc, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '11.5px',
         color: '#cbd5e1',
@@ -279,7 +310,7 @@ export class ShopModal {
 
       const boosters = save.getBoosters();
       const currentCount = boosters[cfg.id] || 0;
-      const stockBadge = scene.add.text(0, -cardH / 2 + 114, `Hiện có: ${currentCount} cái`, {
+      const stockBadge = scene.add.text(0, -cardH / 2 + 122, `Hiện có: ${currentCount} ${cfg.unit}`, {
         fontFamily: 'Plus Jakarta Sans, sans-serif',
         fontSize: '12.5px',
         fontStyle: '800',
@@ -557,7 +588,7 @@ export class ShopModal {
         updateBtnPack10State();
       });
 
-      card.add([cardBg, halo, iconText, titleText, descText, stockBadge, btnSingle, btnPack, btnPack10]);
+      card.add([cardBg, itemHalo, itemObj, titleText, descText, stockBadge, btnSingle, btnPack, btnPack10]);
       container.add(card);
     });
 

@@ -103,6 +103,10 @@ export class BootScene extends Phaser.Scene {
 
     // Preload Main Menu & Gameplay HD Backgrounds & UI Assets
     this.load.image('bg_main_torii', resolveAsset('/assets/bg_main_torii.jpg'));
+    this.load.image('bg_night_shrine', resolveAsset('/assets/bg_night_shrine.jpg'));
+    this.load.image('bg_boss_arena', resolveAsset('/assets/bg_boss_arena.jpg'));
+    this.load.image('bg_zen_forest', resolveAsset('/assets/bg_zen_forest.jpg'));
+    this.load.image('bg_survival_snow', resolveAsset('/assets/bg_survival_snow.jpg'));
     this.load.image('bg_gameplay_shrine', resolveAsset('/assets/bg_gameplay_shrine.jpg'));
     this.load.image('bg_egypt_nile', resolveAsset('/assets/themes/egypt/bg_egypt_nile.jpg'));
     this.load.image('album_book_icon', resolveAsset('/assets/album_book_icon.png'));
@@ -122,10 +126,22 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`bg${stg}`, stgPath);
     }
 
-    // Preload 30 Relics (if PNGs exist in public/assets/relics/)
+    // Preload 30 Relics (if PNGs exist in public/assets/relics/) with all key aliases
     for (const relic of (relicsData as any[])) {
-      this.load.image(relic.id, resolveAsset(`/${relic.image}`));
-      this.load.image(`relic_${relic.id}`, resolveAsset(`/${relic.image}`));
+      const assetUrl = resolveAsset(`/${relic.image}`);
+      this.load.image(relic.id, assetUrl);
+      this.load.image(`relic_${relic.id}`, assetUrl);
+      const alias = relic.id.replace(/^relic_/, '');
+      this.load.image(alias, assetUrl);
+      this.load.image(`relic_${alias}`, assetUrl);
+
+      // Support legacy format e.g. yokai_relic_01
+      const parts = relic.id.split('_');
+      if (parts.length === 3 && parts[0] === 'relic') {
+        const legacyId = `${parts[1]}_relic_${parts[2]}`;
+        this.load.image(legacyId, assetUrl);
+        this.load.image(`relic_${legacyId}`, assetUrl);
+      }
     }
 
     // Preload Inari Kitsune 3D Turntable Frames (18 frames across 360 degrees)
@@ -179,6 +195,11 @@ export class BootScene extends Phaser.Scene {
     this.load.image('btn_booster_shuffle', resolveAsset('/assets/btn_booster_shuffle.png'));
     this.load.image('btn_booster_bomb', resolveAsset('/assets/btn_booster_bomb.png'));
 
+    // Preload Standalone Item Booster Artwork Icons (Hint Bottle, Shuffle Fan, Thunder Hammer)
+    this.load.image('item_booster_hint', resolveAsset('/assets/item_booster_hint.png'));
+    this.load.image('item_booster_shuffle', resolveAsset('/assets/item_booster_shuffle.png'));
+    this.load.image('item_booster_bomb', resolveAsset('/assets/item_booster_bomb.png'));
+
     // Preload all 16 World Bosses (single instance)
     for (const boss of (bossesData as any[])) {
       const bossUrl = resolveAsset(`/assets/bosses/${boss.id}.png`);
@@ -200,6 +221,14 @@ export class BootScene extends Phaser.Scene {
   }
 
   public create(): void {
-    this.safeTransition();
+    if (typeof document !== 'undefined' && (document as any).fonts && (document as any).fonts.ready) {
+      (document as any).fonts.ready.then(() => {
+        this.safeTransition();
+      }).catch(() => {
+        this.safeTransition();
+      });
+    } else {
+      this.safeTransition();
+    }
   }
 }

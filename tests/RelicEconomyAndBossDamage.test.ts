@@ -111,14 +111,14 @@ describe('Relic Economy & Boss Combat QA Suite', () => {
         playedArchetype = arch;
       };
 
-      // Kusanagi: 180 + 4% of 2000 Max HP = 180 + 80 = 260 damage
+      // Kusanagi: 180 + 4% of actual Boss Max HP (1000) = 180 + 40 = 220 damage
       const relicMgr = RelicManager.getInstance();
       const res = relicMgr.executeRelicSkill('relic_yokai_03', mockScene);
       expect(res.success).toBe(true);
 
-      // Boss initial HP: 1000 -> after 260 damage -> 740
+      // Boss initial HP: 1000 -> after 220 damage -> 780
       const currentHp = (mockBoss as any).currentHp;
-      expect(currentHp).toBe(740);
+      expect(currentHp).toBe(780);
 
       // Verify dynamic mythic soundscape triggered with 'boss' archetype
       expect(playedArchetype).toBe('boss');

@@ -24,12 +24,15 @@ Tài liệu thiết kế chi tiết về **Hệ thống 30 Thần Khí Đồng H
 
 | Phẩm Cấp | Số Mảnh Cần Đúc | Tỷ Lệ Rơi Mảnh (Dễ / Vừa / Khó) | Phân Bổ Màn Chơi | Quy Đổi Mảnh Thừa | Power Budget |
 | :--- | :---: | :---: | :--- | :---: | :---: |
-| 🟢 **Hạ Phẩm** | **40 Mảnh** | **8% → 12% → 16%** *(0–1 mảnh)* | Màn thường (1–4, 6–9) | **+25 Xu / Mảnh** | 70 – 85 |
-| 🟡 **Trung Phẩm** | **75 Mảnh** | **12% → 16% → 22%** *(1–2 mảnh)* | Mini-Boss Màn 5, 15... | **+50 Xu / Mảnh** | 90 – 105 |
-| 🔴 **Thượng Phẩm** | **100 Mảnh** | **18% → 25% → 35%** *(2–3 mảnh)* | Đại Trùm Màn 10 & Boss Arena | **+100 Xu / Mảnh** | 110 – 130 *(Mythic: 140)* |
+| 🟢 **Hạ Phẩm** | **40 Mảnh** | **1.5% → 3.0% → 5.0%** *(1 mảnh)* | Màn thường (1–4, 6–9) | **+25 Xu / Mảnh** | 70 – 85 |
+| 🟡 **Trung Phẩm** | **75 Mảnh** | **0.8% → 1.8% → 3.0%** *(1 mảnh)* | Mini-Boss Màn 5, 15... | **+50 Xu / Mảnh** | 90 – 105 |
+| 🔴 **Thượng Phẩm** | **100 Mảnh** | **0.4% → 0.9% → 1.8%** *(1–2 mảnh)* | Đại Trùm Màn 10 & Boss Arena | **+100 Xu / Mảnh** | 110 – 130 *(Mythic: 140)* |
 
 > [!NOTE]
-> **Cơ Chế Bảo Hộ (Pity Guarantee):** Vượt ải Đại Boss ở **3⭐ Khó** chắc chắn nhận **≥ 2 Mảnh Cổ Vật**, đảm bảo nỗ lực của người chơi luôn được đền đáp xứng đáng.
+> **Cơ Chế Tỷ Lệ & Tỉ Lệ Rơi Khó (Calibrated Hardcore Drop System):**
+> - **Ô Phát Sáng Cổ Vật Trên Bàn Cờ:** Xuất hiện hiếm với tỷ lệ **1.0%** (Dễ) → **2.0%** (Vừa) → **3.5%** (Khó) → **5.0%** (Trùm). Nếu xuất hiện và người chơi nối thành công trong ván, chắc chắn nhận **1 Mảnh Cổ Vật** khi chiến thắng.
+> - **Rơi Thưởng Cuối Màn:** Tỷ lệ từ **0.4% đến 5.0%** tùy phẩm cấp và độ khó, mỗi lần rơi **1 mảnh** (riêng Thượng Phẩm ở độ khó Khó có 10% cơ hội rơi 2 mảnh).
+> - **Thưởng Vượt Trùm 3⭐ Khó:** Cộng thêm **+4.0%** vào tỷ lệ rơi (thay vì 100% farm vô tận cũ), giữ trọn tính danh giá và thử thách cày cuốc RPG chuẩn mực.
 
 ---
 

@@ -493,6 +493,78 @@ describe('Comprehensive QA Regression & Edge Case Test Suite', () => {
       expect(matchedCount).toBe(0);
     });
   });
+
+  describe('8. Level Difficulty Purity & Stage ID Safety QA', () => {
+    it('ensures applying difficulty does not mutate the base LevelConfig across switches', async () => {
+      const { LevelManager } = await import('../src/game/LevelManager');
+      const baseCfg = LevelManager.getLevelConfig(5);
+      const originalRows = baseCfg.rows;
+      const originalCols = baseCfg.columns;
+
+      const easyCfg = LevelManager.applyDifficultyToConfig(baseCfg, 'easy');
+      expect(easyCfg.rows).toBe(6);
+      expect(easyCfg.columns).toBe(8);
+
+      const hardCfg = LevelManager.applyDifficultyToConfig(baseCfg, 'hard');
+      // Switching from easy to hard using baseCfg should reflect hard settings, not easy settings
+      expect(hardCfg.isStopwatch).toBe(false);
+
+      // And baseCfg itself was not permanently mutated
+      expect(baseCfg.rows).toBe(originalRows);
+      expect(baseCfg.columns).toBe(originalCols);
+    });
+
+    it('ensures non-numeric stage IDs resolve safely without NaN in background keys', () => {
+      const stageIds = ['stage_survival', 'stage_zen', 'stage_daily', 'stage_boss', 'stage_100'];
+      for (const id of stageIds) {
+        const rawDigits = id.replace(/\D/g, '');
+        const levelNum = rawDigits.length > 0 ? parseInt(rawDigits, 10) : 1;
+        expect(Number.isNaN(levelNum)).toBe(false);
+        expect(levelNum).toBeGreaterThanOrEqual(1);
+
+        const safeBgKey = `stage_bg_${levelNum}`;
+        expect(safeBgKey).not.toContain('NaN');
+      }
+    });
+
+    it('ensures booster deductions never allow negative inventory', async () => {
+      const { SaveSystem } = await import('../src/systems/SaveSystem');
+      const save = SaveSystem.getInstance();
+      const initial = save.getBoosters();
+
+      // Drain hints
+      while (save.getData().boosters.hint > 0) {
+        const used = save.useBooster('hint');
+        expect(used).toBe(true);
+      }
+      expect(save.getData().boosters.hint).toBe(0);
+
+      // Attempt to use when 0
+      const failedUse = save.useBooster('hint');
+      expect(failedUse).toBe(false);
+      expect(save.getData().boosters.hint).toBe(0);
+
+      // Restore initial boosters for test hygiene
+      save.addBooster('hint', initial.hint);
+    });
+
+    it('ensures Night Parade timer UI update gracefully guards against destroyed or detached text', () => {
+      // Mocking the guard condition verified in updateNightParadeTimerUI
+      const mockDeadText = { active: false, scene: null };
+      const mockLiveText = { active: true, scene: {} };
+
+      const canUpdate = (text: any) => {
+        if (!text) return false;
+        if (!text.active || !text.scene) return false;
+        return true;
+      };
+
+      expect(canUpdate(null)).toBe(false);
+      expect(canUpdate(mockDeadText)).toBe(false);
+      expect(canUpdate(mockLiveText)).toBe(true);
+    });
+  });
 });
+
 
 

@@ -41,22 +41,22 @@ describe('LootManager Stage Math & Loot Progression', () => {
   });
 
   it('should distribute items with strategic variety across chapter stages', () => {
-    // 1, 4, 7 -> Kính lúp (hint)
+    // 1, 4, 7 -> Bình Gợi Ý (hint)
     expect(LootManager.getStageLootConfig(1).itemType).toBe('hint');
     expect(LootManager.getStageLootConfig(4).itemType).toBe('hint');
     expect(LootManager.getStageLootConfig(7).itemType).toBe('hint');
 
-    // 2, 8 -> Hoán đổi (shuffle)
+    // 2, 8 -> Quạt Đổi Bảng (shuffle)
     expect(LootManager.getStageLootConfig(2).itemType).toBe('shuffle');
     expect(LootManager.getStageLootConfig(8).itemType).toBe('shuffle');
 
     // 5 -> Mini-Boss boosted shuffle
     const mb5 = LootManager.getStageLootConfig(5);
     expect(mb5.itemType).toBe('shuffle');
-    expect(mb5.itemName).toContain('Hoán Đổi');
+    expect(mb5.itemName).toContain('Đổi Bảng');
     expect(mb5.itemDropRate.hard).toBe(0.10); // 10% boosted
 
-    // 3, 6, 9 -> Bom Nổ (bomb)
+    // 3, 6, 9 -> Búa Sét Trảm Quái (bomb)
     expect(LootManager.getStageLootConfig(3).itemType).toBe('bomb');
     expect(LootManager.getStageLootConfig(6).itemType).toBe('bomb');
     expect(LootManager.getStageLootConfig(9).itemType).toBe('bomb');

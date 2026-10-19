@@ -90,11 +90,14 @@ async function initCapacitorNative(): Promise<void> {
   } catch {}
 }
 
+import { registerChaosRunnerGlobal } from './qa/ChaosMonkeyRunner';
+
 function startGame(): void {
   if (!(window as any).__game) {
     const game = new Phaser.Game(config);
     (window as any).__game = game;
     initCapacitorNative();
+    registerChaosRunnerGlobal();
 
     window.addEventListener('resize', () => {
       const { width, height, offsetX } = getScreenDimensions();

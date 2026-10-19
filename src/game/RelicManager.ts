@@ -37,6 +37,14 @@ export class RelicManager {
     this.relicMap = new Map();
     for (const r of this.relics) {
       this.relicMap.set(r.id, r);
+      this.relicMap.set(`relic_${r.id}`, r);
+      this.relicMap.set(r.id.replace(/^relic_/, ''), r);
+
+      const parts = r.id.split('_');
+      if (parts.length === 3 && parts[0] === 'relic') {
+        this.relicMap.set(`${parts[1]}_relic_${parts[2]}`, r);
+        this.relicMap.set(`relic_${parts[1]}_relic_${parts[2]}`, r);
+      }
     }
   }
 
@@ -52,7 +60,22 @@ export class RelicManager {
   }
 
   public getRelicById(id: string): RelicItem | undefined {
-    return this.relicMap.get(id);
+    if (!id) return undefined;
+    if (this.relicMap.has(id)) return this.relicMap.get(id);
+
+    const withPrefix = id.startsWith('relic_') ? id : `relic_${id}`;
+    if (this.relicMap.has(withPrefix)) return this.relicMap.get(withPrefix);
+
+    const stripped = id.replace(/^relic_/, '');
+    if (this.relicMap.has(stripped)) return this.relicMap.get(stripped);
+
+    const parts = id.split('_');
+    if (parts.length === 3 && parts[1] === 'relic') {
+      const canonical = `relic_${parts[0]}_${parts[2]}`;
+      if (this.relicMap.has(canonical)) return this.relicMap.get(canonical);
+    }
+
+    return undefined;
   }
 
   public getRelicsByWorld(worldId: string): RelicItem[] {
@@ -149,7 +172,7 @@ export class RelicManager {
         case 'chaos_singularity':
         case 'genesis_apocalypse': {
           const baseDmg = relic.effectValue || 200;
-          const bossMaxHp = scene.bossManager?.maxHp || 2000;
+          const bossMaxHp = scene.bossManager?.getMaxHp ? scene.bossManager.getMaxHp() : (scene.bossManager?.maxHp || 2000);
           const percentDmg = relic.bossHpPercent ? Math.floor(bossMaxHp * relic.bossHpPercent) : 0;
           const totalDmg = Math.min(relic.maxCapDmg || 9999, baseDmg + percentDmg);
 

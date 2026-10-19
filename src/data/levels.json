@@ -66,7 +66,7 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_01",
+      "id": "relic_yokai_01",
       "name": "Gương Thần Yata",
       "japaneseName": "八咫鏡",
       "icon": "🪞",
@@ -173,11 +173,11 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_02",
-      "name": "Khúc Ngọc Yasakani",
-      "japaneseName": "八尺瓊勾玉",
-      "icon": "📿",
-      "description": "Bát Xích Quỳnh - Viên ngọc thần chứa linh khí đất trời vô tận.",
+      "id": "relic_yokai_02",
+      "name": "Bình Hồ Lô Quỷ Vương",
+      "japaneseName": "酒呑童子",
+      "icon": "🍶",
+      "description": "Hút sạch toàn bộ mạng nhện và bụi gai, chuyển hóa thành thời gian.",
       "worldId": "yokai",
       "levelId": "level_02"
     },
@@ -280,11 +280,11 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_03",
+      "id": "relic_yokai_03",
       "name": "Thảo Thế Kiếm Kusanagi",
       "japaneseName": "草薙の剣",
       "icon": "🗡️",
-      "description": "Thiên Tôn Vân Kiếm - Thần kiếm chém gió rạch mây uy chấn tứ phương.",
+      "description": "Thiên Kiếm Trảm Ma - Phóng kiếm khí quét ngang dọc giáng đòn chí mạng lên Boss.",
       "worldId": "yokai",
       "levelId": "level_03"
     },
@@ -388,11 +388,11 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_04",
-      "name": "Mặt Nạ Kitsune Hoàng Gia",
-      "japaneseName": "狐の面",
-      "icon": "🦊",
-      "description": "Mặt nạ linh hồ chứa đựng thuật biến ảo ngàn năm.",
+      "id": "relic_yokai_01",
+      "name": "Gương Thần Yata",
+      "japaneseName": "八咫鏡",
+      "icon": "🪞",
+      "description": "Bát Chỉ Kính - Phản chiếu chân tướng vạn vật, bảo vệ tâm trí.",
       "worldId": "yokai",
       "levelId": "level_04"
     },
@@ -496,11 +496,11 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_05",
-      "name": "Chuông Thiêng Suzu",
-      "japaneseName": "神楽鈴",
-      "icon": "🔔",
-      "description": "Thần Lạc Linh xua tan tà khí, đánh thức linh thú thức tỉnh.",
+      "id": "relic_yokai_02",
+      "name": "Bình Hồ Lô Quỷ Vương",
+      "japaneseName": "酒呑童子",
+      "icon": "🍶",
+      "description": "Hút sạch toàn bộ mạng nhện và bụi gai, chuyển hóa thành thời gian.",
       "worldId": "yokai",
       "levelId": "level_05"
     },
@@ -608,11 +608,11 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_06",
-      "name": "Quạt Phong Lôi Tengu",
-      "japaneseName": "天狗の団扇",
-      "icon": "🪭",
-      "description": "Thiên Cẩu Phong Phiến hiệu lệnh cuồng phong sấm sét.",
+      "id": "relic_yokai_03",
+      "name": "Thảo Thế Kiếm Kusanagi",
+      "japaneseName": "草薙の剣",
+      "icon": "🗡️",
+      "description": "Thiên Kiếm Trảm Ma - Phóng kiếm khí quét ngang dọc giáng đòn chí mạng lên Boss.",
       "worldId": "yokai",
       "levelId": "level_06"
     },
@@ -720,11 +720,11 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_07",
-      "name": "Bình Rượu Hồ Lô Shuten",
-      "japaneseName": "酒呑の瓢箪",
-      "icon": "🍶",
-      "description": "Tửu Thôn Hồ Lô tích tụ ngọn lửa bất tử của Quỷ Vương.",
+      "id": "relic_yokai_01",
+      "name": "Gương Thần Yata",
+      "japaneseName": "八咫鏡",
+      "icon": "🪞",
+      "description": "Bát Chỉ Kính - Phản chiếu chân tướng vạn vật, bảo vệ tâm trí.",
       "worldId": "yokai",
       "levelId": "level_07"
     },
@@ -838,11 +838,11 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_08",
-      "name": "Thẻ Bùa Trừ Tà Omamori",
-      "japaneseName": "御守",
-      "icon": "🧧",
-      "description": "Ngự Thủ Bình An hộ thân, chống lại mọi lời nguyền bóng tối.",
+      "id": "relic_yokai_02",
+      "name": "Bình Hồ Lô Quỷ Vương",
+      "japaneseName": "酒呑童子",
+      "icon": "🍶",
+      "description": "Hút sạch toàn bộ mạng nhện và bụi gai, chuyển hóa thành thời gian.",
       "worldId": "yokai",
       "levelId": "level_08"
     },
@@ -955,11 +955,11 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_09",
-      "name": "Trống Sấm Raijin",
-      "japaneseName": "雷神の太鼓",
-      "icon": "🥁",
-      "description": "Lôi Thần Trống dội vang sấm sét, kích hoạt trạng thái cuồng nộ.",
+      "id": "relic_yokai_03",
+      "name": "Thảo Thế Kiếm Kusanagi",
+      "japaneseName": "草薙の剣",
+      "icon": "🗡️",
+      "description": "Thiên Kiếm Trảm Ma - Phóng kiếm khí quét ngang dọc giáng đòn chí mạng lên Boss.",
       "worldId": "yokai",
       "levelId": "level_09"
     },
@@ -1103,11 +1103,11 @@
       }
     ],
     "relicReward": {
-      "id": "yokai_relic_10",
-      "name": "Vảy Rồng Ryujin Hoàng Kim",
-      "japaneseName": "龍神の鱗",
-      "icon": "🐉",
-      "description": "Long Thần Kim Lân - Kết tinh tối thượng mở ra Cổng Không Gian Đa Vũ Trụ.",
+      "id": "relic_yokai_03",
+      "name": "Thảo Thế Kiếm Kusanagi",
+      "japaneseName": "草薙の剣",
+      "icon": "🗡️",
+      "description": "Thiên Kiếm Trảm Ma - Phóng kiếm khí quét ngang dọc giáng đòn chí mạng lên Boss.",
       "worldId": "yokai",
       "levelId": "level_10"
     },

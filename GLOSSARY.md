@@ -24,6 +24,14 @@ _Avoid_: Stuck board, no-moves state, stalemate
 A generated initial board configuration that is mathematically guaranteed to contain at least one valid legal match without requiring an immediate reshuffle.
 _Avoid_: Playable board, valid board, workable grid
 
+**Star Quest Mapping**:
+The strict 1-to-1 parity between the three evaluated level objectives displayed on the victory checklist and the awarded star count, ensuring achieved quests always equal earned stars without conflicting stopwatch penalties.
+_Avoid_: Rating formula, star algorithm, score bonus
+
+**Input Pipelining**:
+The queuing and instant registration of user touch selections during tile-clear animation frames, guaranteeing zero dropped clicks and fluid 60fps pacing when executing rapid consecutive matches.
+_Avoid_: Buffer clicks, click spam, queue taps
+
 ## Board Dynamics & Obstacles
 
 **Board Modifier**:
@@ -151,3 +159,22 @@ _Avoid_: Token economy, multi-currency wallet, point system
 **Non-Purchasable Relic (Thần Khí Bất Khả Mua)**:
 The gameplay integrity rule guaranteeing that relic shards and companion awakening fragments can only be earned through stage victories and boss battles, never bought in the shop.
 _Avoid_: Gacha pool, pay-to-win items, lootbox
+
+## Reliability & QA Engineering (Độ Tin Cậy & Kiểm Thử)
+
+**Exception Boundary (Phân Vùng Cô Lập Ngoại Lệ)**:
+An architectural wrapper (`safeSubsystemRun`, `try-catch`) encapsulating discrete update subsystems or input handlers so that an unforeseen runtime exception in one module logs telemetry and fails gracefully without crashing the master engine loop or freezing user input.
+_Avoid_: Global unhandled throw, silent screen freeze, monolith update loop
+
+**Safe Async Tween Lifecycle (Vòng Đời Tween Khử Hồi Tiếp)**:
+The defensive practice of detaching UI references from instance properties prior to tween fade-out and guarding `onComplete` callbacks against destroyed or recycled game objects, preventing fatal canvas draw and null context exceptions.
+_Avoid_: Dangling tween callback, mutating dead display object, unreferenced timer
+
+**Processing Watchdog (Bộ Canh Phòng Khóa Thao Tác)**:
+An automated failsafe timer (750ms) and `finally` release block within `BoardManager` that unconditionally unlocks `isProcessingMatch = false` and clears tile selection if animations or collateral calculations fail to resolve, preventing permanent input lockouts.
+_Avoid_: Permanent click lock, frozen board touch state, unresponsive tap
+
+**Chaos Monkey Testing (Thử Nghiệm Khỉ Hỗn Loạn)**:
+An automated testing harness (`runHeadlessChaosSimulation` in Vitest and `window.runChaosStressTest` in browser) that simulates an erratic, hyper-rapid user executing hundreds of invalid clicks, rapid matches, booster triggers, and shuffles to verify engine stability and 100% parity preservation under maximum stress.
+_Avoid_: Manual-only QA, happy-path testing, unverified edge clicks
+

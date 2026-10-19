@@ -103,8 +103,8 @@ export class LootManager {
       baseExp: 12,
       baseCoins: 40,
       itemType: 'hint',
-      itemIcon: '🔍',
-      itemName: 'Kính Lúp'
+      itemIcon: '💡',
+      itemName: 'Bình Gợi Ý'
     },
     {
       chapter: 2,
@@ -118,7 +118,7 @@ export class LootManager {
       baseCoins: 50,
       itemType: 'shuffle',
       itemIcon: '🔀',
-      itemName: 'Hoán Đổi'
+      itemName: 'Quạt Đổi Bảng'
     },
     {
       chapter: 3,
@@ -131,8 +131,8 @@ export class LootManager {
       baseExp: 18,
       baseCoins: 60,
       itemType: 'bomb',
-      itemIcon: '💣',
-      itemName: 'Bom Nổ'
+      itemIcon: '⚡',
+      itemName: 'Búa Sét Trảm Quái'
     },
     {
       chapter: 4,
@@ -145,8 +145,8 @@ export class LootManager {
       baseExp: 22,
       baseCoins: 75,
       itemType: 'hint',
-      itemIcon: '🔍',
-      itemName: 'Kính Lúp'
+      itemIcon: '💡',
+      itemName: 'Bình Gợi Ý'
     },
     {
       chapter: 5,
@@ -160,7 +160,7 @@ export class LootManager {
       baseCoins: 90,
       itemType: 'shuffle',
       itemIcon: '🔀',
-      itemName: 'Hoán Đổi'
+      itemName: 'Quạt Đổi Bảng'
     },
     {
       chapter: 6,
@@ -173,8 +173,8 @@ export class LootManager {
       baseExp: 30,
       baseCoins: 110,
       itemType: 'bomb',
-      itemIcon: '💣',
-      itemName: 'Bom Nổ'
+      itemIcon: '⚡',
+      itemName: 'Búa Sét Trảm Quái'
     },
     {
       chapter: 7,
@@ -187,8 +187,8 @@ export class LootManager {
       baseExp: 35,
       baseCoins: 130,
       itemType: 'hint',
-      itemIcon: '🔍',
-      itemName: 'Kính Lúp'
+      itemIcon: '💡',
+      itemName: 'Bình Gợi Ý'
     },
     {
       chapter: 8,
@@ -202,7 +202,7 @@ export class LootManager {
       baseCoins: 150,
       itemType: 'shuffle',
       itemIcon: '🔀',
-      itemName: 'Hoán Đổi'
+      itemName: 'Quạt Đổi Bảng'
     },
     {
       chapter: 9,
@@ -215,8 +215,8 @@ export class LootManager {
       baseExp: 45,
       baseCoins: 175,
       itemType: 'bomb',
-      itemIcon: '💣',
-      itemName: 'Bom Nổ'
+      itemIcon: '⚡',
+      itemName: 'Búa Sét Trảm Quái'
     },
     {
       chapter: 10,
@@ -229,8 +229,8 @@ export class LootManager {
       baseExp: 50,
       baseCoins: 200,
       itemType: 'bomb',
-      itemIcon: '🌟',
-      itemName: 'Túi Thần Dược'
+      itemIcon: '⚡',
+      itemName: 'Búa Sét Trảm Quái Cực Đại'
     }
   ];
 
@@ -337,35 +337,35 @@ export class LootManager {
     // 5. Item Distribution per stage
     const mod10 = clampedLevel % 10;
     let itemType: 'hint' | 'shuffle' | 'bomb' = 'hint';
-    let itemName = 'Kính Lúp';
-    let itemIcon = '🔍';
+    let itemName = 'Bình Gợi Ý';
+    let itemIcon = '💡';
     let itemDropRate = { easy: 0.02, medium: 0.04, hard: 0.07 };
 
     if (mod10 === 1 || mod10 === 4 || mod10 === 7) {
       itemType = 'hint';
-      itemName = 'Kính Lúp';
-      itemIcon = '🔍';
+      itemName = 'Bình Gợi Ý';
+      itemIcon = '💡';
       itemDropRate = { easy: 0.02, medium: 0.04, hard: 0.07 };
     } else if (mod10 === 2 || mod10 === 8) {
       itemType = 'shuffle';
-      itemName = 'Hoán Đổi';
+      itemName = 'Quạt Đổi Bảng';
       itemIcon = '🔀';
       itemDropRate = { easy: 0.02, medium: 0.04, hard: 0.07 };
     } else if (mod10 === 5) {
       // Mini-boss boosted item
       itemType = 'shuffle';
-      itemName = 'Hoán Đổi Thần Tốc';
-      itemIcon = '🌀';
+      itemName = 'Quạt Thần Phong Đổi Bảng';
+      itemIcon = '🔀';
       itemDropRate = { easy: 0.03, medium: 0.06, hard: 0.10 };
     } else if (mod10 === 3 || mod10 === 6 || mod10 === 9) {
       itemType = 'bomb';
-      itemName = 'Bom Nổ';
-      itemIcon = '💣';
+      itemName = 'Búa Sét Trảm Quái';
+      itemIcon = '⚡';
       itemDropRate = { easy: 0.02, medium: 0.04, hard: 0.07 };
     } else if (isBoss) {
       itemType = 'bomb';
-      itemName = 'Túi Thần Dược / Bùa Hộ Mệnh';
-      itemIcon = '🌟';
+      itemName = 'Lôi Thần Trảm Quái Cực Đại';
+      itemIcon = '⚡';
       itemDropRate = { easy: 0.05, medium: 0.10, hard: 0.15 };
     }
 

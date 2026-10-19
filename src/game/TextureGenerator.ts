@@ -168,7 +168,7 @@ export class TextureGenerator {
       const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (!ctx) return origKey;
 
       ctx.drawImage(sourceImg, 0, 0, w, h);
@@ -471,6 +471,88 @@ export class TextureGenerator {
 
       scene.textures.addCanvas('mod_lock', canvas);
     }
+
+    // 4. Web tile overlay
+    if (!scene.textures.exists('mod_web')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+
+      ctx.roundRect(6, 6, size - 12, size - 12, 18);
+      ctx.fillStyle = 'rgba(230, 240, 255, 0.45)';
+      ctx.fill();
+
+      // Spiderweb radial strands
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = 2;
+      const cx = size / 2;
+      const cy = size / 2;
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(a) * (size * 0.45), cy + Math.sin(a) * (size * 0.45));
+        ctx.stroke();
+      }
+      for (const r of [16, 32, 48]) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.font = '36px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🕸️', cx, cy);
+
+      scene.textures.addCanvas('mod_web', canvas);
+    }
+
+    // 5. Thorn tile overlay
+    if (!scene.textures.exists('mod_thorn')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+
+      ctx.roundRect(6, 6, size - 12, size - 12, 18);
+      ctx.fillStyle = 'rgba(25, 45, 25, 0.65)';
+      ctx.fill();
+
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#2ec4b6';
+      ctx.stroke();
+
+      ctx.font = '46px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🌿', size / 2, size / 2);
+
+      scene.textures.addCanvas('mod_thorn', canvas);
+    }
+
+    // 6. Barricade tile overlay
+    if (!scene.textures.exists('mod_barricade')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+
+      ctx.roundRect(6, 6, size - 12, size - 12, 18);
+      ctx.fillStyle = 'rgba(80, 50, 20, 0.7)';
+      ctx.fill();
+
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#d4a373';
+      ctx.stroke();
+
+      ctx.font = '46px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🪵', size / 2, size / 2);
+
+      scene.textures.addCanvas('mod_barricade', canvas);
+    }
   }
 
   private static createParticleTextures(scene: Phaser.Scene): void {
@@ -766,6 +848,178 @@ export class TextureGenerator {
       scene.textures.addCanvas('shrine_kitsune_mask', canvas);
     }
 
+    // 3b. Ornate Stage Modal Crest: Kitsune Mask with Symmetrical Golden Kumogata Cloud Wings (360 x 80)
+    if (!scene.textures.exists('stage_modal_crest')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 360;
+      canvas.height = 80;
+      const ctx = canvas.getContext('2d')!;
+
+      const cx = 180;
+      const cy = 36;
+
+      // Subtle backing glow
+      const bgGlow = ctx.createRadialGradient(cx, cy, 10, cx, cy, 110);
+      bgGlow.addColorStop(0, 'rgba(4, 6, 15, 0.85)');
+      bgGlow.addColorStop(0.7, 'rgba(4, 6, 15, 0.4)');
+      bgGlow.addColorStop(1, 'rgba(4, 6, 15, 0)');
+      ctx.fillStyle = bgGlow;
+      ctx.fillRect(0, 0, 360, 80);
+
+      // Helper to draw authentic Japanese golden cloud swirl (Kumogata)
+      const drawCloudWing = (isLeft: boolean) => {
+        ctx.save();
+        ctx.translate(cx, cy);
+        if (isLeft) {
+          ctx.scale(-1, 1);
+        }
+
+        // Golden gradient
+        const goldGrad = ctx.createLinearGradient(35, -15, 140, 25);
+        goldGrad.addColorStop(0, '#fef08a');
+        goldGrad.addColorStop(0.3, '#f59e0b');
+        goldGrad.addColorStop(0.7, '#d97706');
+        goldGrad.addColorStop(1, '#92400e');
+
+        // Main cloud lobes
+        ctx.beginPath();
+        ctx.moveTo(32, 8);
+        ctx.bezierCurveTo(45, -8, 62, -18, 80, -12);
+        ctx.bezierCurveTo(95, -24, 120, -16, 125, -2);
+        ctx.bezierCurveTo(145, -4, 155, 12, 142, 22);
+        ctx.bezierCurveTo(130, 30, 105, 26, 95, 18);
+        ctx.bezierCurveTo(80, 25, 55, 22, 42, 14);
+        ctx.closePath();
+
+        ctx.fillStyle = goldGrad;
+        ctx.fill();
+
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = '#ffd700';
+        ctx.stroke();
+
+        // Inner decorative cloud spiral scrolls
+        ctx.strokeStyle = '#fffbeb';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(80, -2, 8, 0.2 * Math.PI, 1.4 * Math.PI);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(122, 8, 9, 0.4 * Math.PI, 1.6 * Math.PI);
+        ctx.stroke();
+
+        // Trailing ribbon streamer
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(135, 16);
+        ctx.bezierCurveTo(150, 24, 162, 20, 170, 26);
+        ctx.stroke();
+
+        ctx.restore();
+      };
+
+      // Draw Left and Right Golden Cloud Wings
+      drawCloudWing(true);
+      drawCloudWing(false);
+
+      // Draw Center Kitsune Mask
+      ctx.save();
+      ctx.translate(cx, cy - 2);
+
+      // Red Hanging Tassels below the chin
+      const drawTassel = (tx: number) => {
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(tx, 28, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#d90429';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.moveTo(tx, 30);
+        ctx.lineTo(tx + (tx > 0 ? 3 : -3), 42);
+        ctx.stroke();
+      };
+      drawTassel(-16);
+      drawTassel(16);
+
+      // Mask face shape
+      ctx.beginPath();
+      ctx.moveTo(0, 26);
+      ctx.bezierCurveTo(24, 22, 30, 4, 26, -9); // right cheek
+      ctx.lineTo(32, -26); // right ear tip
+      ctx.lineTo(12, -15); // inner right ear
+      ctx.lineTo(0, -12); // forehead dip
+      ctx.lineTo(-12, -15); // inner left ear
+      ctx.lineTo(-32, -26); // left ear tip
+      ctx.lineTo(-26, -9); // left cheek
+      ctx.bezierCurveTo(-30, 4, -24, 22, 0, 26);
+      ctx.closePath();
+
+      // Mask porcelain gradient
+      const maskGrad = ctx.createLinearGradient(0, -26, 0, 26);
+      maskGrad.addColorStop(0, '#ffffff');
+      maskGrad.addColorStop(0.7, '#f8fafc');
+      maskGrad.addColorStop(1, '#e2e8f0');
+      ctx.fillStyle = maskGrad;
+      ctx.fill();
+
+      ctx.lineWidth = 1.8;
+      ctx.strokeStyle = '#c9184a';
+      ctx.stroke();
+
+      // Red inner ear markings
+      ctx.fillStyle = '#d90429';
+      ctx.beginPath();
+      ctx.moveTo(27, -23); ctx.lineTo(13, -14); ctx.lineTo(21, -10); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-27, -23); ctx.lineTo(-13, -14); ctx.lineTo(-21, -10); ctx.closePath(); ctx.fill();
+
+      // Red Kabuki Eye Flames
+      ctx.strokeStyle = '#d90429';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(11, 2, 6.5, 0.8 * Math.PI, 1.8 * Math.PI);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(-11, 2, 6.5, 1.2 * Math.PI, 0.2 * Math.PI);
+      ctx.stroke();
+
+      // Golden eyes inside the markings
+      ctx.fillStyle = '#ffbe0b';
+      ctx.beginPath();
+      ctx.ellipse(11, 1.5, 2.8, 1.5, 0.2, 0, Math.PI * 2);
+      ctx.ellipse(-11, 1.5, 2.8, 1.5, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Black fox nose
+      ctx.fillStyle = '#1e1b4b';
+      ctx.beginPath();
+      ctx.ellipse(0, 15, 2.2, 1.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Red whiskers
+      ctx.fillStyle = '#d90429';
+      ctx.fillRect(15, 9, 7, 1.5);
+      ctx.fillRect(16, 13, 5, 1.5);
+      ctx.fillRect(-22, 9, 7, 1.5);
+      ctx.fillRect(-21, 13, 5, 1.5);
+
+      // Gold Sun jewel on forehead
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(0, -4, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#b8860b';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.restore();
+      scene.textures.addCanvas('stage_modal_crest', canvas);
+    }
+
     // 4. Grimoire Spellbook Icon (72 x 72)
     if (!scene.textures.exists('shrine_book_icon')) {
       const canvas = document.createElement('canvas');
@@ -930,6 +1184,364 @@ export class TextureGenerator {
     drawSakuraMon('crest_sakura_gold', '#ffd700', 'rgba(255, 215, 0, 0.35)');
     drawSakuraMon('crest_sakura_cyan', '#00f5d4', 'rgba(0, 245, 212, 0.35)');
     drawSakuraMon('crest_sakura_gray', '#8e95ad', 'rgba(142, 149, 173, 0.25)');
+
+    // 8. Hanging Chōchin Paper Lantern with '妖' Kanji (72 x 160)
+    if (!scene.textures.exists('shrine_modal_lantern')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 72;
+      canvas.height = 160;
+      const ctx = canvas.getContext('2d')!;
+
+      // Ambient radial warm amber glow
+      const glow = ctx.createRadialGradient(36, 75, 8, 36, 75, 34);
+      glow.addColorStop(0, 'rgba(255, 170, 40, 0.65)');
+      glow.addColorStop(0.6, 'rgba(230, 80, 20, 0.25)');
+      glow.addColorStop(1, 'rgba(200, 50, 10, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 30, 72, 90);
+
+      // Top suspension cord & ring
+      ctx.strokeStyle = '#c9184a';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(36, 0); ctx.lineTo(36, 16);
+      ctx.stroke();
+
+      // Golden ring
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(36, 18, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Red ribbon knot
+      ctx.fillStyle = '#d90429';
+      ctx.beginPath();
+      ctx.ellipse(30, 22, 6, 3, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(42, 22, 6, 3, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Black lacquer pagoda cap
+      ctx.fillStyle = '#181720';
+      ctx.beginPath();
+      ctx.moveTo(14, 34);
+      ctx.quadraticCurveTo(36, 26, 58, 34);
+      ctx.lineTo(62, 38);
+      ctx.lineTo(10, 38);
+      ctx.closePath();
+      ctx.fill();
+      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = '#ffd700';
+      ctx.stroke();
+
+      // Main Lantern Body (Ovoid paper lantern)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(14, 38);
+      ctx.bezierCurveTo(4, 55, 4, 95, 14, 112);
+      ctx.lineTo(58, 112);
+      ctx.bezierCurveTo(68, 95, 68, 55, 58, 38);
+      ctx.closePath();
+
+      // Glowing parchment gradient
+      const bodyGrad = ctx.createLinearGradient(12, 38, 60, 112);
+      bodyGrad.addColorStop(0, '#ff9e00');
+      bodyGrad.addColorStop(0.3, '#ffdd00');
+      bodyGrad.addColorStop(0.7, '#ff8500');
+      bodyGrad.addColorStop(1, '#d90429');
+      ctx.fillStyle = bodyGrad;
+      ctx.fill();
+
+      // Thin bamboo rib rings
+      ctx.strokeStyle = 'rgba(120, 25, 10, 0.35)';
+      ctx.lineWidth = 1.2;
+      for (let ry = 48; ry <= 104; ry += 12) {
+        ctx.beginPath();
+        ctx.moveTo(10, ry);
+        ctx.quadraticCurveTo(36, ry + 4, 62, ry);
+        ctx.stroke();
+      }
+
+      // Kanji '妖' in center
+      ctx.fillStyle = '#1c0f0f';
+      ctx.font = 'bold 24px "Zen Maru Gothic", "Noto Serif JP", serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('妖', 36, 75);
+
+      ctx.restore();
+
+      // Black wood bottom cap
+      ctx.fillStyle = '#181720';
+      ctx.fillRect(16, 112, 40, 7);
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(18, 113, 36, 1.8);
+
+      // Gold bead at bottom
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(36, 122, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Hanging red silk tassel
+      ctx.strokeStyle = '#d90429';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(36, 124); ctx.lineTo(36, 150);
+      ctx.stroke();
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(33, 126); ctx.lineTo(29, 148);
+      ctx.moveTo(39, 126); ctx.lineTo(43, 148);
+      ctx.stroke();
+
+      scene.textures.addCanvas('shrine_modal_lantern', canvas);
+    }
+
+    // 9. Relic Altar Showcase Pedestal (140 x 140)
+    if (!scene.textures.exists('relic_shrine_altar')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 140;
+      canvas.height = 140;
+      const ctx = canvas.getContext('2d')!;
+
+      // Background celestial aura circle
+      const aura = ctx.createRadialGradient(70, 58, 10, 70, 58, 52);
+      aura.addColorStop(0, 'rgba(0, 245, 212, 0.45)');
+      aura.addColorStop(0.5, 'rgba(0, 180, 216, 0.2)');
+      aura.addColorStop(1, 'rgba(0, 119, 182, 0)');
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(70, 58, 52, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Delicate golden magic ring
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(70, 58, 48, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Cyan Hitodama spirit flames rising on sides
+      const drawSpiritFlame = (fx: number, fy: number, flScale: number) => {
+        ctx.save();
+        ctx.translate(fx, fy);
+        ctx.scale(flScale, flScale);
+        const fGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, 14);
+        fGrad.addColorStop(0, '#ffffff');
+        fGrad.addColorStop(0.4, '#00f5d4');
+        fGrad.addColorStop(0.8, '#0077b6');
+        fGrad.addColorStop(1, 'rgba(0, 119, 182, 0)');
+        ctx.fillStyle = fGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+      drawSpiritFlame(22, 68, 1.0);
+      drawSpiritFlame(118, 68, 1.0);
+      drawSpiritFlame(16, 88, 0.7);
+      drawSpiritFlame(124, 88, 0.7);
+
+      // Stone Pedestal Altar (Base at bottom)
+      // Step 2 (Lower Base)
+      ctx.fillStyle = '#1e2230';
+      ctx.beginPath();
+      ctx.roundRect(16, 118, 108, 16, 4);
+      ctx.fill();
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#3d445c';
+      ctx.stroke();
+
+      // Step 1 (Upper Base)
+      ctx.fillStyle = '#282d40';
+      ctx.beginPath();
+      ctx.roundRect(24, 102, 92, 18, 4);
+      ctx.fill();
+      ctx.strokeStyle = '#4e5675';
+      ctx.stroke();
+
+      // Top altar slab highlight
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(28, 103, 84, 1.5);
+
+      // Sacred Shimenawa Rope (Twisted Straw Rope)
+      ctx.strokeStyle = '#d4a373';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(22, 109);
+      ctx.quadraticCurveTo(70, 114, 118, 109);
+      ctx.stroke();
+
+      // Hanging Shide Paper Streamers (white zigzag paper)
+      const shidePositions = [40, 60, 80, 100];
+      for (const sx of shidePositions) {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(sx - 3, 111);
+        ctx.lineTo(sx + 3, 111);
+        ctx.lineTo(sx + 1, 117);
+        ctx.lineTo(sx - 2, 122);
+        ctx.lineTo(sx + 1, 127);
+        ctx.lineTo(sx - 1, 127);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      scene.textures.addCanvas('relic_shrine_altar', canvas);
+    }
+
+    // 10. Difficulty Chest Pods (Green, Blue, Red) (64 x 56)
+    const drawTreasureChest = (key: string, bodyColor: string, lidColor: string, bandColor: string, gemColor: string, isUnlocked: boolean) => {
+      if (scene.textures.exists(key)) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 56;
+      const ctx = canvas.getContext('2d')!;
+
+      // Ambient glow
+      const glow = ctx.createRadialGradient(32, 32, 6, 32, 32, 28);
+      glow.addColorStop(0, isUnlocked ? 'rgba(0, 245, 212, 0.45)' : 'rgba(255, 215, 0, 0.25)');
+      glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, 64, 56);
+
+      // Chest Body (Lower box)
+      ctx.fillStyle = bodyColor;
+      ctx.beginPath();
+      ctx.roundRect(10, 24, 44, 24, 4);
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = bandColor;
+      ctx.stroke();
+
+      // Chest Lid (Curved dome top)
+      ctx.fillStyle = lidColor;
+      ctx.beginPath();
+      ctx.roundRect(8, 12, 48, 15, [8, 8, 2, 2]);
+      ctx.fill();
+      ctx.strokeStyle = bandColor;
+      ctx.stroke();
+
+      // Metal Strapping Bands (Left, Right, Center)
+      ctx.fillStyle = bandColor;
+      ctx.fillRect(16, 12, 5, 36);
+      ctx.fillRect(43, 12, 5, 36);
+      ctx.fillRect(8, 24, 48, 3.5);
+
+      // Lock Plate & Keyhole / Gem
+      ctx.fillStyle = bandColor;
+      ctx.beginPath();
+      ctx.roundRect(27, 21, 10, 12, 2);
+      ctx.fill();
+
+      // Keyhole or Jewel
+      ctx.fillStyle = gemColor;
+      ctx.beginPath();
+      ctx.arc(32, 26, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Lid highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.fillRect(12, 14, 40, 2.5);
+
+      scene.textures.addCanvas(key, canvas);
+    };
+
+    drawTreasureChest('chest_diff_easy', '#1b4332', '#2d6a4f', '#ffd700', '#52b788', true);
+    drawTreasureChest('chest_diff_medium', '#1e293b', '#2563eb', '#94a3b8', '#60a5fa', false);
+    drawTreasureChest('chest_diff_hard', '#4c0519', '#9f1239', '#ffd700', '#f43f5e', false);
+
+    // 11. Button Oriental Cloud Wings (Left & Right) (48 x 40)
+    const drawCloudWing = (key: string, isLeft: boolean) => {
+      if (scene.textures.exists(key)) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = 48;
+      canvas.height = 40;
+      const ctx = canvas.getContext('2d')!;
+
+      ctx.save();
+      if (!isLeft) {
+        ctx.translate(48, 0);
+        ctx.scale(-1, 1);
+      }
+
+      // Swirling oriental cloud wing
+      ctx.beginPath();
+      ctx.moveTo(48, 20);
+      ctx.bezierCurveTo(34, 6, 18, 8, 12, 18);
+      ctx.bezierCurveTo(4, 18, 0, 26, 8, 32);
+      ctx.bezierCurveTo(16, 38, 32, 34, 48, 24);
+      ctx.closePath();
+
+      const grad = ctx.createLinearGradient(0, 10, 48, 30);
+      grad.addColorStop(0, '#00f5d4');
+      grad.addColorStop(0.6, '#06d6a0');
+      grad.addColorStop(1, '#0077b6');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.lineWidth = 1.8;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+
+      // Inner spiral accent
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(16, 22, 5, 0.2 * Math.PI, 1.4 * Math.PI);
+      ctx.stroke();
+
+      ctx.restore();
+      scene.textures.addCanvas(key, canvas);
+    };
+
+    drawCloudWing('button_cloud_tail_left', true);
+    drawCloudWing('button_cloud_tail_right', false);
+
+    // 12. Torii Watermark for Card 2 (110 x 100)
+    if (!scene.textures.exists('torii_watermark')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 110;
+      canvas.height = 100;
+      const ctx = canvas.getContext('2d')!;
+
+      // Full Moon
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.12)';
+      ctx.beginPath();
+      ctx.arc(55, 50, 42, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.22)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Torii Gate Silhouette
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.20)';
+
+      // Kasagi top curved beam
+      ctx.beginPath();
+      ctx.moveTo(14, 28);
+      ctx.quadraticCurveTo(55, 24, 96, 28);
+      ctx.lineTo(100, 23);
+      ctx.quadraticCurveTo(55, 18, 10, 23);
+      ctx.closePath();
+      ctx.fill();
+
+      // Shimaki second beam
+      ctx.fillRect(20, 32, 70, 5);
+
+      // Pillars
+      ctx.fillRect(32, 28, 7, 56);
+      ctx.fillRect(71, 28, 7, 56);
+
+      // Nuki crossbeam
+      ctx.fillRect(24, 46, 62, 4);
+
+      // Gakuzuka center tablet
+      ctx.fillRect(52, 32, 6, 14);
+
+      scene.textures.addCanvas('torii_watermark', canvas);
+    }
   }
 
   /**
@@ -944,7 +1556,7 @@ export class TextureGenerator {
       const c = document.createElement('canvas');
       c.width = src.width;
       c.height = src.height;
-      const ctx = c.getContext('2d')!;
+      const ctx = c.getContext('2d', { willReadFrequently: true })!;
       ctx.drawImage(src, 0, 0);
       const imgData = ctx.getImageData(0, 0, c.width, c.height);
       const d = imgData.data;

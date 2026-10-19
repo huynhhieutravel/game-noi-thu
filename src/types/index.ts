@@ -254,6 +254,7 @@ export interface UserSaveData {
   highestLevel: number;
   levelStars: Record<string, number>;
   selectedTheme?: string;
+  selectedWallpaper?: string;
   selectedCompanion?: string;
   unlockedCompanions?: string[];
   companionTiers?: Record<string, number>;

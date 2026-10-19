@@ -188,19 +188,19 @@ export class TileView extends Phaser.GameObjects.Container {
     } else if (this.tileState.modifier === 'thorn') {
       const lvl = this.tileState.modifierLevel || 3;
       const key = lvl === 1 ? 'thorn_lv1' : lvl === 2 ? 'thorn_lv2' : 'thorn_lv3';
-      const texKey = this.scene.textures.exists(key) ? key : 'mod_lock';
+      const texKey = this.scene.textures.exists(key) ? key : 'mod_thorn';
       this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     } else if (this.tileState.modifier === 'web') {
       const lvl = this.tileState.modifierLevel || 2;
       const key = lvl === 1 ? 'web_lv1' : 'web_lv2';
-      const texKey = this.scene.textures.exists(key) ? key : 'mod_ice';
+      const texKey = this.scene.textures.exists(key) ? key : 'mod_web';
       this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     } else if (this.tileState.modifier === 'barricade') {
       const lvl = this.tileState.modifierLevel || 3;
       const key = lvl === 1 ? 'barricade_lv1' : lvl === 2 ? 'barricade_lv2' : 'barricade_lv3';
-      const texKey = this.scene.textures.exists(key) ? key : 'mod_lock';
+      const texKey = this.scene.textures.exists(key) ? key : 'mod_barricade';
       this.modSprite = this.scene.add.image(0, 0, texKey).setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     } else if (this.tileState.modifier === 'lock') {
@@ -320,6 +320,16 @@ export class TileView extends Phaser.GameObjects.Container {
       this.specialBorder.lineStyle(2.5, 0xffd700, 0.95);
       this.specialBorder.strokeRoundedRect(-tileSize / 2 + 1, -tileSize / 2 + 1, tileSize - 2, tileSize - 2, 8);
       this.add(this.specialBorder);
+
+      // ✨ Subtle breathing pulse glow for Lucky Pot border
+      this.scene.tweens.add({
+        targets: this.specialBorder,
+        alpha: { from: 0.55, to: 1.0 },
+        duration: 650,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
 
       this.specialBadge = this.scene.add.text(-tileSize / 2 + 10, -tileSize / 2 + 8, '🏺', {
         fontSize: '13px'

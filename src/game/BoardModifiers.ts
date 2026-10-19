@@ -12,6 +12,7 @@ interface MovableTileData {
   hasRelicShard?: boolean;
   isShapeshifter?: boolean;
   isLuckyPot?: boolean;
+  luckyPotTimeLeft?: number;
   isLightning?: boolean;
 }
 
@@ -28,6 +29,7 @@ function extractTileData(tile: TileState): MovableTileData {
     hasRelicShard: tile.hasRelicShard,
     isShapeshifter: tile.isShapeshifter,
     isLuckyPot: tile.isLuckyPot,
+    luckyPotTimeLeft: tile.luckyPotTimeLeft,
     isLightning: tile.isLightning
   };
 }
@@ -44,6 +46,7 @@ function clearTileData(tile: TileState): void {
   tile.hasRelicShard = false;
   tile.isShapeshifter = false;
   tile.isLuckyPot = false;
+  tile.luckyPotTimeLeft = undefined;
   tile.isLightning = false;
   tile.modifierLevel = 0;
 }
@@ -61,6 +64,7 @@ function applyTileData(tile: TileState, data: MovableTileData): boolean {
   tile.hasRelicShard = data.hasRelicShard;
   tile.isShapeshifter = data.isShapeshifter;
   tile.isLuckyPot = data.isLuckyPot;
+  tile.luckyPotTimeLeft = data.luckyPotTimeLeft;
   tile.isLightning = data.isLightning;
   tile.modifierLevel = data.modifierLevel;
   return changed;

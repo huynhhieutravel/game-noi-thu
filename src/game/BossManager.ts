@@ -77,11 +77,12 @@ export class BossManager {
     const type = skill.type;
     const swappedPairs: { t1: TileState; t2: TileState }[] = [];
 
-    // 1. Freeze / Lock skills
+    // 1. Freeze / Lock & Web / Mist skills
     if (
       type === 'ice_curse' || type === 'dark_lock' || type === 'taiji_freeze' ||
       type === 'flame_chakra' || type === 'abyssal_bubble' || type === 'sticky_mucus' ||
-      type === 'blizzard_howl' || type === 'thunder_strike'
+      type === 'blizzard_howl' || type === 'thunder_strike' ||
+      type === 'sandstorm_blind' || type === 'cloud_mist' || type === 'ghost_fog' || type === 'spore_haze'
     ) {
       const candidates: TileState[] = [];
       for (let r = 1; r <= rows; r++) {
@@ -95,29 +96,35 @@ export class BossManager {
       for (let i = 0; i < Math.min(2, candidates.length); i++) {
         const randIdx = Math.floor(Math.random() * candidates.length);
         const t = candidates.splice(randIdx, 1)[0];
-        t.modifier = 'ice';
-        t.iceLayers = 2;
-        t.modifierLevel = 2;
+        if (type === 'sandstorm_blind' || type === 'cloud_mist' || type === 'ghost_fog' || type === 'spore_haze') {
+          t.modifier = 'web';
+          t.modifierLevel = 1;
+        } else {
+          t.modifier = 'ice';
+          t.iceLayers = 2;
+          t.modifierLevel = 2;
+        }
       }
     }
-    // 2. Obstacle / Stone / Vines spawn
+    // 2. Obstacle / Stone / Barricade spawn
     else if (
       type === 'rock_blocker' || type === 'petrify_stone' || type === 'elephant_quake' ||
       type === 'forest_vines' || type === 'powder_barrel' || type === 'volcanic_eruption' ||
-      type === 'root_strangle' || type === 'trex_stomp'
+      type === 'root_strangle' || type === 'trex_stomp' ||
+      type === 'pearl_blessing' || type === 'temple_ward' || type === 'magma_armor' || type === 'gold_hoard_shield'
     ) {
-      // Limit total stone obstacles on the board to max 4 to avoid suffocating paths
-      let currentStones = 0;
+      // Limit total stone/barricade obstacles on the board to max 4 to avoid suffocating paths
+      let currentObstacles = 0;
       for (let r = 1; r <= rows; r++) {
         for (let c = 1; c <= cols; c++) {
           const tile = grid[r][c];
-          if (!tile.isCleared && tile.modifier === 'stone') {
-            currentStones++;
+          if (!tile.isCleared && (tile.modifier === 'stone' || tile.modifier === 'barricade')) {
+            currentObstacles++;
           }
         }
       }
 
-      if (currentStones < 4) {
+      if (currentObstacles < 4) {
         const clearedSlots: TileState[] = [];
         for (let r = 1; r <= rows; r++) {
           for (let c = 1; c <= cols; c++) {
@@ -130,19 +137,23 @@ export class BossManager {
         if (clearedSlots.length > 0) {
           const randIdx = Math.floor(Math.random() * clearedSlots.length);
           const randSlot = clearedSlots[randIdx];
-          randSlot.modifier = 'stone';
+          const isBarricade = type === 'pearl_blessing' || type === 'temple_ward' ||
+            type === 'magma_armor' || type === 'gold_hoard_shield';
+          randSlot.modifier = isBarricade ? 'barricade' : 'stone';
           randSlot.modifierLevel = 2;
           randSlot.isCleared = false;
           randSlot.characterId = null;
         }
       }
     }
-    // 3. Tile swap / Whirlwind / Tempest
+    // 3. Tile swap / Whirlwind / Tempest / Flash
     else if (
       type === 'tile_swap' || type === 'whirlwind_shift' || type === 'flying_swords' ||
       type === 'naga_waters' || type === 'tentacle_slam' || type === 'slime_split' ||
       type === 'wing_tempest' || type === 'gravity_warp' || type === 'pack_call' ||
-      type === 'celestial_ascend' || type === 'tidal_surge'
+      type === 'celestial_ascend' || type === 'tidal_surge' ||
+      type === 'luminescence_flash' || type === 'supernova_flash' || type === 'emp_shockwave' ||
+      type === 'factory_reboot' || type === 'seasonal_wind'
     ) {
       // ONLY swap playable, non-obstacle tiles that are not locked
       const activeTiles: TileState[] = [];
@@ -180,7 +191,7 @@ export class BossManager {
     else if (
       type === 'time_drain' || type === 'acid_breath' || type === 'dragon_roar' ||
       type === 'ten_head_roar' || type === 'plasma_cannon' || type === 'event_horizon' ||
-      type === 'crown_jewel_blast' || type === 'inferno_breath'
+      type === 'crown_jewel_blast' || type === 'inferno_breath' || type === 'solar_flare'
     ) {
       // Drained via onBossSkillTriggered callback in GameScene
     }
@@ -194,6 +205,14 @@ export class BossManager {
 
   public getMaxHp(): number {
     return this.config.maxHp;
+  }
+
+  public get maxHp(): number {
+    return this.config.maxHp;
+  }
+
+  public get hp(): number {
+    return this.currentHp;
   }
 
   public getHeadsRemaining(): number {

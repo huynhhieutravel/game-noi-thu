@@ -86,6 +86,10 @@ export class GameScene extends Phaser.Scene {
   private nightParadeTimerPill: Phaser.GameObjects.Container | null = null;
   private nightParadeTimerText: Phaser.GameObjects.Text | null = null;
   private nightParadeTimerBarGfx: Phaser.GameObjects.Graphics | null = null;
+  private nightParadeFadeTween: Phaser.Tweens.Tween | null = null;
+  private nightParadeOverlayFadeTween: Phaser.Tweens.Tween | null = null;
+  private lastNightParadeSec: number = -1;
+  private lastNightParadeUrgent: boolean = false;
 
   // Game metrics
   private score: number = 0;
@@ -128,6 +132,7 @@ export class GameScene extends Phaser.Scene {
   // 6. 🏆 Đa Độ Khó (Difficulty) & Mảnh Cổ Vật (Relic Shards) & Thống Kê Nhiệm Vụ
   private currentDifficulty: DifficultyLevel = 'easy';
   private isRelicShardCollectedThisRun: boolean = false;
+  private isRelicShardSpawnedThisRun: boolean = false;
   private brokenIceCount: number = 0;
   private brokenStoneCount: number = 0;
   private brokenCagesCount: number = 0;
@@ -162,6 +167,7 @@ export class GameScene extends Phaser.Scene {
     this.isBossDefeatedThisRun = false;
     this.currentDifficulty = data.difficulty || 'easy';
     this.isRelicShardCollectedThisRun = false;
+    this.isRelicShardSpawnedThisRun = false;
     this.brokenIceCount = 0;
     this.brokenStoneCount = 0;
     this.brokenCagesCount = 0;
@@ -279,7 +285,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   public preload(): void {
-    const lvlNum = this.levelConfig?.levelNumber || (this.levelConfig?.id ? parseInt(this.levelConfig.id.replace(/\D/g, ''), 10) : 1);
+    const rawDigits = (this.levelConfig?.id || '').replace(/\D/g, '');
+    const parsedNum = this.levelConfig?.levelNumber || (rawDigits ? parseInt(rawDigits, 10) : 1);
+    const lvlNum = !isNaN(parsedNum) && parsedNum > 0 ? parsedNum : 1;
     const stageKey = `stage_bg_${lvlNum}`;
     if (!this.textures.exists(stageKey)) {
       this.load.image(stageKey, `assets/stages/stage_bg_${lvlNum}.png`);
@@ -349,9 +357,21 @@ export class GameScene extends Phaser.Scene {
     // Clean up timers & tweens on scene shutdown
     this.events.once('shutdown', () => {
       this.endNightParadeRush();
+      if (this.nightParadeFadeTween) {
+        this.nightParadeFadeTween.stop();
+        this.nightParadeFadeTween = null;
+      }
+      if (this.nightParadeOverlayFadeTween) {
+        this.nightParadeOverlayFadeTween.stop();
+        this.nightParadeOverlayFadeTween = null;
+      }
       if (this.companionPulseTween) {
         this.companionPulseTween.stop();
         this.companionPulseTween = null;
+      }
+      if (this.relicPulseTween) {
+        this.relicPulseTween.stop();
+        this.relicPulseTween = null;
       }
       if (this.feverParticles) {
         try {
@@ -365,7 +385,9 @@ export class GameScene extends Phaser.Scene {
 
     // 1. Crystal-clear HD Gameplay Background (Individual Stage Background for Japan stages 1-10, fallback to Shrine)
     const { width: screenW, offsetX } = getScreenDimensions();
-    const lvlNum = this.levelConfig?.levelNumber || (this.levelConfig?.id ? parseInt(this.levelConfig.id.replace(/\D/g, ''), 10) : 1);
+    const rawDigits = (this.levelConfig?.id || '').replace(/\D/g, '');
+    const parsedNum = this.levelConfig?.levelNumber || (rawDigits ? parseInt(rawDigits, 10) : 1);
+    const lvlNum = !isNaN(parsedNum) && parsedNum > 0 ? parsedNum : 1;
     const chapter = LevelManager.getChapterByLevel(lvlNum);
     const worldTheme = this.levelConfig?.worldId || chapter?.worldId || 'yokai';
     
@@ -458,7 +480,12 @@ export class GameScene extends Phaser.Scene {
         },
         onBossSkillTriggered: (skillName, desc, skillType, swappedPairs) => {
           this.triggerBossSkillCastVisual();
-          if (skillType === 'time_drain') {
+          const isTimeDrain = skillType === 'time_drain' || skillType === 'acid_breath' ||
+            skillType === 'dragon_roar' || skillType === 'ten_head_roar' ||
+            skillType === 'plasma_cannon' || skillType === 'event_horizon' ||
+            skillType === 'crown_jewel_blast' || skillType === 'inferno_breath' ||
+            skillType === 'solar_flare';
+          if (isTimeDrain) {
             this.timeRemaining = Math.max(1, this.timeRemaining - 5);
             this.showNotice(`⏳ ${skillName}: BỊ HÚT MẤT 5 GIÂY!`, 0xff3366);
             this.showBonusTimePopup(-5);
@@ -472,7 +499,7 @@ export class GameScene extends Phaser.Scene {
             const selectedTile = this.boardManager.getSelectedTile();
             if (selectedTile) {
               const isSwapped = swappedPairs?.some(p => p.t1 === selectedTile || p.t2 === selectedTile);
-              if (selectedTile.modifier === 'ice' || selectedTile.modifier === 'stone' || selectedTile.isCleared || isSwapped) {
+              if (selectedTile.modifier === 'ice' || selectedTile.modifier === 'stone' || selectedTile.modifier === 'web' || selectedTile.modifier === 'barricade' || selectedTile.isCleared || isSwapped) {
                 this.boardManager.clearSelection();
               }
             }
@@ -584,17 +611,27 @@ export class GameScene extends Phaser.Scene {
           this.audio.playShuffle();
         }
 
-        // Re-sync Relic Shard pair after reshuffle if not yet collected
-        if (!this.isRelicShardCollectedThisRun && this.levelConfig.relicReward && !this.save.hasRelic(this.levelConfig.relicReward.id)) {
+        // Re-sync Relic Shard pair after reshuffle if spawned on board and not yet collected
+        if (this.isRelicShardSpawnedThisRun && !this.isRelicShardCollectedThisRun && this.levelConfig.relicReward && !this.save.hasRelic(this.levelConfig.relicReward.id)) {
           this.boardManager.clearRelicShardTags();
           this.boardManager.tagRelicShardPair();
         }
       }
     });
 
-    // Tag Relic Shard pair if level has one and player has not collected it yet
+    // Tag Relic Shard pair with calibrated rare spawn chance (1.0% - 5.0%)
     if (this.levelConfig.relicReward && !this.save.hasRelic(this.levelConfig.relicReward.id)) {
-      this.boardManager.tagRelicShardPair();
+      const isBossLevel = !!(this.bossManager || this.levelConfig.levelNumber % 10 === 0 || this.levelConfig.levelNumber % 5 === 0);
+      const spawnChance = this.currentDifficulty === 'hard'
+        ? (isBossLevel ? 0.05 : 0.035)
+        : this.currentDifficulty === 'medium'
+          ? (isBossLevel ? 0.03 : 0.02)
+          : (isBossLevel ? 0.015 : 0.01);
+
+      if (Math.random() < spawnChance) {
+        this.isRelicShardSpawnedThisRun = true;
+        this.boardManager.tagRelicShardPair();
+      }
     }
 
     // 6. Build Top HUD & Header
@@ -1793,7 +1830,10 @@ export class GameScene extends Phaser.Scene {
       this.audio.playVictory();
 
       if (lvl >= 3) {
-        this.boardManager.tagRelicShardPair();
+        if (this.levelConfig.relicReward && !this.save.hasRelic(this.levelConfig.relicReward.id) && !this.isRelicShardCollectedThisRun) {
+          this.isRelicShardSpawnedThisRun = true;
+          this.boardManager.tagRelicShardPair();
+        }
       }
       if (lvl >= 5) {
         this.boardManager.showHint();
@@ -1964,9 +2004,11 @@ export class GameScene extends Phaser.Scene {
     this.relicPodBorder = this.add.graphics();
     this.updateRelicPodBackground();
 
-    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
-    const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
-    const tierColor = RelicManager.getInstance().getTierColor(relic?.tier || 'common');
+    const equippedRelicId = this.save.getEquippedRelicId();
+    const relic = equippedRelicId ? RelicManager.getInstance().getRelicById(equippedRelicId) : null;
+    const tierColor = relic 
+      ? RelicManager.getInstance().getTierColor(relic.tier) 
+      : { stroke: 0x4a4e69, fill: 0x141624, hexStr: '#adb5bd' };
 
     // Circular Avatar Container with tier-colored glowing halo
     const avatarHalo = this.add.graphics();
@@ -1984,11 +2026,11 @@ export class GameScene extends Phaser.Scene {
     } else if (relic && this.textures.exists(`relic_${relic.id}`)) {
       this.relicAvatarImg = this.add.image(-68, 0, `relic_${relic.id}`).setDisplaySize(44, 44);
     } else {
-      this.relicAvatarImg = this.add.text(-68, 0, relic?.icon || '🏺', { fontSize: '24px' }).setOrigin(0.5);
+      this.relicAvatarImg = this.add.text(-68, 0, relic ? (relic.icon || '🏺') : '🔒', { fontSize: '24px' }).setOrigin(0.5);
     }
 
     // Relic Name
-    const displayName = relic ? `🏺 ${relic.name}` : '🏺 Thần Khí';
+    const displayName = relic ? `🏺 ${relic.name}` : '🔒 Thần Khí (Trống)';
     this.relicNameText = this.add.text(-43, -14, displayName, {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '14.5px',
@@ -2007,7 +2049,7 @@ export class GameScene extends Phaser.Scene {
     this.relicEnergyGraphics = this.add.graphics();
 
     // Energy Text
-    this.relicEnergyText = this.add.text(24, 9, '0% NỘ', {
+    this.relicEnergyText = this.add.text(24, 9, relic ? '0% NỘ' : 'CHƯA CÓ', {
       fontFamily: 'Plus Jakarta Sans, sans-serif',
       fontSize: '13.5px',
       fontStyle: '900',
@@ -2037,19 +2079,21 @@ export class GameScene extends Phaser.Scene {
 
     this.relicPod.on('pointerdown', () => {
       if (this.isGameOver || this.isVictory || this.boardManager.isProcessing()) return;
+      if (!relic) {
+        this.showNotice('🏺 THẦN KHÍ: Vượt Màn 1-4 để rèn Cổ Vật đầu tiên! Ghé Bảo Khố tại Menu Chính để kích hoạt.', 0xffd166);
+        this.audio.playSelect();
+        return;
+      }
       if (this.isRelicSkillReady) {
         this.activateRelicSkill();
       } else {
-        const equipped = RelicManager.getInstance().getRelicById(this.save.getEquippedRelicId());
-        if (equipped) {
-          const maxE = equipped.rageCost || 100;
-          const pct = Math.floor((this.relicEnergy / maxE) * 100);
-          this.showNotice(
-            `🏺 ${equipped.name}: Cần ${maxE}% Nộ (Hiện có: ${pct}%). Nối thêm cặp để tích nộ!`,
-            tierColor.stroke
-          );
-          this.audio.playSelect();
-        }
+        const maxE = relic.rageCost || 100;
+        const pct = Math.floor((this.relicEnergy / maxE) * 100);
+        this.showNotice(
+          `🏺 ${relic.name}: Cần ${maxE}% Nộ (Hiện có: ${pct}%). Nối thêm cặp để tích nộ!`,
+          tierColor.stroke
+        );
+        this.audio.playSelect();
       }
     });
 
@@ -2082,9 +2126,9 @@ export class GameScene extends Phaser.Scene {
     if (!this.relicPodBorder) return;
     const podW = 216;
     const podH = 56;
-    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
-    const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
-    const tierColor = RelicManager.getInstance().getTierColor(relic?.tier || 'common');
+    const equippedRelicId = this.save.getEquippedRelicId();
+    const relic = equippedRelicId ? RelicManager.getInstance().getRelicById(equippedRelicId) : null;
+    const tierColor = relic ? RelicManager.getInstance().getTierColor(relic.tier) : { stroke: 0x4a4e69 };
 
     this.relicPodBorder.clear();
     this.relicPodBorder.fillStyle(0x111022, 0.96);
@@ -2106,8 +2150,15 @@ export class GameScene extends Phaser.Scene {
     const startX = -43;
     const startY = 3;
 
-    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
-    const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
+    const equippedRelicId = this.save.getEquippedRelicId();
+    const relic = equippedRelicId ? RelicManager.getInstance().getRelicById(equippedRelicId) : null;
+    if (!relic) {
+      this.relicEnergyText.setText('CHƯA CÓ');
+      this.relicEnergyText.setVisible(true);
+      this.relicReadyBadge.setVisible(false);
+      return;
+    }
+
     const maxE = relic?.rageCost || 100;
     const tierColor = RelicManager.getInstance().getTierColor(relic?.tier || 'common');
     const fillW = Math.max(0, Math.min(1, this.relicEnergy / maxE) * barW);
@@ -2129,8 +2180,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private addRelicEnergy(amount: number): void {
-    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
+    const equippedRelicId = this.save.getEquippedRelicId();
+    if (!equippedRelicId) return;
     const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
+    if (!relic) return;
     const maxE = relic?.rageCost || 100;
 
     this.relicEnergy = Math.min(maxE, this.relicEnergy + amount);
@@ -2175,7 +2228,8 @@ export class GameScene extends Phaser.Scene {
     this.updateRelicPodBackground();
     this.haptic.heavy();
 
-    const equippedRelicId = this.save.getEquippedRelicId() || 'relic_yokai_01';
+    const equippedRelicId = this.save.getEquippedRelicId();
+    if (!equippedRelicId) return;
     const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
     if (relic) {
       const tierColor = RelicManager.getInstance().getTierColor(relic.tier);
@@ -2368,7 +2422,7 @@ export class GameScene extends Phaser.Scene {
       this.nightParadeMaxDuration = Math.max(this.nightParadeMaxDuration, this.nightParadeTimeRemaining);
       this.showNotice(`🌙 KÉO DÀI DẠ HÀNH THÊM 6S! (${reasonTitle})`, 0xc77dff);
       this.updateNightParadeTimerUI();
-      if (this.nightParadeTimerPill) {
+      if (this.nightParadeTimerPill && this.nightParadeTimerPill.active) {
         this.tweens.add({
           targets: this.nightParadeTimerPill,
           scaleX: 1.08,
@@ -2380,9 +2434,34 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    // Stop and kill any in-progress fade out tweens immediately
+    if (this.nightParadeFadeTween) {
+      this.nightParadeFadeTween.stop();
+      this.nightParadeFadeTween = null;
+    }
+    if (this.nightParadeOverlayFadeTween) {
+      this.nightParadeOverlayFadeTween.stop();
+      this.nightParadeOverlayFadeTween = null;
+    }
+
+    // Clean up any remaining objects before recreating fresh ones
+    if (this.nightParadeTimerPill) {
+      try { this.nightParadeTimerPill.destroy(); } catch {}
+      this.nightParadeTimerPill = null;
+    }
+    this.nightParadeTimerText = null;
+    this.nightParadeTimerBarGfx = null;
+    if (this.nightParadeOverlay) {
+      try { this.nightParadeOverlay.destroy(); } catch {}
+      this.nightParadeOverlay = null;
+    }
+
     this.isNightParadeActive = true;
     this.nightParadeTimeRemaining = 10.0;
     this.nightParadeMaxDuration = 10.0;
+    this.lastNightParadeSec = -1;
+    this.lastNightParadeUrgent = false;
+
     this.boardManager.setPiercingLaser(true);
     this.audio.startNightParadeMusic();
     this.haptic.heavy();
@@ -2406,7 +2485,7 @@ export class GameScene extends Phaser.Scene {
       duration: 900,
       ease: 'Quad.easeOut',
       onComplete: () => {
-        introSurge.destroy();
+        try { introSurge.destroy(); } catch {}
       }
     });
 
@@ -2523,28 +2602,39 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateNightParadeTimerUI(): void {
-    if (!this.nightParadeTimerBarGfx || !this.nightParadeTimerText) return;
+    if (!this.nightParadeTimerBarGfx || !this.nightParadeTimerText || !this.nightParadeTimerPill) return;
+    if (!this.nightParadeTimerText.active || !this.nightParadeTimerText.scene) return;
+    if (!this.nightParadeTimerBarGfx.active || !this.nightParadeTimerBarGfx.scene) return;
+    if (!this.nightParadeTimerPill.active || !this.nightParadeTimerPill.scene) return;
 
-    const pillW = 340;
-    const pillH = 28;
-    const maxDur = this.nightParadeMaxDuration || 10.0;
-    const progress = Math.max(0, Math.min(1, this.nightParadeTimeRemaining / maxDur));
-    const barW = Math.max(0, (pillW - 8) * progress);
+    try {
+      const pillW = 340;
+      const pillH = 28;
+      const maxDur = this.nightParadeMaxDuration || 10.0;
+      const progress = Math.max(0, Math.min(1, this.nightParadeTimeRemaining / maxDur));
+      const barW = Math.max(0, (pillW - 8) * progress);
 
-    const isUrgent = this.nightParadeTimeRemaining <= 3.0;
-    const barColor = isUrgent ? 0xff006e : 0x7b2cbf;
+      const isUrgent = this.nightParadeTimeRemaining <= 3.0;
+      const barColor = isUrgent ? 0xff006e : 0x7b2cbf;
 
-    this.nightParadeTimerBarGfx.clear();
-    this.nightParadeTimerBarGfx.fillStyle(barColor, 0.85);
-    this.nightParadeTimerBarGfx.fillRoundedRect(-(pillW - 8) / 2, -pillH / 2 + 3, barW, pillH - 6, 11);
+      this.nightParadeTimerBarGfx.clear();
+      this.nightParadeTimerBarGfx.fillStyle(barColor, 0.85);
+      this.nightParadeTimerBarGfx.fillRoundedRect(-(pillW - 8) / 2, -pillH / 2 + 3, barW, pillH - 6, 11);
 
-    const sec = Math.max(0, Math.ceil(this.nightParadeTimeRemaining));
-    if (isUrgent) {
-      this.nightParadeTimerText.setText(`⚠️ DẠ HÀNH SẮP HẾT: ${sec}s • XUYÊN THẤU ⚡`);
-      this.nightParadeTimerText.setColor('#ff99c8');
-    } else {
-      this.nightParadeTimerText.setText(`🌙 DẠ HÀNH: ${sec}s • x3 ĐIỂM • XUYÊN THẤU ⚡`);
-      this.nightParadeTimerText.setColor('#ffffff');
+      const sec = Math.max(0, Math.ceil(this.nightParadeTimeRemaining));
+      if (sec !== this.lastNightParadeSec || isUrgent !== this.lastNightParadeUrgent) {
+        this.lastNightParadeSec = sec;
+        this.lastNightParadeUrgent = isUrgent;
+        if (isUrgent) {
+          this.nightParadeTimerText.setText(`⚠️ DẠ HÀNH SẮP HẾT: ${sec}s • XUYÊN THẤU ⚡`);
+          this.nightParadeTimerText.setColor('#ff99c8');
+        } else {
+          this.nightParadeTimerText.setText(`🌙 DẠ HÀNH: ${sec}s • x3 ĐIỂM • XUYÊN THẤU ⚡`);
+          this.nightParadeTimerText.setColor('#ffffff');
+        }
+      }
+    } catch {
+      // Gracefully ignore frame draw issues during fast transitions
     }
   }
 
@@ -2574,42 +2664,63 @@ export class GameScene extends Phaser.Scene {
     if (!this.isNightParadeActive) return;
     this.isNightParadeActive = false;
     this.nightParadeTimeRemaining = 0;
+    this.lastNightParadeSec = -1;
+    this.lastNightParadeUrgent = false;
+
     if (this.boardManager && !this.isGameOver && !this.isVictory) {
       this.boardManager.setPiercingLaser(false);
     }
     this.audio.stopNightParadeMusic();
 
-    if (this.nightParadeOverlay) {
-      if (this.scene?.isActive()) {
-        this.tweens.add({
-          targets: this.nightParadeOverlay,
+    // Cancel existing fade tweens if any
+    if (this.nightParadeOverlayFadeTween) {
+      this.nightParadeOverlayFadeTween.stop();
+      this.nightParadeOverlayFadeTween = null;
+    }
+    if (this.nightParadeFadeTween) {
+      this.nightParadeFadeTween.stop();
+      this.nightParadeFadeTween = null;
+    }
+
+    // Capture and immediately detach overlay reference
+    const overlayToFade = this.nightParadeOverlay;
+    this.nightParadeOverlay = null;
+
+    if (overlayToFade) {
+      if (this.scene?.isActive() && overlayToFade.active) {
+        this.nightParadeOverlayFadeTween = this.safeTween({
+          targets: overlayToFade,
           alpha: 0,
-          duration: 350,
+          duration: 300,
           onComplete: () => {
-            this.nightParadeOverlay?.destroy();
-            this.nightParadeOverlay = null;
+            try { overlayToFade.destroy(); } catch {}
+            this.nightParadeOverlayFadeTween = null;
           }
         });
       } else {
-        this.nightParadeOverlay.destroy();
-        this.nightParadeOverlay = null;
+        try { overlayToFade.destroy(); } catch {}
       }
     }
 
-    if (this.nightParadeTimerPill) {
-      if (this.scene?.isActive()) {
-        this.tweens.add({
-          targets: this.nightParadeTimerPill,
+    // Capture and immediately detach timer references so update() never touches dying objects
+    const pillToFade = this.nightParadeTimerPill;
+    this.nightParadeTimerPill = null;
+    this.nightParadeTimerText = null;
+    this.nightParadeTimerBarGfx = null;
+
+    if (pillToFade) {
+      if (this.scene?.isActive() && pillToFade.active) {
+        this.nightParadeFadeTween = this.safeTween({
+          targets: pillToFade,
           alpha: 0,
           duration: 250,
           onComplete: () => {
-            this.nightParadeTimerPill?.destroy();
-            this.nightParadeTimerPill = null;
+            try { pillToFade.destroy(); } catch {}
+            this.nightParadeFadeTween = null;
           }
         });
       } else {
-        this.nightParadeTimerPill.destroy();
-        this.nightParadeTimerPill = null;
+        try { pillToFade.destroy(); } catch {}
       }
     }
 
@@ -2695,7 +2806,7 @@ export class GameScene extends Phaser.Scene {
       this.audio.playVictory();
       this.haptic.combo();
 
-      this.showNotice(`✨ ĐÃ TÌM THẤY: ${this.levelConfig.relicReward.name}!`, 0xffd700);
+      this.showNotice(`✨ ĐÃ TÌM THẤY: +1 MẢNH ${this.levelConfig.relicReward.name.toUpperCase()}!`, 0xffd700);
 
       const relicIcon = this.add.text(midX, midY, this.levelConfig.relicReward.icon || '🏺', {
         fontSize: '32px'
@@ -3133,211 +3244,257 @@ export class GameScene extends Phaser.Scene {
 
   public isPaused: boolean = false;
 
+  /**
+   * 🛡️ Safe Subsystem Runner: Encapsulates periodic scene subsystems so errors
+   * in one module never break Phaser's requestAnimationFrame loop or freeze gameplay.
+   */
+  public safeSubsystemRun(subsystemName: string, action: () => void): void {
+    try {
+      action();
+    } catch (err) {
+      console.error(`[GameScene SafeSubsystem] Exception in ${subsystemName}:`, err);
+    }
+  }
+
+  /**
+   * 🛡️ Safe Tween: Wraps Phaser's tweens.add with target lifecycle checks and
+   * safe onComplete execution to prevent dangling callbacks on destroyed game objects.
+   */
+  public safeTween(config: Phaser.Types.Tweens.TweenBuilderConfig): Phaser.Tweens.Tween | null {
+    if (!this.scene?.isActive() || !this.tweens) {
+      return null;
+    }
+    const originalComplete = config.onComplete;
+    config.onComplete = (tween: Phaser.Tweens.Tween, targets: any[]) => {
+      try {
+        if (originalComplete) {
+          originalComplete.call(config.onCompleteScope || this, tween, targets);
+        }
+      } catch (err) {
+        console.warn('[GameScene SafeTween] Caught exception during tween onComplete:', err);
+      }
+    };
+    return this.tweens.add(config);
+  }
+
   public update(time: number, delta: number): void {
     if (this.isGameOver || this.isVictory || this.isPaused) return;
 
     const deltaSec = delta / 1000;
 
-    if (this.isSurvivalMode) {
-      // 5. ❄️ Chế Độ Sinh Tồn Dâng Trào (Survival Blizzard Mode loop)
-      if (!this.isTimeFrozen) {
-        this.blizzardTimeRemaining -= deltaSec;
-      } else {
+    // 1. Timer & Mode Subsystem
+    this.safeSubsystemRun('Timer & Game Mode Subsystem', () => {
+      if (this.isSurvivalMode) {
+        // 5. ❄️ Chế Độ Sinh Tồn Dâng Trào (Survival Blizzard Mode loop)
+        if (!this.isTimeFrozen) {
+          this.blizzardTimeRemaining -= deltaSec;
+        } else {
+          this.freezeTimeRemaining -= deltaSec;
+          if (this.freezeTimeRemaining <= 0) {
+            this.isTimeFrozen = false;
+            if (this.frostOverlayGraphics) {
+              this.frostOverlayGraphics.clear();
+            }
+            this.showNotice('❄️ Hết thời gian đóng băng! Bão tuyết tiếp tục dâng!', 0x90e0ef);
+          }
+        }
+
+        this.updateTimerBar();
+
+        if (this.isTimeFrozen) {
+          this.timeText.setText(`❄️ ĐÓNG BĂNG (${Math.ceil(this.freezeTimeRemaining)}s)`);
+          this.timeText.setColor('#90e0ef');
+        } else {
+          const sec = Math.max(0, Math.ceil(this.blizzardTimeRemaining));
+          this.timeText.setText(`⏳ BĂNG: ${sec}s`);
+          if (this.blizzardTimeRemaining <= 3) {
+            this.timeText.setColor('#ff595e');
+            if (sec !== this.lastTickSecond) {
+              this.lastTickSecond = sec;
+              this.audio.playTick();
+            }
+          } else {
+            this.timeText.setColor('#00f5d4');
+          }
+        }
+
+        // Check ceiling danger
+        const danger = this.boardManager.checkCeilingDanger();
+        if (this.ceilingWarningBanner) {
+          this.ceilingWarningBanner.setVisible(danger.isDanger || danger.isOverflow);
+        }
+
+        // Trigger blizzard push when countdown finishes
+        if (this.blizzardTimeRemaining <= 0 && !this.isBlizzardPushing) {
+          this.triggerBlizzardPush();
+        }
+      } else if (this.isZenMode) {
+        if (this.timeText) {
+          this.timeText.setText('∞');
+        }
+        this.updateTimerBar();
+      } else if (this.isTimeFrozen) {
+        // 🐉 Ryujin Time Freeze Ultimate Active!
         this.freezeTimeRemaining -= deltaSec;
+        const displayTime = Math.max(0, Math.ceil(this.timeRemaining));
+        const freezeSec = Math.max(0, Math.ceil(this.freezeTimeRemaining));
+        this.timeText.setText(`❄️ ${displayTime}s (${freezeSec}s)`);
+        this.timeText.setColor('#00f5d4');
+        this.updateTimerBar();
+
         if (this.freezeTimeRemaining <= 0) {
           this.isTimeFrozen = false;
+          this.timeText.setColor('#00f5d4');
           if (this.frostOverlayGraphics) {
             this.frostOverlayGraphics.clear();
           }
-          this.showNotice('❄️ Hết thời gian đóng băng! Bão tuyết tiếp tục dâng!', 0x90e0ef);
+          this.showNotice('❄️ Hết thời gian đóng băng! Tiếp tục đếm ngược!', 0x90e0ef);
         }
-      }
+      } else if (this.levelConfig.isStopwatch) {
+        this.elapsedTimeSeconds += deltaSec;
+        const totalSec = Math.floor(this.elapsedTimeSeconds);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        const timeStr = `${m}:${s < 10 ? '0' : ''}${s}`;
 
-      this.updateTimerBar();
+        const gold = this.levelConfig.targetGoldSeconds || 45;
+        const silver = this.levelConfig.targetSilverSeconds || 75;
+        let starsBadge = '⭐⭐⭐';
+        let textColor = '#00f5d4';
 
-      if (this.isTimeFrozen) {
-        this.timeText.setText(`❄️ ĐÓNG BĂNG (${Math.ceil(this.freezeTimeRemaining)}s)`);
-        this.timeText.setColor('#90e0ef');
+        if (this.elapsedTimeSeconds > silver) {
+          starsBadge = '⭐';
+          textColor = '#ff595e';
+        } else if (this.elapsedTimeSeconds > gold) {
+          starsBadge = '⭐⭐';
+          textColor = '#ffd166';
+        }
+
+        this.timeText.setText(`⏱️ ${timeStr} ${starsBadge}`);
+        this.timeText.setColor(textColor);
+        this.updateTimerBar();
       } else {
-        const sec = Math.max(0, Math.ceil(this.blizzardTimeRemaining));
-        this.timeText.setText(`⏳ BĂNG: ${sec}s`);
-        if (this.blizzardTimeRemaining <= 3) {
-          this.timeText.setColor('#ff595e');
-          if (sec !== this.lastTickSecond) {
-            this.lastTickSecond = sec;
-            this.audio.playTick();
-          }
-        } else {
-          this.timeText.setColor('#00f5d4');
-        }
-      }
-
-      // Check ceiling danger
-      const danger = this.boardManager.checkCeilingDanger();
-      if (this.ceilingWarningBanner) {
-        this.ceilingWarningBanner.setVisible(danger.isDanger || danger.isOverflow);
-      }
-
-      // Trigger blizzard push when countdown finishes
-      if (this.blizzardTimeRemaining <= 0 && !this.isBlizzardPushing) {
-        this.triggerBlizzardPush();
-      }
-    } else if (this.isZenMode) {
-      if (this.timeText) {
-        this.timeText.setText('∞');
-      }
-      this.updateTimerBar();
-    } else if (this.isTimeFrozen) {
-      // 🐉 Ryujin Time Freeze Ultimate Active!
-      this.freezeTimeRemaining -= deltaSec;
-      const displayTime = Math.max(0, Math.ceil(this.timeRemaining));
-      const freezeSec = Math.max(0, Math.ceil(this.freezeTimeRemaining));
-      this.timeText.setText(`❄️ ${displayTime}s (${freezeSec}s)`);
-      this.timeText.setColor('#00f5d4');
-      this.updateTimerBar();
-
-      if (this.freezeTimeRemaining <= 0) {
-        this.isTimeFrozen = false;
+        // Timer countdown
+        this.timeRemaining -= deltaSec;
+        this.timeText.setText(`⏳ ${Math.max(0, Math.ceil(this.timeRemaining))}s`);
         this.timeText.setColor('#00f5d4');
-        if (this.frostOverlayGraphics) {
-          this.frostOverlayGraphics.clear();
+        this.updateTimerBar();
+
+        // Clock ticking warning when time < 20s
+        if (this.timeRemaining <= 20 && this.timeRemaining > 0) {
+          const currentSec = Math.floor(this.timeRemaining);
+          if (currentSec !== this.lastTickSecond) {
+            this.lastTickSecond = currentSec;
+            this.audio.playTick();
+            // Subtle red flash on low time
+            this.safeTween({
+              targets: this.timeText,
+              scaleX: 1.25,
+              scaleY: 1.25,
+              duration: 120,
+              yoyo: true
+            });
+          }
         }
-        this.showNotice('❄️ Hết thời gian đóng băng! Tiếp tục đếm ngược!', 0x90e0ef);
-      }
-    } else if (this.levelConfig.isStopwatch) {
-      this.elapsedTimeSeconds += deltaSec;
-      const totalSec = Math.floor(this.elapsedTimeSeconds);
-      const m = Math.floor(totalSec / 60);
-      const s = totalSec % 60;
-      const timeStr = `${m}:${s < 10 ? '0' : ''}${s}`;
 
-      const gold = this.levelConfig.targetGoldSeconds || 45;
-      const silver = this.levelConfig.targetSilverSeconds || 75;
-      let starsBadge = '⭐⭐⭐';
-      let textColor = '#00f5d4';
-
-      if (this.elapsedTimeSeconds > silver) {
-        starsBadge = '⭐';
-        textColor = '#ff595e';
-      } else if (this.elapsedTimeSeconds > gold) {
-        starsBadge = '⭐⭐';
-        textColor = '#ffd166';
-      }
-
-      this.timeText.setText(`⏱️ ${timeStr} ${starsBadge}`);
-      this.timeText.setColor(textColor);
-      this.updateTimerBar();
-    } else {
-      // Timer countdown
-      this.timeRemaining -= deltaSec;
-      this.timeText.setText(`⏳ ${Math.max(0, Math.ceil(this.timeRemaining))}s`);
-      this.timeText.setColor('#00f5d4');
-      this.updateTimerBar();
-
-      // Clock ticking warning when time < 20s
-      if (this.timeRemaining <= 20 && this.timeRemaining > 0) {
-        const currentSec = Math.floor(this.timeRemaining);
-        if (currentSec !== this.lastTickSecond) {
-          this.lastTickSecond = currentSec;
-          this.audio.playTick();
-          // Subtle red flash on low time
-          this.tweens.add({
-            targets: this.timeText,
-            scaleX: 1.25,
-            scaleY: 1.25,
-            duration: 120,
-            yoyo: true
-          });
+        // 🌙 Giờ Bách Quỷ Dạ Hành: Trigger khi vào 30 giây cuối cùng của màn chơi!
+        if (!this.isZenMode && this.timeRemaining <= 30 && this.timeRemaining > 0 && !this.hasTriggeredLowTimeRush) {
+          this.hasTriggeredLowTimeRush = true;
+          if (!this.isNightParadeActive) {
+            this.triggerNightParadeRush('⏱️ 30 GIÂY SINH TỬ!');
+          }
         }
-      }
 
-      // 🌙 Giờ Bách Quỷ Dạ Hành: Trigger khi vào 30 giây cuối cùng của màn chơi!
-      if (!this.isZenMode && this.timeRemaining <= 30 && this.timeRemaining > 0 && !this.hasTriggeredLowTimeRush) {
-        this.hasTriggeredLowTimeRush = true;
-        if (!this.isNightParadeActive) {
-          this.triggerNightParadeRush('⏱️ 30 GIÂY SINH TỬ!');
-        }
-      }
-
-      if (this.timeRemaining <= 0) {
-        // 🐢 Genbu Passive: Quy Giáp Trường Thọ (+1 Mạng sinh mệnh dự phòng khi hết giờ)
-        if (this.companionConfig.id === 'genbu_tortoise' && !this.genbuExtraLifeUsed) {
-          this.genbuExtraLifeUsed = true;
-          const level = this.save.getCompanionLevel('genbu_tortoise');
-          const bonusSeconds = level >= 5 ? 8 : level >= 4 ? 7 : level >= 3 ? 6 : 5;
-          this.timeRemaining = bonusSeconds;
-          this.audio.playVictory();
-          this.showNotice(`🛡️ QUY GIÁP HUYỀN VŨ BẢO HỘ! CỨU NGUY +${bonusSeconds}S!`, 0x2a9d8f);
+        if (this.timeRemaining <= 0) {
+          // 🐢 Genbu Passive: Quy Giáp Trường Thọ (+1 Mạng sinh mệnh dự phòng khi hết giờ)
+          if (this.companionConfig.id === 'genbu_tortoise' && !this.genbuExtraLifeUsed) {
+            this.genbuExtraLifeUsed = true;
+            const level = this.save.getCompanionLevel('genbu_tortoise');
+            const bonusSeconds = level >= 5 ? 8 : level >= 4 ? 7 : level >= 3 ? 6 : 5;
+            this.timeRemaining = bonusSeconds;
+            this.audio.playVictory();
+            this.showNotice(`🛡️ QUY GIÁP HUYỀN VŨ BẢO HỘ! CỨU NGUY +${bonusSeconds}S!`, 0x2a9d8f);
+            return;
+          }
+          this.handleGameOver('⏱️ Hết thời gian thử thách!');
           return;
         }
-        this.handleGameOver('⏱️ Hết thời gian thử thách!');
-        return;
       }
-    }
+    });
 
-    // 🐯 Byakko Gravity Lock Countdown
-    if (this.byakkoGravityLockRemaining > 0) {
-      this.byakkoGravityLockRemaining -= deltaSec;
-      if (this.byakkoGravityLockRemaining <= 0) {
-        this.byakkoGravityLockRemaining = 0;
-        this.boardManager.setGravityLocked(false);
-        this.boardManager.setResolveSpeedMultiplier(1.0);
-        this.showNotice('🐯 Khóa trọng lực của Bạch Hổ đã kết thúc!', 0xadb5bd);
+    // 2. Companion Passives & Temporary Buffs Subsystem
+    this.safeSubsystemRun('Companion Passives & Buffs Subsystem', () => {
+      // 🐯 Byakko Gravity Lock Countdown
+      if (this.byakkoGravityLockRemaining > 0) {
+        this.byakkoGravityLockRemaining -= deltaSec;
+        if (this.byakkoGravityLockRemaining <= 0) {
+          this.byakkoGravityLockRemaining = 0;
+          this.boardManager.setGravityLocked(false);
+          this.boardManager.setResolveSpeedMultiplier(1.0);
+          this.showNotice('🐯 Khóa trọng lực của Bạch Hổ đã kết thúc!', 0xadb5bd);
+        }
       }
-    }
 
-    // 🐍 Orochi Boss Damage Buff Countdown
-    if (this.orochiBossDamageBuffRemaining > 0) {
-      this.orochiBossDamageBuffRemaining -= deltaSec;
-      if (this.orochiBossDamageBuffRemaining <= 0) {
-        this.orochiBossDamageBuffRemaining = 0;
-        this.orochiBossDamageMultiplier = 1.0;
+      // 🐍 Orochi Boss Damage Buff Countdown
+      if (this.orochiBossDamageBuffRemaining > 0) {
+        this.orochiBossDamageBuffRemaining -= deltaSec;
+        if (this.orochiBossDamageBuffRemaining <= 0) {
+          this.orochiBossDamageBuffRemaining = 0;
+          this.orochiBossDamageMultiplier = 1.0;
+        }
       }
-    }
 
-    // 🦅 Yatagarasu Idle Guidance Passive
-    if (this.companionConfig.id === 'yatagarasu_crow' && !this.isGameOver && !this.isVictory) {
-      const lvl = this.save.getCompanionLevel('yatagarasu_crow');
-      const idleThreshold = lvl >= 4 ? 7 : lvl >= 2 ? 8 : 10;
-      this.yatagarasuIdleTimer += deltaSec;
-      if (this.yatagarasuIdleTimer >= idleThreshold) {
-        this.yatagarasuIdleTimer = 0;
-        this.boardManager.showHint();
-        this.showNotice('🦅 Kim Ô chỉ lối: Đốm sáng mặt trời soi sáng ô hợp lệ!', 0xfb8500);
+      // 🦅 Yatagarasu Idle Guidance Passive
+      if (this.companionConfig.id === 'yatagarasu_crow' && !this.isGameOver && !this.isVictory) {
+        const lvl = this.save.getCompanionLevel('yatagarasu_crow');
+        const idleThreshold = lvl >= 4 ? 7 : lvl >= 2 ? 8 : 10;
+        this.yatagarasuIdleTimer += deltaSec;
+        if (this.yatagarasuIdleTimer >= idleThreshold) {
+          this.yatagarasuIdleTimer = 0;
+          this.boardManager.showHint();
+          this.showNotice('🦅 Kim Ô chỉ lối: Đốm sáng mặt trời soi sáng ô hợp lệ!', 0xfb8500);
+        }
       }
-    }
+    });
 
-    // Update Lucky Pot countdown timers
-    this.boardManager.updateLuckyPots(deltaSec);
+    // 3. Lucky Pots Subsystem
+    this.safeSubsystemRun('Lucky Pots Subsystem', () => {
+      this.boardManager?.updateLuckyPots(deltaSec);
+    });
 
-    // Combo system update
-    this.comboSystem.update(deltaSec);
+    // 4. Combo System Subsystem
+    this.safeSubsystemRun('Combo System Subsystem', () => {
+      this.comboSystem?.update(deltaSec);
+    });
 
-    // 🌙 Update Night Parade countdown timer
-    if (this.isNightParadeActive) {
-      this.nightParadeTimeRemaining -= deltaSec;
-      this.updateNightParadeTimerUI();
-      if (this.nightParadeTimeRemaining <= 0) {
-        this.endNightParadeRush();
+    // 5. Night Parade Subsystem
+    this.safeSubsystemRun('Night Parade Subsystem', () => {
+      if (this.isNightParadeActive) {
+        this.nightParadeTimeRemaining -= deltaSec;
+        this.updateNightParadeTimerUI();
+        if (this.nightParadeTimeRemaining <= 0) {
+          this.endNightParadeRush();
+        }
       }
-    }
+    });
 
-    // Boss timer update (freezes when Ryujin Time Freeze or Defeat sequence is active)
-    if (this.bossManager && !this.isTimeFrozen && !this.isBossDefeatedSequence) {
-      // 🐍 Orochi Passive: Uy Áp Xà Thần (Giảm 15% đến 25% tần suất Boss tung kỹ năng quấy rối)
-      let bossDeltaSec = deltaSec;
-      if (this.companionConfig.id === 'orochi_serpent') {
-        const oLvl = this.save.getCompanionLevel('orochi_serpent');
-        const suppression = oLvl >= 5 ? 0.25 : oLvl >= 3 ? 0.20 : 0.15;
-        bossDeltaSec *= (1 - suppression);
+    // 6. Boss Manager Subsystem
+    this.safeSubsystemRun('Boss Manager Subsystem', () => {
+      if (this.bossManager && !this.isTimeFrozen && !this.isBossDefeatedSequence) {
+        let bossDeltaSec = deltaSec;
+        if (this.companionConfig.id === 'orochi_serpent') {
+          const oLvl = this.save.getCompanionLevel('orochi_serpent');
+          const suppression = oLvl >= 5 ? 0.25 : oLvl >= 3 ? 0.20 : 0.15;
+          bossDeltaSec *= (1 - suppression);
+        }
+        this.bossManager.update(
+          bossDeltaSec,
+          this.boardManager.getGrid(),
+          this.boardManager.getRows(),
+          this.boardManager.getCols()
+        );
       }
-      this.bossManager.update(
-        bossDeltaSec,
-        this.boardManager.getGrid(),
-        this.boardManager.getRows(),
-        this.boardManager.getCols()
-      );
-    }
+    });
   }
 
   private triggerBlizzardPush(): void {
@@ -3480,20 +3637,9 @@ export class GameScene extends Phaser.Scene {
     const quest2Achieved = quests[1] ? evaluateQuest(quests[1]) : (this.maxComboAchieved >= 5);
     const quest3Achieved = quests[2] ? evaluateQuest(quests[2]) : (this.playerUsedBoosterCount === 0 || this.timeRemaining > 40);
 
+    // Star Quest Mapping: Earned stars strictly match completed quest objectives (1 quest = 1 star)
     let earnedStars = (quest1Achieved ? 1 : 0) + (quest2Achieved ? 1 : 0) + (quest3Achieved ? 1 : 0);
-    if (this.levelConfig.isStopwatch) {
-      const gold = this.levelConfig.targetGoldSeconds || 45;
-      const silver = this.levelConfig.targetSilverSeconds || 75;
-      if (this.elapsedTimeSeconds <= gold) {
-        earnedStars = 3;
-      } else if (this.elapsedTimeSeconds <= silver) {
-        earnedStars = 2;
-      } else {
-        earnedStars = 1;
-      }
-    } else {
-      earnedStars = Math.max(1, Math.min(3, earnedStars));
-    }
+    earnedStars = Math.max(1, Math.min(3, earnedStars));
 
     const isPerfect = earnedStars === 3;
     const diffCfg = this.levelConfig.difficulties?.[this.currentDifficulty];
@@ -3572,7 +3718,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Relic Shard Drop Calculation (Tiered 40 / 75 / 100 System & Pity Guarantee)
+    // Relic Shard Drop Calculation (Calibrated Hardcore Low Drop Rate Model)
     let relicShardsEarned = 0;
     let relicSurplusCoins = 0;
     let relicCanUnlock = false;
@@ -3583,41 +3729,38 @@ export class GameScene extends Phaser.Scene {
       const isBossLevel = !!(this.bossManager || this.levelConfig.levelNumber % 10 === 0 || this.levelConfig.levelNumber % 5 === 0);
       const is3StarHard = earnedStars === 3 && this.currentDifficulty === 'hard';
 
-      // Drop rates and shard amounts by tier and difficulty
-      let dropChance = 0.10;
-      let minShards = 1;
-      let maxShards = 1;
+      // Drop rates by tier and difficulty:
+      // 🟢 Hạ Phẩm (Common - Cần 40 Mảnh): Dễ 1.5% | Vừa 3.0% | Khó 5.0%
+      // 🟡 Trung Phẩm (Rare - Cần 75 Mảnh): Dễ 0.8% | Vừa 1.8% | Khó 3.0%
+      // 🔴 Thượng Phẩm (Epic - Cần 100 Mảnh): Dễ 0.4% | Vừa 0.9% | Khó 1.8%
+      let dropChance = 0.015;
 
       if (tier === 'epic') {
-        dropChance = this.currentDifficulty === 'hard' ? 0.35 : (this.currentDifficulty === 'medium' ? 0.25 : 0.18);
-        minShards = this.currentDifficulty === 'hard' ? 2 : 1;
-        maxShards = this.currentDifficulty === 'hard' ? 3 : 2;
+        dropChance = this.currentDifficulty === 'hard' ? 0.018 : (this.currentDifficulty === 'medium' ? 0.009 : 0.004);
       } else if (tier === 'rare') {
-        dropChance = this.currentDifficulty === 'hard' ? 0.22 : (this.currentDifficulty === 'medium' ? 0.16 : 0.12);
-        minShards = 1;
-        maxShards = this.currentDifficulty === 'hard' ? 2 : 1;
+        dropChance = this.currentDifficulty === 'hard' ? 0.030 : (this.currentDifficulty === 'medium' ? 0.018 : 0.008);
       } else { // common
-        dropChance = this.currentDifficulty === 'hard' ? 0.16 : (this.currentDifficulty === 'medium' ? 0.12 : 0.08);
-        minShards = 1;
-        maxShards = 1;
+        dropChance = this.currentDifficulty === 'hard' ? 0.050 : (this.currentDifficulty === 'medium' ? 0.030 : 0.015);
       }
 
-      // Pity Guarantee: 3-Star on Hard at Boss Level ALWAYS guarantees >= 2 shards!
+      // Hardcore Boss bonus: 3-Star on Hard at Boss Level adds +4.0% bonus drop rate (no longer 100% farm exploit)
       if (isBossLevel && is3StarHard) {
-        dropChance = 1.0;
-        minShards = Math.max(minShards, 2);
-        maxShards = Math.max(maxShards, 2);
+        dropChance += 0.040;
       }
 
-      // Bonus if player collected the glowing relic shard in game
+      // 1) In-game board shard collection: Guaranteed 1 shard if player matched the rare glowing board tile
       if (this.isRelicShardCollectedThisRun) {
-        dropChance = 1.0;
-        minShards += 1;
-        maxShards += 1;
+        relicShardsEarned += 1;
       }
 
-      if (Math.random() <= dropChance) {
-        relicShardsEarned = Math.floor(Math.random() * (maxShards - minShards + 1)) + minShards;
+      // 2) End-of-stage clear RNG drop roll (if not already found on board)
+      if (relicShardsEarned === 0 && Math.random() <= dropChance) {
+        // Epic on Hard has a rare 10% chance to drop 2 shards, otherwise strictly 1 shard
+        const dropAmount = (tier === 'epic' && this.currentDifficulty === 'hard' && Math.random() < 0.10) ? 2 : 1;
+        relicShardsEarned += dropAmount;
+      }
+
+      if (relicShardsEarned > 0) {
         const shardResult = this.save.addRelicShards(targetRelic.id, relicShardsEarned);
         relicSurplusCoins = shardResult.surplusCoins;
         relicCanUnlock = shardResult.canUnlock;
@@ -3773,7 +3916,7 @@ export class GameScene extends Phaser.Scene {
     // Rating Badge Pill
     let ratingBadgeStr = '⭐ ĐẠT 1/3 SAO • CỐ LÊN!';
     let ratingColor = '#ffd166';
-    if (isPerfect) {
+    if (isPerfect || stars === 3) {
       ratingBadgeStr = '🌟 HOÀN HẢO 3 SAO (+50 XU THƯỞNG)! 🌟';
       ratingColor = '#ffd700';
     } else if (stars === 2) {
@@ -3976,12 +4119,14 @@ export class GameScene extends Phaser.Scene {
     // Card 2.5: Booster Item Card (If dropped by LootManager)
     if (questStats?.lootResult?.itemEarned) {
       const it = questStats.lootResult.itemEarned;
+      const boosterImgKey = `item_booster_${it.type}`;
       rewardCards.push({
         type: 'item',
         title: '🎁 VẬT PHẨM RỚT',
         amount: `+1 ${it.name.toUpperCase()}`,
         sub: 'CHIẾN LỢI PHẨM',
         icon: it.icon,
+        imageKey: this.textures.exists(boosterImgKey) ? boosterImgKey : undefined,
         borderColor: 0x06d6a0,
         badgeColor: 0x007f5f,
         isHighlighted: true
@@ -4033,7 +4178,14 @@ export class GameScene extends Phaser.Scene {
       const subTxt = surplusCoins > 0
         ? '★5 Tối Đa • Tự Đổi Xu'
         : (questStats.relicCanUnlock ? '⚡ ĐÃ ĐỦ MẢNH ĐÚC!' : `${this.save.getRelicShards(relic.id)}/${this.save.getRelicRequiredShards(relic.id)} Mảnh`);
-      const relicTex = `relic_${relic.id}`;
+      
+      const candidateRelicKeys = [
+        relic.id,
+        `relic_${relic.id}`,
+        relic.id.replace(/^relic_/, ''),
+        `relic_${relic.id.replace(/^relic_/, '')}`
+      ];
+      const relicFoundKey = candidateRelicKeys.find(k => this.textures.exists(k));
 
       rewardCards.push({
         type: 'relic',
@@ -4041,7 +4193,7 @@ export class GameScene extends Phaser.Scene {
         amount: amountTxt,
         sub: subTxt,
         icon: relic.icon || '🪞',
-        imageKey: this.textures.exists(relicTex) ? relicTex : undefined,
+        imageKey: relicFoundKey,
         borderColor: 0xffd700,
         badgeColor: 0x9c6644,
         isHighlighted: true
