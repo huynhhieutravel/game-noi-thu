@@ -26,9 +26,14 @@ export function getScreenDimensions(): { width: number; height: number; offsetX:
 /**
  * Configure the scene camera so that all existing 1080x680 coordinates
  * are centered in the middle of the ultra-wide display.
+ * When Retina/High-DPI is active (DPR >= 2), camera zooms by DPR with origin (0, 0)
+ * to deliver razor-sharp 4K rendering without changing any gameplay coordinates.
  */
 export function setupRetinaCamera(scene: Phaser.Scene): void {
   const { offsetX } = getScreenDimensions();
-  scene.cameras.main.setScroll(-offsetX, 0);
+  const cam = scene.cameras.main;
+  cam.setOrigin(0, 0);
+  cam.setZoom(DPR);
+  cam.setScroll(-offsetX, 0);
 }
 

@@ -8,8 +8,8 @@
  *   Used for all functional HUD, score, timer, quest text, booster badges, and dialogs.
  */
 
-export const FONT_DISPLAY = 'Philosopher, Cinzel, serif';
-export const FONT_UI = 'Plus Jakarta Sans, -apple-system, BlinkMacSystemFont, sans-serif';
+export const FONT_DISPLAY = '"Plus Jakarta Sans", Philosopher, Cinzel, -apple-system, sans-serif';
+export const FONT_UI = '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif';
 
 export const FONT_WEIGHT = {
   REGULAR: '400',

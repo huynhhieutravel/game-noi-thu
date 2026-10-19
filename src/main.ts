@@ -22,8 +22,8 @@ const initialDims = getScreenDimensions();
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
-  width: initialDims.width,
-  height: initialDims.height,
+  width: initialDims.width * DPR,
+  height: initialDims.height * DPR,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -100,11 +100,11 @@ function startGame(): void {
     registerChaosRunnerGlobal();
 
     window.addEventListener('resize', () => {
-      const { width, height, offsetX } = getScreenDimensions();
-      if (game.scale.width !== width || game.scale.height !== height) {
-        game.scale.resize(width, height);
+      const { width, height } = getScreenDimensions();
+      if (game.scale.width !== width * DPR || game.scale.height !== height * DPR) {
+        game.scale.resize(width * DPR, height * DPR);
         game.scene.getScenes(true).forEach(scene => {
-          scene.cameras.main.setScroll(-offsetX, 0);
+          setupRetinaCamera(scene);
         });
       }
     });

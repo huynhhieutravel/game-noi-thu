@@ -794,8 +794,8 @@ export class MainMenuScene extends Phaser.Scene {
       fontStyle: 'bold',
       color: '#ffffff',
       stroke: '#d90429',
-      strokeThickness: 8,
-      shadow: { offsetX: 0, offsetY: 3, color: '#e63946', blur: 14, stroke: true, fill: true }
+      strokeThickness: 4,
+      shadow: { offsetX: 0, offsetY: 2, color: 'rgba(217, 4, 41, 0.6)', blur: 4, stroke: false, fill: true }
     }).setOrigin(0, 0.5);
 
     // ONET (Golden warm brush styling)
@@ -805,8 +805,8 @@ export class MainMenuScene extends Phaser.Scene {
       fontStyle: '900',
       color: '#ffd166',
       stroke: '#9e0018',
-      strokeThickness: 6,
-      shadow: { offsetX: 0, offsetY: 2, color: '#ffb703', blur: 10, stroke: true, fill: true }
+      strokeThickness: 3,
+      shadow: { offsetX: 0, offsetY: 2, color: 'rgba(255, 183, 3, 0.6)', blur: 3, stroke: false, fill: true }
     }).setOrigin(0, 0.5);
 
     logoGroup.add([redMoon, moonTorii, subTitle, titleYokai, titleOnet]);
@@ -3373,8 +3373,8 @@ export class MainMenuScene extends Phaser.Scene {
       fontStyle: 'bold',
       color: '#ffd700',
       stroke: '#1a0d00',
-      strokeThickness: 2.5,
-      shadow: { offsetX: 0, offsetY: 3, color: '#000000', blur: 12, fill: true, stroke: true }
+      strokeThickness: 2,
+      shadow: { offsetX: 0, offsetY: 2, color: 'rgba(0, 0, 0, 0.75)', blur: 2, fill: true, stroke: false }
     }).setOrigin(0.5);
     modal.add(title);
 
