@@ -3,7 +3,7 @@ import { App } from '@capacitor/app';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
-import { DPR, GAME_HEIGHT, GAME_WIDTH, getScreenDimensions } from './constants';
+import { DPR, GAME_HEIGHT, GAME_WIDTH, getScreenDimensions, setupRetinaCamera } from './constants';
 import { BootScene } from './scenes/BootScene';
 import { CollectionScene } from './scenes/CollectionScene';
 import { GameScene } from './scenes/GameScene';
