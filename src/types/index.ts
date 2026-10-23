@@ -250,6 +250,7 @@ export interface UserSaveData {
   version: number;
   coins: number;
   diamonds?: number;
+  universalShards?: number;
   stars: number;
   highestLevel: number;
   levelStars: Record<string, number>;
@@ -284,4 +285,56 @@ export interface UserSaveData {
   completedDifficulties?: Record<string, { easy?: boolean; medium?: boolean; hard?: boolean }>;
   unlockedRealms?: string[];
   activeRealm?: string;
+  activeGameSession?: ActiveGameSession | null;
+  // Daily Omikuji & 7-Day Fortune
+  lastOmikujiDate?: string;
+  omikujiStreak?: number;
+  omikujiHistory?: Array<{ date: string; fortuneType: string }>;
+  // Mythic Hunter Achievements & Titles
+  unlockedAchievements?: Record<string, boolean>;
+  selectedTitle?: string;
 }
+
+export type OmikujiFortuneType = 'dai_cat' | 'trung_cat' | 'tieu_cat' | 'cat' | 'mat_cat';
+
+export interface DailyFortuneResult {
+  fortuneType: OmikujiFortuneType;
+  japaneseTitle: string;
+  vietnameseTitle: string;
+  blessingText: string;
+  coins: number;
+  diamonds: number;
+  universalShards: number;
+  boosterReward?: { type: 'hint' | 'shuffle' | 'bomb'; count: number };
+  isJackpotDay7?: boolean;
+}
+
+export interface AchievementDefinition {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  badgeKey?: string;
+  rewardDiamonds: number;
+  rewardUniversalShards?: number;
+  playerTitleReward: string;
+  category: 'battle' | 'combo' | 'progression' | 'collection' | 'zen';
+}
+
+
+export interface ActiveGameSession {
+  levelId: string;
+  difficulty: DifficultyLevel;
+  score: number;
+  lives: number;
+  timeRemaining: number;
+  isSurvivalMode?: boolean;
+  isZenMode?: boolean;
+  bossId?: string;
+  bossHp?: number;
+  playerCombatHp?: number;
+  survivalWave?: number;
+  timestamp: number;
+  gridState?: TileState[][];
+}
+

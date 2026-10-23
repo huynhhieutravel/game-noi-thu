@@ -96,6 +96,16 @@ export class QADebugPanel {
           if (typeof anyScene.maxRageCheat === 'function') {
             anyScene.maxRageCheat();
           }
+        } else if (key === 'P') {
+          // Boss Attack Player
+          if (typeof anyScene.triggerBossAttackCheat === 'function') {
+            anyScene.triggerBossAttackCheat();
+          }
+        } else if (key === 'E') {
+          // Boss Enrage
+          if (typeof anyScene.triggerEnrageCheat === 'function') {
+            anyScene.triggerEnrageCheat();
+          }
         }
       }
     });
@@ -140,7 +150,7 @@ export class QADebugPanel {
     card.fillRoundedRect(modalX, modalY, modalW, modalH, 16);
     card.strokeRoundedRect(modalX, modalY, modalW, modalH, 16);
 
-    const title = this.scene.add.text(width / 2, modalY + 30, '🛠️ YOKAI ONET QA CHEATS PANEL', {
+    const title = this.scene.add.text(width / 2, modalY + 30, '🛠️ FOXY PAIR QA CHEATS PANEL', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '18px',
       color: '#00f0ff',
@@ -202,6 +212,14 @@ export class QADebugPanel {
 
       createCheatButton('💥 Chém Boss -250 HP [Phím B]', 0xe63946, () => {
         if (typeof anyScene.damageBossCheat === 'function') anyScene.damageBossCheat(250);
+      });
+
+      createCheatButton('⚔️ Boss Đánh Player [Phím P]', 0xff0055, () => {
+        if (typeof anyScene.triggerBossAttackCheat === 'function') anyScene.triggerBossAttackCheat();
+      });
+
+      createCheatButton('🔥 Boss Kích Hoạt Cuồng Nộ [Phím E]', 0xff595e, () => {
+        if (typeof anyScene.triggerEnrageCheat === 'function') anyScene.triggerEnrageCheat();
       });
 
       createCheatButton('🔄 Đảo Bàn Reshuffle [Phím S]', 0x9d4edd, () => {

@@ -5,6 +5,7 @@ import { HapticSystem } from '../systems/HapticSystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { RelicManager, RelicItem } from './RelicManager';
 import { FONT_DISPLAY, FONT_UI } from '../styles/typography';
+import { getRelicTierStyle } from '../styles/colors';
 
 interface RealmTab {
   id: string;
@@ -14,6 +15,24 @@ interface RealmTab {
 
 export class RelicCodexModal {
   private static activeModal: Phaser.GameObjects.Container | null = null;
+
+  public static readonly REALM_TABS: RealmTab[] = [
+    { id: 'all', name: 'Tất cả', icon: '⊞' },
+    { id: 'yokai', name: 'Nhật Bản', icon: '⛩️' },
+    { id: 'egypt', name: 'Ai Cập', icon: '🔺' },
+    { id: 'greece', name: 'Hy Lạp', icon: '🌿' },
+    { id: 'wuxia', name: 'Tam Giới', icon: '🌀' },
+    { id: 'india', name: 'Nam Á', icon: '🇮🇳' },
+    { id: 'pirate', name: 'Hải Tặc', icon: '🏴‍☠️' },
+    { id: 'dinosaur', name: 'Tiền Sử', icon: '🦖' },
+    { id: 'space', name: 'Cơ Giáp', icon: '🛸' },
+    { id: 'chaos', name: 'Hỗn Mang', icon: '🌌' }
+  ];
+
+  public static getRealmName(worldId: string): string {
+    const match = RelicCodexModal.REALM_TABS.find(t => t.id === worldId);
+    return match ? `${match.icon} ${match.name}` : worldId;
+  }
 
   public static open(
     scene: Phaser.Scene,
@@ -92,23 +111,8 @@ export class RelicCodexModal {
     const PAGE_SIZE = 6;
 
     // Realm Tabs definition
-    const realmTabs: RealmTab[] = [
-      { id: 'all', name: 'Tất cả', icon: '⊞' },
-      { id: 'yokai', name: 'Nhật Bản', icon: '⛩️' },
-      { id: 'egypt', name: 'Ai Cập', icon: '🔺' },
-      { id: 'greece', name: 'Hy Lạp', icon: '🌿' },
-      { id: 'wuxia', name: 'Tam Giới', icon: '🌀' },
-      { id: 'india', name: 'Nam Á', icon: '🇮🇳' },
-      { id: 'pirate', name: 'Hải Tặc', icon: '🏴‍☠️' },
-      { id: 'dinosaur', name: 'Tiền Sử', icon: '🦖' },
-      { id: 'space', name: 'Cơ Giáp', icon: '🛸' },
-      { id: 'chaos', name: 'Hỗn Mang', icon: '🌌' }
-    ];
-
-    const getRealmName = (worldId: string): string => {
-      const match = realmTabs.find(t => t.id === worldId);
-      return match ? `${match.icon} ${match.name}` : worldId;
-    };
+    const realmTabs = RelicCodexModal.REALM_TABS;
+    const getRealmName = RelicCodexModal.getRealmName;
 
     // Containers for dynamic content
     const headerContainer = scene.add.container(0, -cardH / 2 + 32);
@@ -155,411 +159,9 @@ export class RelicCodexModal {
     // DETAIL POPUP MODAL (Hiển thị Toàn Bộ Thông Tin & Hiệu Ứng Chi Tiết)
     // ==========================================
     const openRelicDetailModal = (r: RelicItem) => {
-      audio.playSelect();
-      haptic.light();
-
-      const stars = save.getRelicStar(r.id);
-      const shards = save.getRelicShards(r.id);
-      const reqShards = save.getRelicRequiredShards(r.id);
-      const isUnlocked = stars > 0;
-      const isEquipped = isUnlocked && save.getEquippedRelicId() === r.id;
-      const canUnlock = !isUnlocked && shards >= reqShards;
-      const mults = [1.0, 1.0, 1.25, 1.5, 2.0];
-      const nextStarCost = Math.round(reqShards * (mults[stars] || 1.0));
-      const canUpgrade = isUnlocked && stars < 5 && shards >= nextStarCost;
-
-      const detailPopup = scene.add.container(0, 0).setDepth(600);
-
-      // Dark translucent backdrop
-      const dBackdrop = scene.add.graphics();
-      dBackdrop.fillStyle(0x000000, 0.85);
-      dBackdrop.fillRect(-screenW / 2, -height / 2, screenW, height);
-      dBackdrop.setInteractive(
-        new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height),
-        Phaser.Geom.Rectangle.Contains
-      );
-      dBackdrop.on('pointerdown', () => {
-        audio.playSelect();
-        detailPopup.destroy();
+      RelicCodexModal.openRelicDetail(scene, r, () => {
+        renderContent();
       });
-      detailPopup.add(dBackdrop);
-
-      // Detail Card Frame (680 x 470)
-      const dCardW = 680;
-      const dCardH = 470;
-      const dCard = scene.add.graphics();
-
-      dCard.fillStyle(0x080b18, 0.99);
-      dCard.fillRoundedRect(-dCardW / 2, -dCardH / 2, dCardW, dCardH, 18);
-      dCard.lineStyle(2.4, 0xffd700, 0.95);
-      dCard.strokeRoundedRect(-dCardW / 2, -dCardH / 2, dCardW, dCardH, 18);
-      dCard.lineStyle(1.0, 0x38bdf8, 0.4);
-      dCard.strokeRoundedRect(-dCardW / 2 + 5, -dCardH / 2 + 5, dCardW - 10, dCardH - 10, 14);
-
-      // Corner flourishes on detail modal
-      const drawDetailCorner = (dcx: number, dcy: number, ddx: number, ddy: number) => {
-        dCard.lineStyle(1.8, 0xffd700, 0.85);
-        dCard.beginPath();
-        dCard.moveTo(dcx, dcy + ddy * 14);
-        dCard.lineTo(dcx, dcy);
-        dCard.lineTo(dcx + ddx * 14, dcy);
-        dCard.strokePath();
-      };
-      drawDetailCorner(-dCardW / 2 + 8, -dCardH / 2 + 8, 1, 1);
-      drawDetailCorner(dCardW / 2 - 8, -dCardH / 2 + 8, -1, 1);
-      drawDetailCorner(-dCardW / 2 + 8, dCardH / 2 - 8, 1, -1);
-      drawDetailCorner(dCardW / 2 - 8, dCardH / 2 - 8, -1, -1);
-      detailPopup.add(dCard);
-
-      // Header Tag: ⛩️ CHI TIẾT THẦN KHÍ BẢO VẬT
-      const dHeaderTag = scene.add.text(0, -dCardH / 2 + 24, `⛩️ CHI TIẾT THẦN KHÍ BẢO VẬT • CHƯƠNG ${r.chapter}`, {
-        fontFamily: FONT_UI,
-        fontSize: '12px',
-        fontStyle: 'bold',
-        color: '#ffd700'
-      }).setOrigin(0.5);
-      detailPopup.add(dHeaderTag);
-
-      // Close Button on Top Right (✕)
-      const dCloseBtn = scene.add.container(dCardW / 2 - 28, -dCardH / 2 + 24);
-      const dcBg = scene.add.graphics();
-      dcBg.fillStyle(0xd90429, 1);
-      dcBg.fillCircle(0, 0, 14);
-      dcBg.lineStyle(1.5, 0xffd700, 0.95);
-      dcBg.strokeCircle(0, 0, 14);
-      const dcX = scene.add.text(0, 0, '✕', {
-        fontFamily: FONT_UI,
-        fontSize: '13px',
-        fontStyle: '900',
-        color: '#ffffff'
-      }).setOrigin(0.5);
-      dCloseBtn.add([dcBg, dcX]);
-      dCloseBtn.setSize(28, 28).setInteractive({ useHandCursor: true });
-      dCloseBtn.on('pointerdown', () => {
-        audio.playSelect();
-        detailPopup.destroy();
-      });
-      detailPopup.add(dCloseBtn);
-
-      // ------------------------------------------
-      // LEFT SIDE: Big 3D Art & Badges (x = -205)
-      // ------------------------------------------
-      const leftColX = -205;
-      const bigArtSize = 138;
-      const artBox = scene.add.graphics();
-      artBox.fillStyle(0x050711, 0.98);
-      artBox.fillRoundedRect(leftColX - bigArtSize / 2, -75 - bigArtSize / 2, bigArtSize, bigArtSize, 12);
-      artBox.lineStyle(1.8, isEquipped ? 0x00f5d4 : (isUnlocked ? 0xd4af37 : 0x475569), 0.95);
-      artBox.strokeRoundedRect(leftColX - bigArtSize / 2, -75 - bigArtSize / 2, bigArtSize, bigArtSize, 12);
-
-      // Corner trims on art
-      const drawArtC = (acx: number, acy: number, adx: number, ady: number) => {
-        artBox.lineStyle(1.6, 0xffd700, 0.9);
-        artBox.beginPath();
-        artBox.moveTo(acx, acy + ady * 12);
-        artBox.lineTo(acx, acy);
-        artBox.lineTo(acx + adx * 12, acy);
-        artBox.strokePath();
-      };
-      drawArtC(leftColX - bigArtSize / 2 + 4, -75 - bigArtSize / 2 + 4, 1, 1);
-      drawArtC(leftColX + bigArtSize / 2 - 4, -75 - bigArtSize / 2 + 4, -1, 1);
-      drawArtC(leftColX - bigArtSize / 2 + 4, -75 + bigArtSize / 2 - 4, 1, -1);
-      drawArtC(leftColX + bigArtSize / 2 - 4, -75 + bigArtSize / 2 - 4, -1, -1);
-      detailPopup.add(artBox);
-
-      // Artwork Image
-      const texKey = `relic_${r.id}`;
-      if (scene.textures.exists(texKey)) {
-        const bigImg = scene.add.image(leftColX, -75, texKey).setDisplaySize(bigArtSize - 10, bigArtSize - 10);
-        detailPopup.add(bigImg);
-      } else {
-        const bigIcon = scene.add.text(leftColX, -75, r.icon || '🏺', { fontSize: '54px' }).setOrigin(0.5);
-        detailPopup.add(bigIcon);
-      }
-
-      // Rarity Pill & Archetype below Art
-      let rarityLabel = 'Hiếm';
-      let rarityBg = 0x0284c7;
-      let rarityBorder = 0x38bdf8;
-      if (r.shardsRequired && r.shardsRequired >= 100) {
-        rarityLabel = 'Thần Thoại';
-        rarityBg = 0xb45309;
-        rarityBorder = 0xf59e0b;
-      } else if (r.id === 'relic_wuxia_01') {
-        rarityLabel = 'Huyền Thoại';
-        rarityBg = 0x6b21a8;
-        rarityBorder = 0xc084fc;
-      } else if (r.shardsRequired && r.shardsRequired >= 75) {
-        rarityLabel = 'Sử Thi';
-        rarityBg = 0x581c87;
-        rarityBorder = 0xa855f7;
-      }
-
-      const rPill = scene.add.graphics();
-      rPill.fillStyle(rarityBg, 0.95);
-      rPill.fillRoundedRect(leftColX - 55, 12, 110, 22, 11);
-      rPill.lineStyle(1.4, rarityBorder, 0.95);
-      rPill.strokeRoundedRect(leftColX - 55, 12, 110, 22, 11);
-      const rPillTxt = scene.add.text(leftColX, 23, `${rarityLabel} • ${r.tierName}`, {
-        fontFamily: FONT_UI,
-        fontSize: '11px',
-        fontStyle: 'bold',
-        color: '#ffffff'
-      }).setOrigin(0.5);
-      detailPopup.add([rPill, rPillTxt]);
-
-      // Star / Status Tag
-      const starTagTxt = scene.add.text(leftColX, 48, isUnlocked ? `★${stars}/5 Tinh Anh` : 'Chưa Mở Khóa', {
-        fontFamily: FONT_UI,
-        fontSize: '11.5px',
-        fontStyle: 'bold',
-        color: isUnlocked ? '#ffd700' : '#94a3b8'
-      }).setOrigin(0.5);
-      detailPopup.add(starTagTxt);
-
-      // Archetype badge
-      const archTxt = scene.add.text(leftColX, 70, `🎯 ${r.archetypeName || 'Chiến Đấu'}`, {
-        fontFamily: FONT_UI,
-        fontSize: '10.5px',
-        color: '#38bdf8'
-      }).setOrigin(0.5);
-      detailPopup.add(archTxt);
-
-      // ------------------------------------------
-      // RIGHT SIDE: Relic Details & Full Skill (x = -110 to +300)
-      // ------------------------------------------
-      const rightColX = -105;
-      const rightColW = 410;
-
-      // 1. Relic Title & Subname
-      const dTitle = scene.add.text(rightColX, -170, r.name, {
-        fontFamily: FONT_DISPLAY,
-        fontSize: '18px',
-        fontStyle: 'bold',
-        color: '#ffd700'
-      }).setOrigin(0, 0);
-      detailPopup.add(dTitle);
-
-      const dSubTitle = scene.add.text(rightColX, -145, `📜 Danh xưng: ${r.subName}  |  🌐 ${getRealmName(r.worldId)}`, {
-        fontFamily: FONT_UI,
-        fontSize: '11px',
-        color: '#94a3b8'
-      }).setOrigin(0, 0);
-      detailPopup.add(dSubTitle);
-
-      // 2. Full Ultimate Skill Box (Khung Tuyệt Chiêu Đầy Đủ)
-      const skillBoxY = -120;
-      const skillBoxH = 145;
-      const sBox = scene.add.graphics();
-      sBox.fillStyle(0x0e1428, 0.96);
-      sBox.fillRoundedRect(rightColX, skillBoxY, rightColW, skillBoxH, 12);
-      sBox.lineStyle(1.4, 0x1e3a6a, 0.85);
-      sBox.strokeRoundedRect(rightColX, skillBoxY, rightColW, skillBoxH, 12);
-      detailPopup.add(sBox);
-
-      // Skill Header: ⚡ Tuyệt Kỹ: ... (Nộ: 100%)
-      const sHeadTxt = scene.add.text(rightColX + 14, skillBoxY + 12, `⚡ TUYỆT KỸ: ${r.skillName}`, {
-        fontFamily: FONT_DISPLAY,
-        fontSize: '13.5px',
-        fontStyle: 'bold',
-        color: '#00f5d4'
-      }).setOrigin(0, 0);
-
-      const sRageBadge = scene.add.graphics();
-      sRageBadge.fillStyle(0x312e81, 0.95);
-      sRageBadge.fillRoundedRect(rightColX + rightColW - 100, skillBoxY + 10, 88, 20, 6);
-      sRageBadge.lineStyle(1, 0x6366f1, 0.8);
-      sRageBadge.strokeRoundedRect(rightColX + rightColW - 100, skillBoxY + 10, 88, 20, 6);
-      const sRageTxt = scene.add.text(rightColX + rightColW - 56, skillBoxY + 20, `Nộ: ${r.rageCost}%`, {
-        fontFamily: FONT_UI,
-        fontSize: '10.5px',
-        fontStyle: 'bold',
-        color: '#c7d2fe'
-      }).setOrigin(0.5);
-      detailPopup.add([sHeadTxt, sRageBadge, sRageTxt]);
-
-      // Full Detailed Skill Description (Không bị cắt xén)
-      const sDescTxt = scene.add.text(rightColX + 14, skillBoxY + 38, r.skillDesc, {
-        fontFamily: FONT_UI,
-        fontSize: '12px',
-        color: '#f8fafc',
-        lineSpacing: 4,
-        wordWrap: { width: rightColW - 28, useAdvancedWrap: true }
-      }).setOrigin(0, 0);
-      detailPopup.add(sDescTxt);
-
-      // Mechanics notes
-      let mechNote = '';
-      if (r.bossHpPercent) {
-        mechNote = `• Sát thương giáng lên Boss: ${r.effectValue} + ${Math.round(r.bossHpPercent * 100)}% Max HP (Trần tối đa ${r.maxCapDmg || 500} HP).`;
-      } else if (r.effectType === 'auto_match') {
-        mechNote = `• Tự động quét và giải phóng ${r.effectValue} cặp ô nan giải nhất trên bàn cờ.`;
-      } else if (r.effectType === 'lock_gravity') {
-        mechNote = `• Đóng băng mọi hướng trôi dồn của các ô trong ${r.effectValue} giây.`;
-      } else if (r.effectType === 'clear_traps') {
-        mechNote = `• Quét sạch toàn bộ bẫy nhện và gai trói, tích thêm +1s thời gian mỗi bẫy.`;
-      } else if (r.effectType === 'double_reward') {
-        mechNote = `• Tăng 100% (x2) điểm số và lượng Tiền Vàng rơi ra trong suốt ${r.effectValue}s.`;
-      } else if (r.effectType === 'time_freeze') {
-        mechNote = `• Ngưng đọng thời gian đếm ngược trong ${r.effectValue}s, không bị trừ mạng khi nối sai.`;
-      }
-      if (mechNote) {
-        const sMechTxt = scene.add.text(rightColX + 14, skillBoxY + skillBoxH - 26, mechNote, {
-          fontFamily: FONT_UI,
-          fontSize: '10.5px',
-          color: '#38bdf8'
-        }).setOrigin(0, 0);
-        detailPopup.add(sMechTxt);
-      }
-
-      // 3. Shard Collection & Drop Source Box
-      const shardBoxY = 40;
-      const curTarget = isUnlocked ? (stars >= 5 ? reqShards : nextStarCost) : reqShards;
-      const dShardIcon = scene.add.text(rightColX, shardBoxY, '🧩', { fontSize: '15px' }).setOrigin(0, 0.5);
-
-      const dShardTxt = scene.add.text(rightColX + 24, shardBoxY, `Tiến độ mảnh: ${shards} / ${curTarget} Mảnh`, {
-        fontFamily: FONT_UI,
-        fontSize: '12.5px',
-        fontStyle: 'bold',
-        color: canUnlock ? '#f59e0b' : '#38bdf8'
-      }).setOrigin(0, 0.5);
-
-      const dStatusHint = scene.add.text(rightColX + rightColW, shardBoxY, isEquipped ? '✨ Đang trang bị' : (isUnlocked ? 'Đã sở hữu' : `Thiếu ${Math.max(0, reqShards - shards)} mảnh`), {
-        fontFamily: FONT_UI,
-        fontSize: '11px',
-        fontStyle: 'bold',
-        color: isEquipped ? '#00f5d4' : (canUnlock ? '#f59e0b' : '#94a3b8')
-      }).setOrigin(1, 0.5);
-      detailPopup.add([dShardIcon, dShardTxt, dStatusHint]);
-
-      // Progress bar
-      const dpBarW = rightColW;
-      const dpBarH = 8;
-      const dpBarY = shardBoxY + 18;
-      const dpGfx = scene.add.graphics();
-      dpGfx.fillStyle(0x060914, 0.95);
-      dpGfx.fillRoundedRect(rightColX, dpBarY - dpBarH / 2, dpBarW, dpBarH, 4);
-      dpGfx.lineStyle(1.0, 0x1e293b, 0.8);
-      dpGfx.strokeRoundedRect(rightColX, dpBarY - dpBarH / 2, dpBarW, dpBarH, 4);
-
-      const dpRatio = isUnlocked
-        ? (stars >= 5 ? 1 : Math.min(1, shards / Math.max(1, nextStarCost)))
-        : Math.min(1, shards / Math.max(1, reqShards));
-
-      if (dpRatio > 0) {
-        const fillC = canUnlock ? 0xf59e0b : (isUnlocked ? 0x00f5d4 : 0x38bdf8);
-        dpGfx.fillStyle(fillC, 1);
-        dpGfx.fillRoundedRect(rightColX, dpBarY - dpBarH / 2, Math.max(8, dpBarW * dpRatio), dpBarH, 4);
-      }
-      detailPopup.add(dpGfx);
-
-      // Drop source hint
-      const dropSourceTxt = scene.add.text(rightColX, shardBoxY + 36, `📍 Nguồn rơi: Màn ${r.chapter * 10 - 9} – ${r.chapter * 10} (${r.tierName}) hoặc vượt 3⭐ Trùm ${getRealmName(r.worldId)}.`, {
-        fontFamily: FONT_UI,
-        fontSize: '10px',
-        color: '#94a3b8'
-      }).setOrigin(0, 0);
-      detailPopup.add(dropSourceTxt);
-
-      // ------------------------------------------
-      // BOTTOM BUTTONS: Action & Close
-      // ------------------------------------------
-      const btnRowY = dCardH / 2 - 34;
-
-      // Action Button (Equip / Craft / Upgrade)
-      const actionBtn = scene.add.container(rightColX + rightColW / 2 - 50, btnRowY);
-      const aGfx = scene.add.graphics();
-      const aW = 240;
-      const aH = 36;
-
-      let aLabel = '';
-      let aColor = '#ffffff';
-
-      if (isEquipped) {
-        aGfx.fillStyle(0x00f5d4, 1);
-        aGfx.fillRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
-        aLabel = `✨ ĐANG TRANG BỊ`;
-        aColor = '#081320';
-      } else if (isUnlocked) {
-        aGfx.fillStyle(0x192238, 0.95);
-        aGfx.fillRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
-        aGfx.lineStyle(1.4, 0xffd700, 0.95);
-        aGfx.strokeRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
-        aLabel = canUpgrade ? `🔥 NÂNG CẤP (★${stars + 1})` : `⚡ TRANG BỊ THẦN KHÍ`;
-        aColor = '#ffd700';
-      } else if (canUnlock) {
-        aGfx.fillStyle(0xf59e0b, 1);
-        aGfx.fillRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
-        aGfx.lineStyle(1.4, 0xffd700, 1);
-        aGfx.strokeRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
-        aLabel = `🔥 ĐÚC THẦN KHÍ (${shards}/${reqShards})`;
-        aColor = '#1a0f00';
-      } else {
-        aGfx.fillStyle(0x131728, 0.95);
-        aGfx.fillRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
-        aGfx.lineStyle(1, 0x363c54, 0.8);
-        aGfx.strokeRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
-        aLabel = `🔒 CẦN THÊM ${reqShards - shards} MẢNH`;
-        aColor = '#7d859b';
-      }
-
-      const aTxt = scene.add.text(0, 0, aLabel, {
-        fontFamily: FONT_UI,
-        fontSize: '12px',
-        fontStyle: '900',
-        color: aColor
-      }).setOrigin(0.5);
-
-      actionBtn.add([aGfx, aTxt]);
-      actionBtn.setSize(aW, aH).setInteractive({ useHandCursor: isUnlocked || canUnlock });
-      actionBtn.on('pointerdown', () => {
-        haptic.medium();
-        if (isEquipped) {
-          audio.playTick();
-        } else if (isUnlocked) {
-          save.equipRelic(r.id);
-          audio.playSelect();
-          showNotice(`✨ Đã trang bị Thần Khí: ${r.name}!`, 0x00f5d4);
-          detailPopup.destroy();
-          renderContent();
-        } else if (canUnlock) {
-          const success = save.unlockOrUpgradeRelic(r.id);
-          if (success) {
-            audio.playVictory();
-            haptic.heavy();
-            showNotice(`🎉 Đúc thành công Thần Khí: ${r.name}!`, 0xffd700);
-            detailPopup.destroy();
-            renderContent();
-          }
-        } else {
-          audio.playError();
-          showNotice(`🔒 Cần thêm ${reqShards - shards} mảnh để đúc ${r.name}!`, 0xf59e0b);
-        }
-      });
-      detailPopup.add(actionBtn);
-
-      // Close Button
-      const dCloseTextBtn = scene.add.container(leftColX, btnRowY);
-      const dctBg = scene.add.graphics();
-      dctBg.fillStyle(0xd90429, 0.95);
-      dctBg.fillRoundedRect(-55, -18, 110, 36, 10);
-      dctBg.lineStyle(1.4, 0xffd700, 0.85);
-      dctBg.strokeRoundedRect(-55, -18, 110, 36, 10);
-      const dctTxt = scene.add.text(0, 0, 'ĐÓNG', {
-        fontFamily: FONT_UI,
-        fontSize: '12px',
-        fontStyle: 'bold',
-        color: '#ffffff'
-      }).setOrigin(0.5);
-      dCloseTextBtn.add([dctBg, dctTxt]);
-      dCloseTextBtn.setSize(110, 36).setInteractive({ useHandCursor: true });
-      dCloseTextBtn.on('pointerdown', () => {
-        audio.playSelect();
-        detailPopup.destroy();
-      });
-      detailPopup.add(dCloseTextBtn);
-
-      modal.add(detailPopup);
     };
 
     // Render Function: Rerenders Header, Tabs, and Grid
@@ -923,38 +525,21 @@ export class RelicCodexModal {
         }).setOrigin(0, 0.5);
         rBox.add(nameTxt);
 
-        // Line 2: Rarity Badge Pill
-        let rarityLabel = 'Hiếm';
-        let rarityBg = 0x0284c7;
-        let rarityBorder = 0x38bdf8;
-
-        if (r.shardsRequired && r.shardsRequired >= 100) {
-          rarityLabel = 'Thần Thoại';
-          rarityBg = 0xb45309;
-          rarityBorder = 0xf59e0b;
-        } else if (r.id === 'relic_wuxia_01') {
-          rarityLabel = 'Huyền Thoại';
-          rarityBg = 0x6b21a8;
-          rarityBorder = 0xc084fc;
-        } else if (r.shardsRequired && r.shardsRequired >= 75) {
-          rarityLabel = 'Sử Thi';
-          rarityBg = 0x581c87;
-          rarityBorder = 0xa855f7;
-        }
-
-        const pillW = 76;
-        const pillH = 18;
+        // Line 2: Canonical Tier Badge Pill
+        const tierStyle = getRelicTierStyle(r.tier);
+        const pillW = 84;
+        const pillH = 19;
         const pillY = -colH / 2 + 39;
         const rarityGfx = scene.add.graphics();
-        rarityGfx.fillStyle(rarityBg, 0.95);
+        rarityGfx.fillStyle(tierStyle.bg, 0.95);
         rarityGfx.fillRoundedRect(infoX, pillY - pillH / 2, pillW, pillH, 9);
-        rarityGfx.lineStyle(1.2, rarityBorder, 0.9);
+        rarityGfx.lineStyle(1.2, tierStyle.border, 0.95);
         rarityGfx.strokeRoundedRect(infoX, pillY - pillH / 2, pillW, pillH, 9);
-        const rarityTxt = scene.add.text(infoX + pillW / 2, pillY, rarityLabel, {
+        const rarityTxt = scene.add.text(infoX + pillW / 2, pillY, tierStyle.label, {
           fontFamily: FONT_UI,
           fontSize: '10px',
           fontStyle: 'bold',
-          color: '#ffffff'
+          color: tierStyle.colorHex
         }).setOrigin(0.5);
         rBox.add([rarityGfx, rarityTxt]);
 
@@ -973,11 +558,12 @@ export class RelicCodexModal {
           color: '#ffd700'
         }).setOrigin(0, 0);
 
-        const skillDesc = scene.add.text(infoX + 15, -colH / 2 + 58, r.skillDesc, {
+        const skillDesc = scene.add.text(infoX + 15, -colH / 2 + 56, r.skillDesc, {
           fontFamily: FONT_UI,
-          fontSize: '9px',
-          color: '#f1f5f9',
-          lineSpacing: 1.5,
+          fontSize: '11px',
+          fontStyle: '500',
+          color: '#ffffff',
+          lineSpacing: 2.2,
           wordWrap: { width: infoW - 16, useAdvancedWrap: true }
         }).setOrigin(0, 0);
         rBox.add([lightningIcon, skillDesc]);
@@ -1081,5 +667,439 @@ export class RelicCodexModal {
     renderContent();
 
     return modal;
+  }
+
+  // ==========================================
+  // DETAIL POPUP MODAL (Hiển thị Toàn Bộ Thông Tin & Hiệu Ứng Chi Tiết To Rõ Cho Mobile)
+  // ==========================================
+  public static openRelicDetail(
+    scene: Phaser.Scene,
+    r: RelicItem,
+    onActionCompleted?: () => void
+  ): Phaser.GameObjects.Container {
+    const audio = AudioSystem.getInstance();
+    const haptic = HapticSystem.getInstance();
+    const save = SaveSystem.getInstance();
+
+    audio.playSelect();
+    haptic.light();
+
+    const stars = save.getRelicStar(r.id);
+    const shards = save.getRelicShards(r.id);
+    const reqShards = save.getRelicRequiredShards(r.id);
+    const isUnlocked = stars > 0;
+    const isEquipped = isUnlocked && save.getEquippedRelicId() === r.id;
+    const canUnlock = !isUnlocked && shards >= reqShards;
+    const mults = [1.0, 1.0, 1.25, 1.5, 2.0];
+    const nextStarCost = Math.round(reqShards * (mults[stars] || 1.0));
+    const canUpgrade = isUnlocked && stars < 5 && shards >= nextStarCost;
+
+    const { width: screenW, height: screenH } = getScreenDimensions();
+    const detailPopup = scene.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2).setDepth(850);
+
+    // Detail Card Frame (680 x 470)
+    const dCardW = 680;
+    const dCardH = 470;
+
+    // Toast Notice helper
+    const showNotice = (text: string, colorHex: number = 0x00f5d4) => {
+      const toast = scene.add.container(0, -dCardH / 2 + 30).setDepth(1000);
+      const tBg = scene.add.graphics();
+      tBg.fillStyle(0x0c1222, 0.96);
+      tBg.fillRoundedRect(-240, -16, 480, 32, 16);
+      tBg.lineStyle(1.4, colorHex, 0.95);
+      tBg.strokeRoundedRect(-240, -16, 480, 32, 16);
+      const tTxt = scene.add.text(0, 0, text, {
+        fontFamily: FONT_UI,
+        fontSize: '12.5px',
+        fontStyle: 'bold',
+        color: '#ffffff'
+      }).setOrigin(0.5);
+      toast.add([tBg, tTxt]);
+      detailPopup.add(toast);
+
+      scene.tweens.add({
+        targets: toast,
+        y: -dCardH / 2 + 18,
+        alpha: { from: 0, to: 1 },
+        duration: 220,
+        yoyo: true,
+        hold: 1400,
+        onComplete: () => toast.destroy()
+      });
+    };
+
+    // Dark translucent backdrop
+    const dBackdrop = scene.add.graphics();
+    dBackdrop.fillStyle(0x000000, 0.88);
+    dBackdrop.fillRect(-screenW / 2, -screenH / 2, screenW, screenH);
+    dBackdrop.setInteractive(
+      new Phaser.Geom.Rectangle(-screenW / 2, -screenH / 2, screenW, screenH),
+      Phaser.Geom.Rectangle.Contains
+    );
+    dBackdrop.on('pointerdown', () => {
+      audio.playSelect();
+      detailPopup.destroy();
+    });
+    detailPopup.add(dBackdrop);
+
+    const dCard = scene.add.graphics();
+    dCard.fillStyle(0x080b18, 0.99);
+    dCard.fillRoundedRect(-dCardW / 2, -dCardH / 2, dCardW, dCardH, 18);
+    dCard.lineStyle(2.4, 0xffd700, 0.95);
+    dCard.strokeRoundedRect(-dCardW / 2, -dCardH / 2, dCardW, dCardH, 18);
+    dCard.lineStyle(1.0, 0x38bdf8, 0.4);
+    dCard.strokeRoundedRect(-dCardW / 2 + 5, -dCardH / 2 + 5, dCardW - 10, dCardH - 10, 14);
+
+    // Corner flourishes on detail modal
+    const drawDetailCorner = (dcx: number, dcy: number, ddx: number, ddy: number) => {
+      dCard.lineStyle(1.8, 0xffd700, 0.85);
+      dCard.beginPath();
+      dCard.moveTo(dcx, dcy + ddy * 14);
+      dCard.lineTo(dcx, dcy);
+      dCard.lineTo(dcx + ddx * 14, dcy);
+      dCard.strokePath();
+    };
+    drawDetailCorner(-dCardW / 2 + 8, -dCardH / 2 + 8, 1, 1);
+    drawDetailCorner(dCardW / 2 - 8, -dCardH / 2 + 8, -1, 1);
+    drawDetailCorner(-dCardW / 2 + 8, dCardH / 2 - 8, 1, -1);
+    drawDetailCorner(dCardW / 2 - 8, dCardH / 2 - 8, -1, -1);
+    detailPopup.add(dCard);
+
+    // Header Tag: ⛩️ CHI TIẾT THẦN KHÍ BẢO VẬT • CHƯƠNG r.chapter
+    const dHeaderTag = scene.add.text(0, -dCardH / 2 + 24, `⛩️ CHI TIẾT THẦN KHÍ BẢO VẬT • CHƯƠNG ${r.chapter}`, {
+      fontFamily: FONT_UI,
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+    detailPopup.add(dHeaderTag);
+
+    // Close Button on Top Right (✕)
+    const dCloseBtn = scene.add.container(dCardW / 2 - 28, -dCardH / 2 + 24);
+    const dcBg = scene.add.graphics();
+    dcBg.fillStyle(0xd90429, 1);
+    dcBg.fillCircle(0, 0, 14);
+    dcBg.lineStyle(1.5, 0xffd700, 0.95);
+    dcBg.strokeCircle(0, 0, 14);
+    const dcX = scene.add.text(0, 0, '✕', {
+      fontFamily: FONT_UI,
+      fontSize: '13px',
+      fontStyle: '900',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    dCloseBtn.add([dcBg, dcX]);
+    dCloseBtn.setSize(28, 28).setInteractive({ useHandCursor: true });
+    dCloseBtn.on('pointerdown', () => {
+      audio.playSelect();
+      detailPopup.destroy();
+    });
+    detailPopup.add(dCloseBtn);
+
+    // ------------------------------------------
+    // LEFT SIDE: Big 3D Art & Badges (x = -205)
+    // ------------------------------------------
+    const leftColX = -205;
+    const bigArtSize = 138;
+    const artBox = scene.add.graphics();
+    artBox.fillStyle(0x050711, 0.98);
+    artBox.fillRoundedRect(leftColX - bigArtSize / 2, -75 - bigArtSize / 2, bigArtSize, bigArtSize, 12);
+    artBox.lineStyle(1.8, isEquipped ? 0x00f5d4 : (isUnlocked ? 0xd4af37 : 0x475569), 0.95);
+    artBox.strokeRoundedRect(leftColX - bigArtSize / 2, -75 - bigArtSize / 2, bigArtSize, bigArtSize, 12);
+
+    // Corner trims on art
+    const drawArtC = (acx: number, acy: number, adx: number, ady: number) => {
+      artBox.lineStyle(1.6, 0xffd700, 0.9);
+      artBox.beginPath();
+      artBox.moveTo(acx, acy + ady * 12);
+      artBox.lineTo(acx, acy);
+      artBox.lineTo(acx + adx * 12, acy);
+      artBox.strokePath();
+    };
+    drawArtC(leftColX - bigArtSize / 2 + 4, -75 - bigArtSize / 2 + 4, 1, 1);
+    drawArtC(leftColX + bigArtSize / 2 - 4, -75 - bigArtSize / 2 + 4, -1, 1);
+    drawArtC(leftColX - bigArtSize / 2 + 4, -75 + bigArtSize / 2 - 4, 1, -1);
+    drawArtC(leftColX + bigArtSize / 2 - 4, -75 + bigArtSize / 2 - 4, -1, -1);
+    detailPopup.add(artBox);
+
+    // Artwork Image
+    const texKey = `relic_${r.id}`;
+    if (scene.textures.exists(texKey)) {
+      const bigImg = scene.add.image(leftColX, -75, texKey).setDisplaySize(bigArtSize - 10, bigArtSize - 10);
+      detailPopup.add(bigImg);
+    } else {
+      const bigIcon = scene.add.text(leftColX, -75, r.icon || '🏺', { fontSize: '54px' }).setOrigin(0.5);
+      detailPopup.add(bigIcon);
+    }
+
+    // Canonical Relic Tier Pill
+    const tierStyle = getRelicTierStyle(r.tier);
+    const rPill = scene.add.graphics();
+    rPill.fillStyle(tierStyle.bg, 0.95);
+    rPill.fillRoundedRect(leftColX - 55, 12, 110, 22, 11);
+    rPill.lineStyle(1.4, tierStyle.border, 0.95);
+    rPill.strokeRoundedRect(leftColX - 55, 12, 110, 22, 11);
+    const rPillTxt = scene.add.text(leftColX, 23, tierStyle.label, {
+      fontFamily: FONT_UI,
+      fontSize: '11.5px',
+      fontStyle: 'bold',
+      color: tierStyle.colorHex
+    }).setOrigin(0.5);
+    detailPopup.add([rPill, rPillTxt]);
+
+    // Star / Status Tag
+    const starTagTxt = scene.add.text(leftColX, 48, isUnlocked ? `★${stars}/5 Tinh Anh` : 'Chưa Mở Khóa', {
+      fontFamily: FONT_UI,
+      fontSize: '11.5px',
+      fontStyle: 'bold',
+      color: isUnlocked ? '#ffd700' : '#94a3b8'
+    }).setOrigin(0.5);
+    detailPopup.add(starTagTxt);
+
+    // Archetype badge
+    const archTxt = scene.add.text(leftColX, 70, `🎯 ${r.archetypeName || 'Chiến Đấu'}`, {
+      fontFamily: FONT_UI,
+      fontSize: '10.5px',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+    detailPopup.add(archTxt);
+
+    // ------------------------------------------
+    // RIGHT SIDE: Relic Details & Full Skill (x = -105 to +305)
+    // ------------------------------------------
+    const rightColX = -105;
+    const rightColW = 410;
+
+    // 1. Relic Title & Subname
+    const dTitle = scene.add.text(rightColX, -172, r.name, {
+      fontFamily: FONT_DISPLAY,
+      fontSize: '19px',
+      fontStyle: 'bold',
+      color: '#ffd700'
+    }).setOrigin(0, 0);
+    detailPopup.add(dTitle);
+
+    const dSubTitle = scene.add.text(rightColX, -145, `📜 Danh xưng: ${r.subName}  |  🌐 ${RelicCodexModal.getRealmName(r.worldId)}`, {
+      fontFamily: FONT_UI,
+      fontSize: '11.5px',
+      color: '#94a3b8'
+    }).setOrigin(0, 0);
+    detailPopup.add(dSubTitle);
+
+    // 2. Full Ultimate Skill Box (Khung Tuyệt Chiêu Đầy Đủ)
+    const skillBoxY = -120;
+    const skillBoxH = 152;
+    const sBox = scene.add.graphics();
+    sBox.fillStyle(0x0e1428, 0.96);
+    sBox.fillRoundedRect(rightColX, skillBoxY, rightColW, skillBoxH, 12);
+    sBox.lineStyle(1.4, 0x1e3a6a, 0.85);
+    sBox.strokeRoundedRect(rightColX, skillBoxY, rightColW, skillBoxH, 12);
+    detailPopup.add(sBox);
+
+    // Skill Header: ⚡ Tuyệt Kỹ: ... (Nộ: 100%)
+    const sHeadTxt = scene.add.text(rightColX + 14, skillBoxY + 11, `⚡ TUYỆT KỸ: ${r.skillName}`, {
+      fontFamily: FONT_DISPLAY,
+      fontSize: '14px',
+      fontStyle: 'bold',
+      color: '#00f5d4'
+    }).setOrigin(0, 0);
+
+    const sRageBadge = scene.add.graphics();
+    sRageBadge.fillStyle(0x312e81, 0.95);
+    sRageBadge.fillRoundedRect(rightColX + rightColW - 100, skillBoxY + 9, 88, 20, 6);
+    sRageBadge.lineStyle(1, 0x6366f1, 0.8);
+    sRageBadge.strokeRoundedRect(rightColX + rightColW - 100, skillBoxY + 9, 88, 20, 6);
+    const sRageTxt = scene.add.text(rightColX + rightColW - 56, skillBoxY + 19, `Nộ: ${r.rageCost}%`, {
+      fontFamily: FONT_UI,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: '#c7d2fe'
+    }).setOrigin(0.5);
+    detailPopup.add([sHeadTxt, sRageBadge, sRageTxt]);
+
+    // Full Detailed Skill Description - EXTREMELY CLEAR ON MOBILE (14.5px, #ffffff, semi-bold 600)
+    const sDescTxt = scene.add.text(rightColX + 14, skillBoxY + 38, r.skillDesc, {
+      fontFamily: FONT_UI,
+      fontSize: '14.5px',
+      fontStyle: '600',
+      color: '#ffffff',
+      lineSpacing: 5,
+      wordWrap: { width: rightColW - 28, useAdvancedWrap: true }
+    }).setOrigin(0, 0);
+    detailPopup.add(sDescTxt);
+
+    // Mechanics notes
+    let mechNote = '';
+    if (r.bossHpPercent) {
+      mechNote = `• Sát thương Boss: ${r.effectValue} + ${Math.round(r.bossHpPercent * 100)}% Max HP (Tối đa ${r.maxCapDmg || 500} HP).`;
+    } else if (r.effectType === 'auto_match') {
+      mechNote = `• Tự động quét và giải phóng ${r.effectValue} cặp ô nan giải nhất trên bàn cờ.`;
+    } else if (r.effectType === 'lock_gravity') {
+      mechNote = `• Đóng băng mọi hướng trôi dồn của các ô trong ${r.effectValue} giây.`;
+    } else if (r.effectType === 'clear_traps') {
+      mechNote = `• Quét sạch toàn bộ bẫy nhện và gai trói, tích thêm +1s thời gian mỗi bẫy.`;
+    } else if (r.effectType === 'double_reward') {
+      mechNote = `• Tăng 100% (x2) điểm số và lượng Tiền Vàng rơi ra trong suốt ${r.effectValue}s.`;
+    } else if (r.effectType === 'time_freeze') {
+      mechNote = `• Ngưng đọng thời gian đếm ngược trong ${r.effectValue}s, không bị trừ mạng khi nối sai.`;
+    }
+    if (mechNote) {
+      const sMechTxt = scene.add.text(rightColX + 14, skillBoxY + skillBoxH - 26, mechNote, {
+        fontFamily: FONT_UI,
+        fontSize: '12px',
+        fontStyle: 'bold',
+        color: '#38bdf8'
+      }).setOrigin(0, 0);
+      detailPopup.add(sMechTxt);
+    }
+
+    // 3. Shard Collection & Drop Source Box
+    const shardBoxY = 46;
+    const curTarget = isUnlocked ? (stars >= 5 ? reqShards : nextStarCost) : reqShards;
+    const dShardIcon = scene.add.text(rightColX, shardBoxY, '🧩', { fontSize: '15px' }).setOrigin(0, 0.5);
+
+    const dShardTxt = scene.add.text(rightColX + 24, shardBoxY, `Tiến độ mảnh: ${shards} / ${curTarget} Mảnh`, {
+      fontFamily: FONT_UI,
+      fontSize: '12.5px',
+      fontStyle: 'bold',
+      color: canUnlock ? '#f59e0b' : '#38bdf8'
+    }).setOrigin(0, 0.5);
+
+    const dStatusHint = scene.add.text(rightColX + rightColW, shardBoxY, isEquipped ? '✨ Đang trang bị' : (isUnlocked ? 'Đã sở hữu' : `Thiếu ${Math.max(0, reqShards - shards)} mảnh`), {
+      fontFamily: FONT_UI,
+      fontSize: '11.5px',
+      fontStyle: 'bold',
+      color: isEquipped ? '#00f5d4' : (canUnlock ? '#f59e0b' : '#94a3b8')
+    }).setOrigin(1, 0.5);
+    detailPopup.add([dShardIcon, dShardTxt, dStatusHint]);
+
+    // Progress bar
+    const dpBarW = rightColW;
+    const dpBarH = 8;
+    const dpBarY = shardBoxY + 18;
+    const dpGfx = scene.add.graphics();
+    dpGfx.fillStyle(0x060914, 0.95);
+    dpGfx.fillRoundedRect(rightColX, dpBarY - dpBarH / 2, dpBarW, dpBarH, 4);
+    dpGfx.lineStyle(1.0, 0x1e293b, 0.8);
+    dpGfx.strokeRoundedRect(rightColX, dpBarY - dpBarH / 2, dpBarW, dpBarH, 4);
+
+    const dpRatio = isUnlocked
+      ? (stars >= 5 ? 1 : Math.min(1, shards / Math.max(1, nextStarCost)))
+      : Math.min(1, shards / Math.max(1, reqShards));
+
+    if (dpRatio > 0) {
+      const fillC = canUnlock ? 0xf59e0b : (isUnlocked ? 0x00f5d4 : 0x38bdf8);
+      dpGfx.fillStyle(fillC, 1);
+      dpGfx.fillRoundedRect(rightColX, dpBarY - dpBarH / 2, Math.max(8, dpBarW * dpRatio), dpBarH, 4);
+    }
+    detailPopup.add(dpGfx);
+
+    // Drop source hint
+    const dropSourceTxt = scene.add.text(rightColX, shardBoxY + 36, `📍 Nguồn rơi: Màn ${r.chapter * 10 - 9} – ${r.chapter * 10} (${r.tierName}) hoặc vượt 3⭐ Trùm ${RelicCodexModal.getRealmName(r.worldId)}.`, {
+      fontFamily: FONT_UI,
+      fontSize: '11px',
+      color: '#cbd5e1'
+    }).setOrigin(0, 0);
+    detailPopup.add(dropSourceTxt);
+
+    // ------------------------------------------
+    // BOTTOM BUTTONS: Action & Close
+    // ------------------------------------------
+    const btnRowY = dCardH / 2 - 34;
+
+    // Action Button (Equip / Craft / Upgrade)
+    const actionBtn = scene.add.container(rightColX + rightColW / 2 - 50, btnRowY);
+    const aGfx = scene.add.graphics();
+    const aW = 240;
+    const aH = 36;
+
+    let aLabel = '';
+    let aColor = '#ffffff';
+
+    if (isEquipped) {
+      aGfx.fillStyle(0x00f5d4, 1);
+      aGfx.fillRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
+      aLabel = `✨ ĐANG TRANG BỊ`;
+      aColor = '#081320';
+    } else if (isUnlocked) {
+      aGfx.fillStyle(0x192238, 0.95);
+      aGfx.fillRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
+      aGfx.lineStyle(1.4, 0xffd700, 0.95);
+      aGfx.strokeRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
+      aLabel = canUpgrade ? `🔥 NÂNG CẤP (★${stars + 1})` : `⚡ TRANG BỊ THẦN KHÍ`;
+      aColor = '#ffd700';
+    } else if (canUnlock) {
+      aGfx.fillStyle(0xf59e0b, 1);
+      aGfx.fillRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
+      aGfx.lineStyle(1.4, 0xffd700, 1);
+      aGfx.strokeRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
+      aLabel = `🔥 ĐÚC THẦN KHÍ (${shards}/${reqShards})`;
+      aColor = '#1a0f00';
+    } else {
+      aGfx.fillStyle(0x131728, 0.95);
+      aGfx.fillRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
+      aGfx.lineStyle(1, 0x363c54, 0.8);
+      aGfx.strokeRoundedRect(-aW / 2, -aH / 2, aW, aH, 10);
+      aLabel = `🔒 CẦN THÊM ${reqShards - shards} MẢNH`;
+      aColor = '#7d859b';
+    }
+
+    const aTxt = scene.add.text(0, 0, aLabel, {
+      fontFamily: FONT_UI,
+      fontSize: '12.5px',
+      fontStyle: '900',
+      color: aColor
+    }).setOrigin(0.5);
+
+    actionBtn.add([aGfx, aTxt]);
+    actionBtn.setSize(aW, aH).setInteractive({ useHandCursor: isUnlocked || canUnlock });
+    actionBtn.on('pointerdown', () => {
+      haptic.medium();
+      if (isEquipped) {
+        audio.playTick();
+      } else if (isUnlocked) {
+        save.equipRelic(r.id);
+        audio.playSelect();
+        showNotice(`✨ Đã trang bị Thần Khí: ${r.name}!`, 0x00f5d4);
+        detailPopup.destroy();
+        onActionCompleted?.();
+      } else if (canUnlock) {
+        const success = save.unlockOrUpgradeRelic(r.id);
+        if (success) {
+          audio.playVictory();
+          haptic.heavy();
+          showNotice(`🎉 Đúc thành công Thần Khí: ${r.name}!`, 0xffd700);
+          detailPopup.destroy();
+          onActionCompleted?.();
+        }
+      } else {
+        audio.playError();
+        showNotice(`🔒 Cần thêm ${reqShards - shards} mảnh để đúc ${r.name}!`, 0xf59e0b);
+      }
+    });
+    detailPopup.add(actionBtn);
+
+    // Close Button
+    const dCloseTextBtn = scene.add.container(leftColX, btnRowY);
+    const dctBg = scene.add.graphics();
+    dctBg.fillStyle(0xd90429, 0.95);
+    dctBg.fillRoundedRect(-55, -18, 110, 36, 10);
+    dctBg.lineStyle(1.4, 0xffd700, 0.85);
+    dctBg.strokeRoundedRect(-55, -18, 110, 36, 10);
+    const dctTxt = scene.add.text(0, 0, 'ĐÓNG', {
+      fontFamily: FONT_UI,
+      fontSize: '12.5px',
+      fontStyle: 'bold',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    dCloseTextBtn.add([dctBg, dctTxt]);
+    dCloseTextBtn.setSize(110, 36).setInteractive({ useHandCursor: true });
+    dCloseTextBtn.on('pointerdown', () => {
+      audio.playSelect();
+      detailPopup.destroy();
+    });
+    detailPopup.add(dCloseTextBtn);
+
+    return detailPopup;
   }
 }

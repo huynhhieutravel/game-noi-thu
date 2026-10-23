@@ -6,6 +6,8 @@ import { BoardModifiers } from './BoardModifiers';
 import { BoardGrid, PathFinder } from './PathFinder';
 import { TileView } from './Tile';
 import { ObstacleInfoModal } from './ObstacleInfoModal';
+import { FONT_UI } from '../styles/typography';
+import { CombatEngine } from './CombatEngine';
 
 export interface BoardEvents {
   onTileSelected?: (tile: TileState) => void;
@@ -106,6 +108,21 @@ export class BoardManager {
     return this.resolveSpeedMultiplier;
   }
 
+  public getGridState(): TileState[][] {
+    return this.grid;
+  }
+
+  public restoreGridState(savedGrid: TileState[][]): void {
+    if (!savedGrid || savedGrid.length === 0) return;
+    this.grid = savedGrid;
+    this.rows = savedGrid.length - 2;
+    this.cols = savedGrid[0].length - 2;
+    this.calculateLayout();
+    this.renderTiles();
+    this.resetShapeshifterTimer();
+    this.checkBoardStatus();
+  }
+
   // ⛩️ Board Frame Container (Japanese Shrine Roof and Backing)
   private boardFrameContainer: Phaser.GameObjects.Container | null = null;
 
@@ -174,6 +191,20 @@ export class BoardManager {
     }
 
     this.calculateLayout();
+
+    // Shadow Veil: Apply initial Dynamic Fog on Hard difficulty
+    const diff = (this.scene as any).currentDifficulty || (this.config as any).difficulty;
+    if (diff === 'hard') {
+      for (let r = 1; r <= this.rows; r++) {
+        for (let c = 1; c <= this.cols; c++) {
+          const t = this.grid[r]?.[c];
+          if (t && !t.isCleared && t.modifier === 'none' && CombatEngine.isTileInShadowVeil(r, c, this.rows, this.cols)) {
+            t.isFogged = true;
+          }
+        }
+      }
+    }
+
     this.renderTiles();
 
     // Start Shapeshifter timer (every 5s or after 2 moves, Tanuki morphs into a new form)
@@ -246,9 +277,10 @@ export class BoardManager {
     // Boss header: Boss avatar & HP bar end at y=110 -> topReserved = 118px
     const isBoss = !!this.config.boss;
     const topReserved = isBoss ? 118 : 72;
-    // Bottom reserved: Booster tray sits at height - 24 (656px), top of buttons at ~635px
-    // Reserving 78px guarantees the board frame never extends below 585px (giving a massive 50px+ air gap)
-    const bottomReserved = 78;
+    // Bottom reserved: Player Combat HP bar top edge is at height - 88 (592px).
+    // Reserving 102px guarantees the board lacquer frame (bottom at height - 102 + 12 = height - 90 / 590px)
+    // always maintains a clean air gap above the bottom combat HUD with zero overlap across all board sizes.
+    const bottomReserved = 102;
 
     const availableWidth = screenWidth - 64;
     const availableHeight = screenHeight - topReserved - bottomReserved;
@@ -589,14 +621,14 @@ export class BoardManager {
 
     // Header Title
     const title = this.scene.add.text(0, -205, '⛩️ CỔNG KHÔNG GIAN TORII (PORTAL A ⇄ B)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '20px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
 
     const subtitle = this.scene.add.text(0, -178, 'CƠ CHẾ ĐẶC BIỆT: NỐI XUYÊN KHÔNG GIAN (PAC-MAN STYLE)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13.5px',
       fontStyle: '800',
       color: '#00f5d4'
@@ -616,7 +648,7 @@ export class BoardManager {
     modal.add(diagBg);
 
     const leftTile = this.scene.add.text(-185, diagY, '🦊 Linh Thú\n(Cạnh Trái)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#ffffff',
@@ -624,14 +656,14 @@ export class BoardManager {
     }).setOrigin(0.5);
 
     const arrow1 = this.scene.add.text(-110, diagY, '➔', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '18px',
       fontStyle: '900',
       color: '#e63946'
     }).setOrigin(0.5);
 
     const portalAText = this.scene.add.text(-60, diagY, '⛩️ CỔNG A\n(Đỏ)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: '900',
       color: '#ff758f',
@@ -639,7 +671,7 @@ export class BoardManager {
     }).setOrigin(0.5);
 
     const wormholeText = this.scene.add.text(0, diagY, '🌀\nXUYÊN KHÔNG', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12px',
       fontStyle: '900',
       color: '#00f5d4',
@@ -647,7 +679,7 @@ export class BoardManager {
     }).setOrigin(0.5);
 
     const portalBText = this.scene.add.text(60, diagY, '⛩️ CỔNG B\n(Xanh)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: '900',
       color: '#48cae4',
@@ -655,14 +687,14 @@ export class BoardManager {
     }).setOrigin(0.5);
 
     const arrow2 = this.scene.add.text(110, diagY, '➔', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '18px',
       fontStyle: '900',
       color: '#3a86ff'
     }).setOrigin(0.5);
 
     const rightTile = this.scene.add.text(185, diagY, '🦊 Linh Thú\n(Cạnh Phải)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13.5px',
       fontStyle: 'bold',
       color: '#ffffff',
@@ -676,39 +708,39 @@ export class BoardManager {
     const descWidth = 510;
 
     const b1Title = this.scene.add.text(bulletX, -60, '🌀 1. Xuyên thấu mép bàn cờ (Wormhole Portal):', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#ffd700'
     });
     const b1Desc = this.scene.add.text(bulletX + 12, -38, 'Đường laser chui vào Cổng A sẽ tự động bay xuyên không gian phóng ra từ Cổng B (như Pac-Man đi xuyên từ cạnh trái sang cạnh phải).', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13.5px',
       color: '#e0e1dd',
       wordWrap: { width: descWidth - 12 }
     });
 
     const b2Title = this.scene.add.text(bulletX, 10, '⚡ 2. Cứu nguy khi giữa bàn cờ bị bít kín 100%:', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#00f5d4'
     });
     const b2Desc = this.scene.add.text(bulletX + 12, 32, 'Giúp bạn nối được 2 con thú giống nhau ở 2 góc xa bàn cờ dù toàn bộ khu vực trung tâm đang bị chặn đặc không lối thoát!', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13.5px',
       color: '#e0e1dd',
       wordWrap: { width: descWidth - 12 }
     });
 
     const b3Title = this.scene.add.text(bulletX, 80, '📐 3. Quy tắc đường đi tối đa 1 khúc gấp:', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#c77dff'
     });
     const b3Desc = this.scene.add.text(bulletX + 12, 102, 'Chỉ cần ô bên trái đi tối đa 1 khúc cua tới Cổng A, và ô bên phải đi tối đa 1 khúc cua tới Cổng B là đường nối hợp lệ!', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13.5px',
       color: '#e0e1dd',
       wordWrap: { width: descWidth - 12 }
@@ -725,7 +757,7 @@ export class BoardManager {
     btnBg.strokeRoundedRect(-140, -23, 280, 46, 14);
 
     const btnTxt = this.scene.add.text(0, 0, 'ĐÃ HIỂU, TIẾP TỤC CHƠI! ➔', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '16px',
       fontStyle: '900',
       color: '#ffffff'
@@ -1168,6 +1200,15 @@ export class BoardManager {
     for (const p of uniqueTargets) {
       const tile = this.grid[p.r][p.c];
       if (!tile || tile.isCleared) continue;
+
+      // Shadow Veil: reveal fogged tiles adjacent to match path
+      if (tile.isFogged || tile.modifier === 'fog') {
+        tile.isFogged = false;
+        if (tile.modifier === 'fog') tile.modifier = 'none';
+        const v = this.tileViews[p.r]?.[p.c];
+        v?.updateState(tile, this.tileSize);
+        v?.playBounceIn();
+      }
 
       const mod = tile.modifier;
       if (mod === 'stone' || mod === 'thorn' || mod === 'web' || mod === 'barricade' || mod === 'ice') {
@@ -2335,6 +2376,27 @@ export class BoardManager {
       x: this.boardOffsetX + (c - 1) * this.tileSize,
       y: this.boardOffsetY + (r - 1) * this.tileSize
     };
+  }
+
+  public unveilAllFog(): void {
+    for (let r = 1; r <= this.rows; r++) {
+      for (let c = 1; c <= this.cols; c++) {
+        const t = this.grid[r]?.[c];
+        if (t && !t.isCleared && (t.isFogged || t.modifier === 'fog')) {
+          t.isFogged = false;
+          if (t.modifier === 'fog') t.modifier = 'none';
+          this.tileViews[r]?.[c]?.updateState(t, this.tileSize);
+        }
+      }
+    }
+  }
+
+  public applyCustomMovement(movement: BoardMovement): void {
+    if (this.isGravityLocked || this.isProcessingMatch) return;
+    this.clearSelection();
+    BoardModifiers.applyMovement(this.grid, this.rows, this.cols, movement);
+    this.syncViewsAfterMovement();
+    this.checkBoardStatus();
   }
 
   public getGrid(): TileState[][] {

@@ -7,6 +7,7 @@ export class AudioSystem {
   private isBgmPlaying: boolean = false;
   private bgmIntervalId: number | null = null;
   private bgmMasterGain: GainNode | null = null;
+  private sfxMasterGain: GainNode | null = null;
 
   private constructor() {
     if (typeof localStorage !== 'undefined') {
@@ -25,9 +26,26 @@ export class AudioSystem {
     }
 
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const rearmGestureUnlock = () => {
+        const onUserGesture = () => {
+          if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx as any).state === 'interrupted')) {
+            this.ctx.resume().catch(() => {});
+          }
+          window.removeEventListener('pointerdown', onUserGesture);
+          window.removeEventListener('touchstart', onUserGesture);
+        };
+        window.addEventListener('pointerdown', onUserGesture, { passive: true, once: true });
+        window.addEventListener('touchstart', onUserGesture, { passive: true, once: true });
+      };
+
       const resumeAudio = () => {
-        if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx as any).state === 'interrupted')) {
-          this.ctx.resume().catch(() => {});
+        if (this.ctx) {
+          if (this.ctx.state === 'suspended' || (this.ctx as any).state === 'interrupted') {
+            this.ctx.resume().catch(() => {
+              // iOS WebKit blocked programmatic resume -> re-arm touch unlock
+              rearmGestureUnlock();
+            });
+          }
         }
       };
 
@@ -70,11 +88,47 @@ export class AudioSystem {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
+        try {
+          this.sfxMasterGain = this.ctx.createGain();
+          this.sfxMasterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
+          this.sfxMasterGain.connect(this.ctx.destination);
+        } catch {}
+
+        // 🛡️ Gesture Re-armed WebAudio: Monitor iOS state changes (e.g. AirPods disconnect, phone call)
+        try {
+          this.ctx.onstatechange = () => {
+            if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx as any).state === 'interrupted')) {
+              const onGesture = () => {
+                if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx as any).state === 'interrupted')) {
+                  this.ctx.resume().catch(() => {});
+                }
+                window.removeEventListener('pointerdown', onGesture);
+                window.removeEventListener('touchstart', onGesture);
+              };
+              window.addEventListener('pointerdown', onGesture, { passive: true, once: true });
+              window.addEventListener('touchstart', onGesture, { passive: true, once: true });
+            }
+          };
+        } catch (_) {}
       }
     }
     if (this.ctx && (this.ctx.state === 'suspended' || (this.ctx as any).state === 'interrupted')) {
       this.ctx.resume().catch(() => {});
     }
+  }
+
+  /**
+   * 🛡️ Garbage Collection helper for WebAudio: Disconnects temporary oscillator, gain and filter nodes
+   * once playback finishes, preventing AudioNode graph memory leaks in iOS WebKit.
+   */
+  private safeDisconnectAfter(durationMs: number, ...nodes: (AudioNode | null | undefined)[]): void {
+    setTimeout(() => {
+      for (const n of nodes) {
+        try {
+          n?.disconnect();
+        } catch {}
+      }
+    }, durationMs + 80);
   }
 
   public setEnabled(enabled: boolean): void {
@@ -242,6 +296,7 @@ export class AudioSystem {
     osc2.start(now);
     osc1.stop(now + 1.8);
     osc2.stop(now + 1.8);
+    this.safeDisconnectAfter(1900, osc1, osc2, filter, gain);
   }
 
   /**
@@ -268,6 +323,7 @@ export class AudioSystem {
 
     osc.start(now);
     osc.stop(now + 0.08);
+    this.safeDisconnectAfter(100, osc, gain);
   }
 
   /**
@@ -314,6 +370,7 @@ export class AudioSystem {
     gain2.connect(this.ctx.destination);
     osc2.start(now + 0.04);
     osc2.stop(now + 0.25);
+    this.safeDisconnectAfter(280, osc1, osc2, gain1, gain2);
   }
 
   /**
@@ -339,6 +396,7 @@ export class AudioSystem {
     gain.connect(this.ctx.destination);
     osc.start(now);
     osc.stop(now + 0.12);
+    this.safeDisconnectAfter(140, osc, gain);
   }
 
   /**
@@ -366,6 +424,7 @@ export class AudioSystem {
       gain.connect(this.ctx.destination);
       osc.start(startTime);
       osc.stop(startTime + 0.35);
+      this.safeDisconnectAfter(450, osc, gain);
     });
   }
 
@@ -408,6 +467,7 @@ export class AudioSystem {
     slashGain.connect(this.ctx.destination);
     slash.start(now);
     slash.stop(now + 0.15);
+    this.safeDisconnectAfter(450, osc, gain, slash, slashGain);
   }
 
   /**
@@ -433,6 +493,7 @@ export class AudioSystem {
     gain.connect(this.ctx.destination);
     osc.start(now);
     osc.stop(now + 0.22);
+    this.safeDisconnectAfter(260, osc, gain);
   }
 
   /**
@@ -461,6 +522,7 @@ export class AudioSystem {
       gain.connect(this.ctx.destination);
       osc.start(startTime);
       osc.stop(startTime + 0.35);
+      this.safeDisconnectAfter(450, osc, gain);
     });
   }
 
@@ -494,6 +556,7 @@ export class AudioSystem {
         gain.connect(this.ctx.destination);
         osc.start(startTime);
         osc.stop(startTime + 0.7);
+        this.safeDisconnectAfter(800, osc, gain);
       });
     });
   }
@@ -521,6 +584,7 @@ export class AudioSystem {
     gain.connect(this.ctx.destination);
     osc.start(now);
     osc.stop(now + 0.16);
+    this.safeDisconnectAfter(200, osc, gain);
   }
 
   /**
@@ -548,6 +612,7 @@ export class AudioSystem {
     gain.connect(this.ctx.destination);
     osc.start(now);
     osc.stop(now + 0.28);
+    this.safeDisconnectAfter(320, osc, gain);
   }
 
   /**
@@ -573,6 +638,7 @@ export class AudioSystem {
     gain.connect(this.ctx.destination);
     osc.start(now);
     osc.stop(now + 0.04);
+    this.safeDisconnectAfter(80, osc, gain);
   }
 
   private taikoIntervalId: number | null = null;
@@ -603,6 +669,7 @@ export class AudioSystem {
       gain.connect(this.ctx.destination);
       osc.start(now);
       osc.stop(now + 0.05);
+      this.safeDisconnectAfter(80, osc, gain);
       return;
     }
 
@@ -633,6 +700,7 @@ export class AudioSystem {
 
     osc.start(now);
     osc.stop(now + 0.35);
+    this.safeDisconnectAfter(400, osc, filter, gain);
   }
 
   /**
@@ -687,6 +755,7 @@ export class AudioSystem {
       metalGain.connect(this.ctx.destination);
       metal.start(now + 0.05);
       metal.stop(now + 0.55);
+      this.safeDisconnectAfter(600, sub, subGain, bolt, boltGain, metal, metalGain);
 
     } else if (archetype === 'support' || archetype === 'time') {
       // Celestial crystal chimes: Pentatonic arpeggio [C6, E6, G6, B6, C7]
@@ -704,6 +773,7 @@ export class AudioSystem {
         gain.connect(this.ctx.destination);
         osc.start(noteStart);
         osc.stop(noteStart + 0.6);
+        this.safeDisconnectAfter(650, osc, gain);
       });
 
       // Warm harmonic swell underneath
@@ -719,6 +789,7 @@ export class AudioSystem {
       swellGain.connect(this.ctx.destination);
       swell.start(now);
       swell.stop(now + 0.65);
+      this.safeDisconnectAfter(700, swell, swellGain);
 
     } else {
       // 'board' / 'utility' / auto-match: Astral pulse wave & energy sweep
@@ -745,6 +816,7 @@ export class AudioSystem {
       pingGain.connect(this.ctx.destination);
       ping.start(now + 0.12);
       ping.stop(now + 0.5);
+      this.safeDisconnectAfter(550, sweep, sweepGain, ping, pingGain);
     }
   }
 

@@ -11,6 +11,10 @@ import levelsData from '../data/levels.json';
 import bossesData from '../data/bosses.json';
 import { RelicManager } from '../game/RelicManager';
 import { RelicCodexModal } from '../game/RelicCodexModal';
+import { StageBadgesModal } from '../game/StageBadgesModal';
+import { ItemsModal } from '../game/ItemsModal';
+import { StoryModal } from '../game/StoryModal';
+import { AchievementModal } from '../game/AchievementModal';
 import { LevelManager } from '../game/LevelManager';
 import { formatCurrency, FONT_UI, FONT_DISPLAY } from '../styles/typography';
 
@@ -365,6 +369,20 @@ export class CollectionScene extends Phaser.Scene {
   }
 
   /**
+   * Helper to resolve the best high-res companion texture key
+   */
+  public getCompanionTextureKey(cId: string): string {
+    if (!cId) return '';
+    if (this.textures.exists(`comp_art_${cId}`)) return `comp_art_${cId}`;
+    if (cId === 'inari_kitsune' && this.textures.exists('inari_3d_00')) return 'inari_3d_00';
+    if (cId === 'ryujin_pearl' && this.textures.exists('ryujin_3d_00')) return 'ryujin_3d_00';
+    if (cId === 'hi_no_tori' && this.textures.exists('hinotori_3d_00')) return 'hinotori_3d_00';
+    if (this.textures.exists(`char_${cId}`)) return `char_${cId}`;
+    if (cId === 'inari_kitsune' && this.textures.exists('avatar_inari')) return 'avatar_inari';
+    return '';
+  }
+
+  /**
    * Top Header Bar: Back Button, Grand Title & Top Status Pills
    */
   private createHeaderBar(width: number, save: any): void {
@@ -377,7 +395,7 @@ export class CollectionScene extends Phaser.Scene {
     backBg.strokeRoundedRect(-55, -16, 110, 32, 16);
 
     const backTxt = this.add.text(0, 0, '⬅ Quay lại', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13.5px',
       fontStyle: '900',
       color: '#ffffff'
@@ -407,7 +425,7 @@ export class CollectionScene extends Phaser.Scene {
     const realm = this.REALMS_CONFIG[this.currentRealmId] || this.REALMS_CONFIG['all'];
     const titleY = 24;
 
-    this.mainTitleText = this.add.text(width / 2, titleY, realm.name, {
+    this.mainTitleText = this.add.text(width / 2, 28, realm.name, {
       fontFamily: FONT_DISPLAY,
       fontSize: '26px',
       fontStyle: 'bold',
@@ -422,18 +440,6 @@ export class CollectionScene extends Phaser.Scene {
         stroke: true,
         fill: true
       }
-    }).setOrigin(0.5);
-
-    // Decorative Subtitle
-    const subStr = realm.id === 'all'
-      ? '✦  🌸  万界図鑑 • TOÀN THƯ SINH LINH VẠN GIỚI  🌸  ✦'
-      : `✦  🌸  ${realm.kanji}  •  ${realm.sub}  🌸  ✦`;
-
-    this.subTitleText = this.add.text(width / 2, titleY + 22, subStr, {
-      fontFamily: FONT_DISPLAY,
-      fontSize: '12.5px',
-      fontStyle: 'bold',
-      color: '#ffccd5'
     }).setOrigin(0.5);
 
     // 3. Right Status Bar Elements
@@ -463,11 +469,12 @@ export class CollectionScene extends Phaser.Scene {
     starsBg.lineStyle(1.2, 0xffb703, 0.8);
     starsBg.strokeRoundedRect(starX - starW / 2, 12, starW, 32, 16);
 
-    this.add.text(starX, 28, `⭐ ${save.stars}/30`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+    this.add.text(starX, 28, `⭐ ${save.stars}/300`, {
+      fontFamily: FONT_UI,
+      fontSize: '13px',
       fontStyle: '900',
-      color: '#ffffff'
+      color: '#ffffff',
+      padding: { top: 4, bottom: 4, left: 2, right: 2 }
     }).setOrigin(0.5);
 
     // Coins Pill: [ 💰 620 + ]
@@ -490,7 +497,7 @@ export class CollectionScene extends Phaser.Scene {
     plusCircle.fillStyle(0x272346, 0.9);
     plusCircle.fillCircle(coinX + 34, 28, 8);
     this.add.text(coinX + 34, 27, '+', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: '900',
       color: '#ffd700'
@@ -502,12 +509,25 @@ export class CollectionScene extends Phaser.Scene {
     avRing.lineStyle(2, 0xd90429, 0.9);
     avRing.strokeCircle(avX, 28, 16);
 
-    if (this.textures.exists('avatar_inari')) {
-      const avImg = this.add.image(avX, 28, 'avatar_inari');
+    const equippedCompId = this.save.getSelectedCompanion() || 'inari_kitsune';
+    const compTex = this.getCompanionTextureKey(equippedCompId);
+    if (compTex && this.textures.exists(compTex)) {
+      const avImg = this.add.image(avX, 28, compTex);
       avImg.setDisplaySize(30, 30);
     } else {
-      this.add.text(avX, 28, '🦊', { fontSize: '18px' }).setOrigin(0.5);
+      const compConfig = CompanionManager.get(equippedCompId);
+      this.add.text(avX, 28, compConfig?.icon || '🦊', { fontSize: '18px' }).setOrigin(0.5);
     }
+
+    const avHit = this.add.zone(avX, 28, 36, 36).setInteractive({ useHandCursor: true });
+    avHit.on('pointerdown', () => {
+      this.audio.playSelect();
+      CompanionModal.open(this, (newComp) => {
+        this.save.setSelectedCompanion(newComp.id);
+        this.audio.playVictory();
+        this.scene.restart();
+      });
+    });
   }
 
   /**
@@ -515,13 +535,9 @@ export class CollectionScene extends Phaser.Scene {
    */
   private updateHeaderTitle(): void {
     const realm = this.REALMS_CONFIG[this.currentRealmId] || this.REALMS_CONFIG['all'];
-    if (!this.mainTitleText || !this.subTitleText) return;
+    if (!this.mainTitleText) return;
 
     this.mainTitleText.setText(realm.name);
-    const subStr = realm.id === 'all'
-      ? '✦  🌸  万界図鑑 • TOÀN THƯ SINH LINH VẠN GIỚI  🌸  ✦'
-      : `✦  🌸  ${realm.kanji}  •  ${realm.sub}  🌸  ✦`;
-    this.subTitleText.setText(subStr);
   }
 
   /**
@@ -573,7 +589,7 @@ export class CollectionScene extends Phaser.Scene {
       }).setOrigin(0, 0.5);
 
       const labelTxt = this.add.text(-tabW / 2 + 32, 0, tabItem.label, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '12.5px',
         fontStyle: '900',
         color: isAct ? '#ffffff' : '#ced4da'
@@ -680,7 +696,7 @@ export class CollectionScene extends Phaser.Scene {
 
       const lockPrefix = isLevelLocked ? '🔒 ' : '';
       const txt = this.add.text(0, 0, `${lockPrefix}${realm.icon} ${realm.shortLabel}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '10.5px',
         fontStyle: '900',
         color: isAct ? '#ffffff' : (isLevelLocked ? '#8d99ae' : '#ced4da')
@@ -843,7 +859,7 @@ export class CollectionScene extends Phaser.Scene {
     pBg.strokeRoundedRect(-cardW / 2, -14, cardW, 28, 10);
 
     const pLabel = this.add.text(-cardW / 2 + 18, 0, `TIẾN ĐỘ THU PHỤC ${realm.shortLabel}:`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12px',
       fontStyle: '800',
       color: '#adb5bd'
@@ -861,7 +877,7 @@ export class CollectionScene extends Phaser.Scene {
     }
 
     const pValue = this.add.text(cardW / 2 - 18, 0, rightStatusText, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12px',
       fontStyle: '900',
       color: '#ffd700'
@@ -917,7 +933,7 @@ export class CollectionScene extends Phaser.Scene {
     prevBg.fillStyle(0x222036, 1);
     prevBg.fillRoundedRect(-14, -10, 28, 20, 5);
     const prevTxt = this.add.text(0, 0, '◀', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: 'bold',
       color: '#ffd700'
@@ -938,7 +954,7 @@ export class CollectionScene extends Phaser.Scene {
     nextBg.fillStyle(0x222036, 1);
     nextBg.fillRoundedRect(-14, -10, 28, 20, 5);
     const nextTxt = this.add.text(0, 0, '▶', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: 'bold',
       color: '#ffd700'
@@ -1009,7 +1025,7 @@ export class CollectionScene extends Phaser.Scene {
 
       const labelText = isLocked && realm.id === 'all' ? `🔒${idx + 1}` : `${idx + 1}`;
       const cTxt = this.add.text(0, 0, labelText, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '12px',
         fontStyle: '900',
         color: isAct ? '#ffffff' : (isLocked ? '#6c757d' : '#adb5bd')
@@ -1034,12 +1050,34 @@ export class CollectionScene extends Phaser.Scene {
    * Render 10 Cards in 2 Rows x 5 Columns
    */
   public renderCurrentTabGrid(): void {
-    this.gridContainer.removeAll(true);
-
     const realm = this.REALMS_CONFIG[this.currentRealmId] || this.REALMS_CONFIG['all'];
     const tabCharacters = this.getCharactersForActiveTab();
     const discovered = this.save.getData().discoveredCharacters;
 
+    // Load any missing character textures on-demand for the current 10 cards (replacing any canvas fallbacks with real PNGs)
+    const missing = tabCharacters.filter(c => {
+      const key = `char_${c.id}`;
+      if (!this.textures.exists(key)) return true;
+      const src = this.textures.get(key)?.getSourceImage();
+      return typeof HTMLCanvasElement !== 'undefined' && src instanceof HTMLCanvasElement;
+    });
+    if (missing.length > 0) {
+      for (const m of missing) {
+        const key = `char_${m.id}`;
+        if (this.textures.exists(key)) {
+          this.textures.remove(key);
+        }
+        const rawUrl = (m.asset || m.imagePath || `assets/characters/${m.id}.png`).replace(/^\/+/, '');
+        this.load.image(key, rawUrl);
+      }
+      this.load.once('complete', () => {
+        this.renderCurrentTabGrid();
+      });
+      this.load.start();
+      return;
+    }
+
+    this.gridContainer.removeAll(true);
     const contentLeft = 185;
     const cardW = 160;
     const cardH = 195;
@@ -1103,8 +1141,7 @@ export class CollectionScene extends Phaser.Scene {
         fontSize: '11px'
       }).setOrigin(1, 0);
 
-      // Center Character Sprite Image
-      TextureGenerator.ensureCharacterTexture(this, char.id);
+      // Center Character Sprite Image (always use real PNG asset)
       const texKey = `char_${char.id}`;
       let charVisual: Phaser.GameObjects.GameObject;
       if (this.textures.exists(texKey)) {
@@ -1115,7 +1152,7 @@ export class CollectionScene extends Phaser.Scene {
 
       // Name
       const name = this.add.text(0, 39, char.name, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '14.5px',
         fontStyle: '900',
         color: '#ffffff'
@@ -1131,7 +1168,7 @@ export class CollectionScene extends Phaser.Scene {
 
       // Footer: Rarity & Level Span
       const rarityBadge = this.add.text(0, 77, `${CharacterRegistry.getRarityName(char.rarity)} • Màn ${lvlReq.startLevel}-${lvlReq.endLevel}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '11px',
         fontStyle: '900',
         color: `#${rarityColor.toString(16).padStart(6, '0')}`
@@ -1194,7 +1231,7 @@ export class CollectionScene extends Phaser.Scene {
 
       // Real Name (Visible in clean silver-gray)
       const name = this.add.text(0, 39, char.name, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '14px',
         fontStyle: '800',
         color: '#ced4da'
@@ -1210,7 +1247,7 @@ export class CollectionScene extends Phaser.Scene {
 
       // Explicit Level Requirement Footer
       const rarityBadge = this.add.text(0, 77, `🔒 Mở tại Màn ${lvlReq.startLevel}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '11px',
         fontStyle: 'bold',
         color: '#ffd166'
@@ -1253,21 +1290,21 @@ export class CollectionScene extends Phaser.Scene {
 
     const lockBadge = this.add.text(-w / 2 + 12, -h / 2 + 10, '🔒', { fontSize: '12px' }).setOrigin(0, 0);
     const qMark = this.add.text(0, -22, '?', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '36px',
       fontStyle: '900',
       color: '#343048'
     }).setOrigin(0.5);
 
     const unknownText = this.add.text(0, 44, 'Chưa Gặp', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '14px',
       fontStyle: 'bold',
       color: '#adb5bd'
     }).setOrigin(0.5);
 
     const hintText = this.add.text(0, 64, 'Vượt ải để mở', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12px',
       fontStyle: 'bold',
       color: '#6c757d'
@@ -1327,12 +1364,18 @@ export class CollectionScene extends Phaser.Scene {
     card.lineStyle(2.5, rarityColor, 1);
     card.strokeRoundedRect(-290, -210, 580, 420, 20);
 
-    // Left side: Large character portrait
-    TextureGenerator.ensureCharacterTexture(this, char.id);
+    // Left side: Large character portrait (use real PNG asset)
     const texKey = `char_${char.id}`;
+    const portraitKey = isDiscovered ? texKey : TextureGenerator.ensureGrayscaleCharacterTexture(this, char.id);
     let portrait: Phaser.GameObjects.GameObject;
-    if (this.textures.exists(texKey)) {
-      portrait = this.add.image(-155, -20, texKey).setDisplaySize(185, 185);
+    if (this.textures.exists(portraitKey)) {
+      const pImg = this.add.image(-155, -20, portraitKey).setDisplaySize(185, 185);
+      if (!isDiscovered) pImg.setAlpha(0.65);
+      portrait = pImg;
+    } else if (this.textures.exists(texKey)) {
+      const pImg = this.add.image(-155, -20, texKey).setDisplaySize(185, 185);
+      if (!isDiscovered) pImg.setTint(0x444455);
+      portrait = pImg;
     } else {
       portrait = this.add.text(-155, -20, char.symbol, { fontSize: '80px' }).setOrigin(0.5);
     }
@@ -1346,14 +1389,14 @@ export class CollectionScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const name = this.add.text(125, -112, char.name, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '22px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
 
     const rarityBadge = this.add.text(125, -82, `[ ${CharacterRegistry.getRarityName(char.rarity)} • Hệ ${char.element.toUpperCase()} ]`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: 'bold',
       color: `#${rarityColor.toString(16).padStart(6, '0')}`
@@ -1362,7 +1405,7 @@ export class CollectionScene extends Phaser.Scene {
     const compData = COMPANIONS[char.id];
     const descY = compData ? -15 : -10;
     const desc = this.add.text(125, descY, char.description, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12.5px',
       color: '#ced4da',
       wordWrap: { width: 275 },
@@ -1376,7 +1419,7 @@ export class CollectionScene extends Phaser.Scene {
     const locationBox = this.add.text(125, locationY,
       `📍 Xuất hiện: ${realm.name} (Màn ${lvlReq.startLevel} - ${lvlReq.endLevel})\n` +
       `✨ Thu phục: Nối các cặp ô ${char.name} trong màn chơi`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '11px',
       fontStyle: 'bold',
       color: isLevelUnlocked ? '#00f5d4' : '#ffd166',
@@ -1390,7 +1433,7 @@ export class CollectionScene extends Phaser.Scene {
 
     if (compData) {
       skillDescText = this.add.text(125, 100, `⚡ TUYỆT CHIÊU: ${compData.skillName} (${compData.skillDesc})`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '11px',
         fontStyle: 'bold',
         color: '#ffd700',
@@ -1419,7 +1462,7 @@ export class CollectionScene extends Phaser.Scene {
       eqBg.fillStyle(btnColor, 1);
       eqBg.fillRoundedRect(-70, -16, 140, 32, 8);
       const eqTxt = this.add.text(0, 0, btnLabel, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '11.5px',
         fontStyle: '900',
         color: btnTxtColor
@@ -1467,7 +1510,7 @@ export class CollectionScene extends Phaser.Scene {
 
     const playLabel = isLevelUnlocked ? `🎮 VÀO MÀN ${lvlReq.startLevel}` : `▶ CHƠI MÀN ${highestLevel}`;
     const playTxt = this.add.text(0, 0, playLabel, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '11.5px',
       fontStyle: '900',
       color: '#052c24'
@@ -1493,7 +1536,7 @@ export class CollectionScene extends Phaser.Scene {
     clBg.fillStyle(0xd90429, 1);
     clBg.fillRoundedRect(-closeBtnW / 2, -16, closeBtnW, 32, 8);
     const clTxt = this.add.text(0, 0, 'ĐÓNG', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12px',
       fontStyle: '900',
       color: '#ffffff'
@@ -1511,7 +1554,7 @@ export class CollectionScene extends Phaser.Scene {
 
     if (!isDiscovered) {
       const lockBanner = this.add.text(-155, -125, '🔒 CHƯA THU THẬP', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '11px',
         fontStyle: '900',
         color: '#ffd166',
@@ -1527,276 +1570,47 @@ export class CollectionScene extends Phaser.Scene {
   }
 
   /**
-   * Items Modal
+   * Royal Items & Artifacts Modal
    */
   private openItemsModal(): void {
-    if (this.modalContainer) this.modalContainer.destroy();
-    const width = GAME_WIDTH;
-    const height = GAME_HEIGHT;
-    const { width: screenW } = getScreenDimensions();
+    if (this.modalContainer) {
+      this.modalContainer.destroy();
+      this.modalContainer = null;
+    }
 
-    this.modalContainer = this.add.container(width / 2, height / 2).setDepth(200);
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.85);
-    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
-    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
-    overlay.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
-
-    const card = this.add.graphics();
-    card.fillStyle(0x161426, 0.96);
-    card.fillRoundedRect(-260, -190, 520, 385, 20);
-    card.lineStyle(2, 0xffd166, 1);
-    card.strokeRoundedRect(-260, -190, 520, 385, 20);
-
-    const title = this.add.text(0, -155, '🎒 KHO VẬT PHẨM & PHÁP BẢO', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '18px',
-      fontStyle: '900',
-      color: '#ffd700'
-    }).setOrigin(0.5);
-
-    const boosters = this.save.getBoosters();
-    const items = [
-      { id: 'hint', spriteKey: 'item_booster_hint', icon: '💡', name: 'Bình Gợi Ý (Hint Bottle)', desc: 'Soi sáng tức thì 1 cặp Yokai có thể kết nối ngay trên bàn.', qty: `x${boosters.hint}`, usage: 'Bấm nút Gợi Ý 💡 trong màn chơi hoặc khi bí đường.', obtain: 'Mua tại Cửa Hàng Xu Vàng hoặc Thưởng 3★ mỗi màn chơi.' },
-      { id: 'shuffle', spriteKey: 'item_booster_shuffle', icon: '🔀', name: 'Quạt Đổi Bảng (Shuffle Fan)', desc: 'Xáo trộn lại toàn bộ bàn cờ khi các cặp thẻ bị phân tán hiểm hóc.', qty: `x${boosters.shuffle}`, usage: 'Bấm nút Đổi Cờ 🔄 hoặc tự động kích hoạt khi bàn cờ bế tắc.', obtain: 'Mua tại Cửa Hàng Xu Vàng & Điểm Danh Hàng Ngày.' },
-      { id: 'bomb', spriteKey: 'item_booster_bomb', icon: '⚡', name: 'Búa Sét Trảm Quái (Thunder Hammer)', desc: 'Gọi sấm sét tiêu diệt tức thì 1 cặp thẻ bất kỳ trên bàn cờ.', qty: `x${boosters.bomb}`, usage: 'Bấm nút Phá Cặp 💣 để trảm ngay cặp cờ hiểm hóc.', obtain: 'Mua tại Cửa Hàng Quân Nhu hoặc Thưởng Boss Thế Giới.' },
-      { id: 'hourglass', icon: '⏳', name: 'Đồng Hồ Cát (+15s)', desc: 'Cộng thêm +15 giây sinh tồn khẩn cấp trong màn chơi.', qty: 'x2', usage: 'Tự động kích hoạt khi Thần Khí Thời Gian phát động chiêu.', obtain: 'Phần thưởng diệt Boss thế giới.' },
-      { id: 'elixir', icon: '❤️', name: 'Linh Đan Trường Sinh', desc: 'Hồi phục lại 1 Trái Tim sinh mệnh khi nối sai ô.', qty: 'x10', usage: 'Bảo hộ thanh sinh mệnh không bị trừ hết mạng.', obtain: 'Phần thưởng Cổ Vật Bất Tử Ankh.' }
-    ];
-
-    const itemElements: Phaser.GameObjects.GameObject[] = [overlay, card, title];
-
-    let itemDetailBox: Phaser.GameObjects.Text;
-
-    items.forEach((it, i) => {
-      const y = -112 + i * 44;
-      const iContainer = this.add.container(0, y);
-      const iBg = this.add.graphics();
-      iBg.fillStyle(0x211f36, 0.9);
-      iBg.fillRoundedRect(-220, -18, 440, 38, 10);
-      iBg.lineStyle(1.2, 0x4d4668, 0.8);
-      iBg.strokeRoundedRect(-220, -18, 440, 38, 10);
-
-      let ic: Phaser.GameObjects.GameObject;
-      if (it.spriteKey && this.textures.exists(it.spriteKey)) {
-        const itemImg = this.add.image(-198, 0, it.spriteKey);
-        itemImg.setDisplaySize(30, 30);
-        ic = itemImg;
-      } else {
-        ic = this.add.text(-200, 0, it.icon, { fontSize: '20px' }).setOrigin(0, 0.5);
-      }
-
-      const nm = this.add.text(-170, -7, it.name, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
-        fontStyle: '800',
-        color: '#ffd700'
-      });
-      const dc = this.add.text(-170, 8, it.desc, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '9.5px',
-        color: '#adb5bd'
-      });
-      const qt = this.add.text(200, 0, it.qty, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '13px',
-        fontStyle: '900',
-        color: '#00f5d4'
-      }).setOrigin(1, 0.5);
-
-      iContainer.add([iBg, ic, nm, dc, qt]);
-      iContainer.setSize(440, 38).setInteractive({ useHandCursor: true });
-
-      iContainer.on('pointerover', () => {
-        iBg.lineStyle(1.8, 0xffd166, 1);
-        iBg.strokeRoundedRect(-220, -18, 440, 38, 10);
-      });
-      iContainer.on('pointerout', () => {
-        iBg.lineStyle(1.2, 0x4d4668, 0.8);
-        iBg.strokeRoundedRect(-220, -18, 440, 38, 10);
-      });
-      iContainer.on('pointerdown', () => {
-        this.audio.playSelect();
-        itemDetailBox.setText(
-          `✨ ${it.name} • Đang có: ${it.qty}\n` +
-          `⚡ Hiệu Quả: ${it.desc}\n` +
-          `🎮 Cách Dùng: ${it.usage}\n` +
-          `🎁 Cách Kiếm: ${it.obtain}`
-        );
-        itemDetailBox.setColor('#00f5d4');
-      });
-
-      itemElements.push(iContainer);
+    this.modalContainer = ItemsModal.open(this, () => {
+      this.modalContainer = null;
+      this.renderSidebar();
     });
-
-    // Detail Info Box at bottom
-    itemDetailBox = this.add.text(0, 122, '💡 Chạm vào bất kỳ vật phẩm nào ở trên để xem chi tiết cách dùng & cách nhận.', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '10.5px',
-      color: '#ced4da',
-      align: 'center',
-      wordWrap: { width: 440 },
-      lineSpacing: 2
-    }).setOrigin(0.5);
-    itemElements.push(itemDetailBox);
-
-    const closeBtn = this.add.container(0, 162);
-    const clBg = this.add.graphics();
-    clBg.fillStyle(0xd90429, 1);
-    clBg.fillRoundedRect(-60, -14, 120, 28, 8);
-    const clTxt = this.add.text(0, 0, 'ĐÓNG', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: '800',
-      color: '#ffffff'
-    }).setOrigin(0.5);
-    closeBtn.add([clBg, clTxt]);
-    closeBtn.setSize(120, 28).setInteractive({ useHandCursor: true });
-    closeBtn.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
-    itemElements.push(closeBtn);
-
-    this.modalContainer.add(itemElements);
   }
 
   /**
    * Story Lore Modal
    */
   private openStoryModal(): void {
-    if (this.modalContainer) this.modalContainer.destroy();
-    const width = GAME_WIDTH;
-    const height = GAME_HEIGHT;
-    const { width: screenW } = getScreenDimensions();
+    if (this.modalContainer) {
+      this.modalContainer.destroy();
+      this.modalContainer = null;
+    }
 
-    this.modalContainer = this.add.container(width / 2, height / 2).setDepth(200);
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.85);
-    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
-    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
-    overlay.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
-
-    const card = this.add.graphics();
-    card.fillStyle(0x161426, 0.96);
-    card.fillRoundedRect(-260, -180, 520, 360, 20);
-    card.lineStyle(2, 0x00f5d4, 1);
-    card.strokeRoundedRect(-260, -180, 520, 360, 20);
-
-    const title = this.add.text(0, -135, '📖 CỐT TRUYỆN BÁCH QUỶ DẠ HÀNH', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17px',
-      fontStyle: '900',
-      color: '#00f5d4'
-    }).setOrigin(0.5);
-
-    const storyTxt = this.add.text(0, -5,
-      'Khi màn đêm buông xuống trên đất nước Phù Tang, cánh cổng Torii cổ kính giữa hồ nước thiêng phát sáng rực rỡ.\n\n' +
-      'Bách Quỷ Dạ Hành (Hyakki Yagyo) bắt đầu trỗi dậy. 108 linh hồn yêu quái cổ đại vượt qua bờ cõi linh giới mang theo sức mạnh thần bí.\n\n' +
-      'Với tư cách là Âm Dương Sư mang linh hồ Cáo Inari dẫn đường, bạn phải kết nối các linh hồn đồng điệu theo luật 2 khúc gập cổ xưa để thu phục và thanh tẩy cõi nhân gian!',
-      {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12.5px',
-        color: '#ced4da',
-        lineSpacing: 6,
-        wordWrap: { width: 450 },
-        align: 'center'
-      }
-    ).setOrigin(0.5);
-
-    const closeBtn = this.add.container(0, 135);
-    const clBg = this.add.graphics();
-    clBg.fillStyle(0xd90429, 1);
-    clBg.fillRoundedRect(-60, -16, 120, 32, 10);
-    const clTxt = this.add.text(0, 0, 'ĐÃ HIỂU', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: '800',
-      color: '#ffffff'
-    }).setOrigin(0.5);
-    closeBtn.add([clBg, clTxt]);
-    closeBtn.setSize(120, 32).setInteractive({ useHandCursor: true });
-    closeBtn.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
-
-    this.modalContainer.add([overlay, card, title, storyTxt, closeBtn]);
+    this.modalContainer = StoryModal.open(this, () => {
+      this.modalContainer = null;
+      this.renderSidebar();
+    });
   }
 
   /**
    * Achievements Modal
    */
   private openAchievementsModal(): void {
-    if (this.modalContainer) this.modalContainer.destroy();
-    const width = GAME_WIDTH;
-    const height = GAME_HEIGHT;
-    const { width: screenW } = getScreenDimensions();
-    const save = this.save.getData();
-
-    this.modalContainer = this.add.container(width / 2, height / 2).setDepth(200);
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.85);
-    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
-    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
-    overlay.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
-
-    const card = this.add.graphics();
-    card.fillStyle(0x161426, 0.96);
-    card.fillRoundedRect(-260, -180, 520, 360, 20);
-    card.lineStyle(2, 0xffd700, 1);
-    card.strokeRoundedRect(-260, -180, 520, 360, 20);
-
-    const title = this.add.text(0, -135, '🏆 BẢNG VÀNG THÀNH TỰU', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '18px',
-      fontStyle: '900',
-      color: '#ffd700'
-    }).setOrigin(0.5);
-
-    const achievements = [
-      { icon: '⭐', name: 'Đệ Nhất Tinh Tú', desc: `Thu thập đủ 30 Ngôi Sao Vàng (${save.stars}/30)` },
-      { icon: '🦊', name: 'Bậc Thầy Thu Phục', desc: `Mở khóa hơn 50 Linh thú (${Object.keys(save.discoveredCharacters).length}/198)` },
-      { icon: '🐉', name: 'Đả Bại Bát Xà Orochi', desc: 'Chinh phục Boss 30 và phong ấn Thần Xà Cổ Đại' },
-      { icon: '❄️', name: 'Chiến Binh Bão Tuyết', desc: `Sống sót qua 10 đợt tuyết dâng (${save.survivalMaxWaves || 0} đợt)` }
-    ];
-
-    const achElements: Phaser.GameObjects.GameObject[] = [overlay, card, title];
-
-    achievements.forEach((ach, i) => {
-      const y = -70 + i * 50;
-      const iBg = this.add.graphics();
-      iBg.fillStyle(0x211f36, 0.9);
-      iBg.fillRoundedRect(-220, y - 18, 440, 42, 10);
-      iBg.lineStyle(1, 0x3d3956, 0.8);
-      iBg.strokeRoundedRect(-220, y - 18, 440, 42, 10);
-
-      const ic = this.add.text(-200, y + 3, ach.icon, { fontSize: '20px' }).setOrigin(0, 0.5);
-      const nm = this.add.text(-165, y - 3, ach.name, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12px',
-        fontStyle: '800',
-        color: '#ffd700'
-      });
-      const dc = this.add.text(-165, y + 12, ach.desc, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '10px',
-        color: '#ced4da'
-      });
-
-      achElements.push(iBg, ic, nm, dc);
+    if (this.modalContainer) {
+      this.modalContainer.destroy();
+      this.modalContainer = null;
+    }
+    this.audio.playSelect();
+    AchievementModal.open(this, () => {
+      this.scene.restart();
     });
-
-    const closeBtn = this.add.container(0, 135);
-    const clBg = this.add.graphics();
-    clBg.fillStyle(0xd90429, 1);
-    clBg.fillRoundedRect(-60, -16, 120, 32, 10);
-    const clTxt = this.add.text(0, 0, 'ĐÓNG', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: '800',
-      color: '#ffffff'
-    }).setOrigin(0.5);
-    closeBtn.add([clBg, clTxt]);
-    closeBtn.setSize(120, 32).setInteractive({ useHandCursor: true });
-    closeBtn.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
-    achElements.push(closeBtn);
-
-    this.modalContainer.add(achElements);
   }
 
   /**
@@ -1823,9 +1637,9 @@ export class CollectionScene extends Phaser.Scene {
     card.lineStyle(2, 0xffd700, 0.95);
     card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
 
-    const title = this.add.text(0, -222, '🏺 ĐIỆN THỜ CỔ VẬT THẦN KHÍ (RELICS SANCTUARY)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17px',
+    const title = this.add.text(0, -215, '🏺 ĐIỆN THỜ CỔ VẬT', {
+      fontFamily: FONT_UI,
+      fontSize: '20px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -1833,11 +1647,13 @@ export class CollectionScene extends Phaser.Scene {
     const collectedCount = this.save.getCollectedRelicsCount('yokai');
     const isGateReady = collectedCount >= 10;
 
-    const subTitle = this.add.text(0, -195, `Tiến độ Thần Khí Nhật Bản: ${collectedCount}/10 Mảnh • ${isGateReady ? '🌌 CỔNG ĐA VŨ TRỤ ĐÃ MỞ!' : 'Thu thập đủ 10 mảnh mở Cổng Thế Giới'}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12.5px',
-      fontStyle: 'bold',
-      color: isGateReady ? '#00f5d4' : '#c77dff'
+    const subTitle = this.add.text(0, -185, `TIẾN ĐỘ: ${collectedCount}/10 MẢNH`, {
+      fontFamily: FONT_UI,
+      fontSize: '13px',
+      fontStyle: '900',
+      color: isGateReady ? '#00f5d4' : '#ffd166',
+      backgroundColor: '#1b1932',
+      padding: { top: 3, bottom: 3, left: 14, right: 14 }
     }).setOrigin(0.5);
 
     const elements: Phaser.GameObjects.GameObject[] = [overlay, card, title, subTitle];
@@ -1920,7 +1736,7 @@ export class CollectionScene extends Phaser.Scene {
 
       // Always show real relic name! (No ???)
       const nameTxt = this.add.text(0, 10, relic.name, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '10.5px',
         fontStyle: '800',
         color: isOwned ? '#ffd700' : '#e2e8f0',
@@ -1929,7 +1745,7 @@ export class CollectionScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       const tagTxt = this.add.text(0, 42, isOwned ? '✓ THU THẬP' : `${shards}/${reqShards} Mảnh`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '9.5px',
         fontStyle: 'bold',
         color: isOwned ? '#00f5d4' : '#ffd166'
@@ -1969,7 +1785,7 @@ export class CollectionScene extends Phaser.Scene {
     elements.push(descBg);
 
     selectedRelicDescText = this.add.text(0, descBoxY, '💡 Nhấn vào bất kỳ Thần Khí nào ở trên để xem chi tiết tuyệt chiêu & truyền thuyết cổ vật.', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '11px',
       color: '#adb5bd',
       align: 'center',
@@ -1985,7 +1801,7 @@ export class CollectionScene extends Phaser.Scene {
     wBg.lineStyle(1.5, 0xffd166, 0.95);
     wBg.strokeRoundedRect(-110, -15, 220, 30, 10);
     const wTxt = this.add.text(0, 0, '📖 TOÀN THƯ 30 THẦN KHÍ', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '11px',
       fontStyle: '900',
       color: '#ffffff'
@@ -2005,7 +1821,7 @@ export class CollectionScene extends Phaser.Scene {
     clBg.fillStyle(0xd90429, 1);
     clBg.fillRoundedRect(-55, -15, 110, 30, 10);
     const clTxt = this.add.text(0, 0, 'ĐÓNG', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12px',
       fontStyle: '800',
       color: '#ffffff'
@@ -2041,134 +1857,13 @@ export class CollectionScene extends Phaser.Scene {
    * Monster Badges Collection Modal
    */
   private openBadgesModal(): void {
-    if (this.modalContainer) this.modalContainer.destroy();
-    const width = GAME_WIDTH;
-    const height = GAME_HEIGHT;
-    const { width: screenW } = getScreenDimensions();
+    if (this.modalContainer) {
+      this.modalContainer.destroy();
+      this.modalContainer = null;
+    }
 
-    this.modalContainer = this.add.container(width / 2, height / 2).setDepth(200);
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.88);
-    overlay.fillRect(-screenW / 2, -height / 2, screenW, height);
-    overlay.setInteractive(new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height), Phaser.Geom.Rectangle.Contains);
-    overlay.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
-
-    const cardW = 650;
-    const cardH = 520;
-    const card = this.add.graphics();
-    card.fillStyle(0x151226, 0.98);
-    card.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
-    card.lineStyle(2, 0x00f5d4, 0.95);
-    card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
-
-    const title = this.add.text(0, -228, '🎖️ HUY HIỆU VƯỢT MÀN (STAGE BADGES)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16.5px',
-      fontStyle: '900',
-      color: '#00f5d4'
-    }).setOrigin(0.5);
-
-    const totalBadges = this.save.getCollectedBadgesCount();
-    const subTitle = this.add.text(0, -202, `Chiến tích vượt 100 Màn Onet • ${totalBadges}/30 Huy hiệu • 🟢 Đồng | ⚪ Bạc | 🟡 Vàng`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: 'bold',
-      color: '#ffd166'
-    }).setOrigin(0.5);
-
-    const elements: Phaser.GameObjects.GameObject[] = [overlay, card, title, subTitle];
-
-    const startY = -168;
-    const rowH = 34;
-    let tooltipTxt: Phaser.GameObjects.Text;
-
-    (levelsData as any[]).forEach((lvl, rowIdx) => {
-      const posY = startY + rowIdx * rowH;
-      const rowBg = this.add.graphics();
-      rowBg.fillStyle(rowIdx % 2 === 0 ? 0x1d1830 : 0x161325, 0.9);
-      rowBg.fillRoundedRect(-cardW / 2 + 18, posY - 14, cardW - 36, 28, 6);
-      elements.push(rowBg);
-
-      // Level title
-      const lvlTxt = this.add.text(-cardW / 2 + 28, posY, `M${lvl.levelNumber}. ${lvl.title.slice(0, 16)}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '10.5px',
-        fontStyle: 'bold',
-        color: '#adb5bd'
-      }).setOrigin(0, 0.5);
-      elements.push(lvlTxt);
-
-      // 3 badges per level
-      const badges = lvl.badgeRewards || [];
-      const tierStartX = -50;
-      const tierSpacing = 115;
-      const tierColors = ['#cd7f32', '#ced4da', '#ffd700'];
-      const tierLabels = ['Đồng', 'Bạc', 'Vàng'];
-
-      badges.forEach((b: any, bIdx: number) => {
-        const isOwned = this.save.hasBadge(b.id);
-        const bX = tierStartX + bIdx * tierSpacing;
-
-        const bContainer = this.add.container(bX, posY);
-        const char = CharacterRegistry.get(b.characterId);
-        const iconChar = char?.symbol || '🎖️';
-
-        const bIcon = this.add.text(-40, 0, iconChar, {
-          fontSize: '13px'
-        }).setOrigin(0, 0.5);
-        if (!isOwned) {
-          bIcon.setAlpha(0.65);
-        }
-
-        const bName = this.add.text(-22, 0, `${isOwned ? '' : '🔒 '}${b.name.replace('Huy Hiệu ', '')}`, {
-          fontFamily: 'Plus Jakarta Sans, sans-serif',
-          fontSize: '9.5px',
-          fontStyle: 'bold',
-          color: isOwned ? tierColors[bIdx] : '#8e9aaf'
-        }).setOrigin(0, 0.5);
-
-        bContainer.add([bIcon, bName]);
-        bContainer.setSize(105, 24);
-        bContainer.setInteractive({ useHandCursor: true });
-        bContainer.on('pointerdown', () => {
-          this.audio.playSelect();
-          const tierStr = bIdx === 0 ? 'Dễ (Đồng)' : bIdx === 1 ? 'Vừa (Bạc)' : 'Khó (Vàng)';
-          const msg = isOwned
-            ? `🎖️ ${b.name} (${tierStr}): Đã sở hữu khi vượt qua Màn ${lvl.levelNumber}!`
-            : `🔒 ${b.name}: Vượt qua Màn ${lvl.levelNumber} ở độ khó ${tierStr} để nhận! (Tối đa 1 chiếc)`;
-          tooltipTxt.setText(msg);
-          tooltipTxt.setColor(isOwned ? '#00f5d4' : '#ffd166');
-        });
-
-        elements.push(bContainer);
-      });
+    this.modalContainer = StageBadgesModal.open(this, () => {
+      this.modalContainer = null;
     });
-
-    // Tooltip info bar
-    const tipY = 186;
-    tooltipTxt = this.add.text(0, tipY, '💡 Nhấn vào từng huy hiệu để xem điều kiện mở khóa & giới hạn sở hữu.', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
-      color: '#adb5bd'
-    }).setOrigin(0.5);
-    elements.push(tooltipTxt);
-
-    // Return to Library button
-    const closeBtn = this.add.container(0, 226);
-    const clBg = this.add.graphics();
-    clBg.fillStyle(0x00b4d8, 1);
-    clBg.fillRoundedRect(-110, -15, 220, 30, 10);
-    const clTxt = this.add.text(0, 0, '🌐 VỀ THƯ VIỆN VẠN GIỚI', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '12px',
-      fontStyle: '900',
-      color: '#05192d'
-    }).setOrigin(0.5);
-    closeBtn.add([clBg, clTxt]);
-    closeBtn.setSize(220, 30).setInteractive({ useHandCursor: true });
-    closeBtn.on('pointerdown', () => { this.modalContainer?.destroy(); this.modalContainer = null; });
-    elements.push(closeBtn);
-
-    this.modalContainer.add(elements);
   }
 }

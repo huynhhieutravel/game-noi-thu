@@ -246,4 +246,53 @@ describe('Regression Audit & Side Effect Validation Test Suite', () => {
       ]);
     });
   });
+
+  describe('5. Game Start & Replay Stability (Anti-Crash & Session Safety)', () => {
+    it('ensures SaveSystem clears activeSession cleanly on new game starts', async () => {
+      const { SaveSystem } = await import('../src/systems/SaveSystem');
+      const save = SaveSystem.getInstance();
+      save.saveActiveSession({
+        levelId: 'level_01',
+        score: 500,
+        lives: 5,
+        timeRemaining: 120,
+        timestamp: Date.now()
+      });
+      expect(save.getActiveSession()).not.toBeNull();
+      expect(save.getActiveSession()?.levelId).toBe('level_01');
+
+      // Emulate starting fresh level (isResuming: false)
+      save.clearActiveSession();
+      expect(save.getActiveSession()).toBeNull();
+    });
+
+    it('guarantees LevelManager provides valid, non-empty character pools for all 100 levels', async () => {
+      const { LevelManager } = await import('../src/game/LevelManager');
+      const { CharacterRegistry } = await import('../src/game/CharacterRegistry');
+
+      for (let lvl = 1; lvl <= 100; lvl++) {
+        const config = LevelManager.getLevelConfig(lvl);
+        expect(config).toBeDefined();
+        expect(config.characterPool.length).toBeGreaterThanOrEqual(4);
+
+        // Every character in pool must exist in registry
+        for (const cid of config.characterPool) {
+          const char = CharacterRegistry.get(cid);
+          expect(char).toBeDefined();
+          expect(char?.name).toBeTruthy();
+        }
+      }
+    });
+
+    it('verifies all 16 Bosses have valid configurations, arena thumbnails and battlefield images', async () => {
+      const bosses = (await import('../src/data/bosses.json')).default;
+      expect(bosses.length).toBe(16);
+      for (const b of bosses) {
+        expect(b.id).toBeTruthy();
+        expect(b.name).toBeTruthy();
+        expect(b.max_hp).toBeGreaterThan(0);
+      }
+    });
+  });
 });
+

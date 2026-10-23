@@ -1,7 +1,7 @@
 {
-  "name": "yokai-onet-puzzle",
+  "name": "foxy-pair",
   "version": "1.0.0",
-  "description": "Yokai Connect - Japanese Onet Matching Adventure with Boss Puzzle Mechanics",
+  "description": "Foxy Pair - Japanese Mythological Matching Adventure with Boss Puzzle Mechanics",
   "type": "module",
   "scripts": {
     "dev": "vite --host",

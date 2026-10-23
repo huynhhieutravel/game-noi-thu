@@ -70,7 +70,7 @@ describe('Difficulty Progression & Chapter Gating QA Suite', () => {
       const cfg2 = LevelManager.applyDifficultyToConfig(base2, 'easy');
       expect(cfg2.rows).toBe(6);
       expect(cfg2.columns).toBe(6);
-      expect(cfg2.characterPool.length).toBe(4);
+      expect(cfg2.characterPool.length).toBe(7);
       expect(cfg2.isStopwatch).toBe(true);
       expect(cfg2.obstacles).toBeUndefined();
 
@@ -78,7 +78,7 @@ describe('Difficulty Progression & Chapter Gating QA Suite', () => {
       const cfg3 = LevelManager.applyDifficultyToConfig(base3, 'easy');
       expect(cfg3.rows).toBe(6);
       expect(cfg3.columns).toBe(6);
-      expect(cfg3.characterPool.length).toBe(5);
+      expect(cfg3.characterPool.length).toBe(8);
     });
 
     it('Level 4-6 Easy should be 6x8 board', () => {

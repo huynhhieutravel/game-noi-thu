@@ -1,7 +1,7 @@
 {
-  "name": "Onet Linh Thú - Yokai Onet",
-  "short_name": "Yokai Onet",
-  "description": "Trò chơi Nối Thú Cổ Điển Yokai & Thần Thoại - Chơi Hoàn Toàn Offline",
+  "name": "Foxy Pair - Nối Thú Linh Thú Cổ Điển",
+  "short_name": "Foxy Pair",
+  "description": "Trò chơi Nối Thú Cổ Điển Foxy Pair - Chơi Hoàn Toàn Offline",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

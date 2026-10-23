@@ -3,6 +3,7 @@ import { GAME_HEIGHT, GAME_WIDTH, getScreenDimensions } from '../constants';
 import { AudioSystem } from '../systems/AudioSystem';
 import { HapticSystem } from '../systems/HapticSystem';
 import { SaveSystem } from '../systems/SaveSystem';
+import { FONT_UI } from '../styles/typography';
 
 export class SettingsModal {
   public static open(
@@ -48,7 +49,7 @@ export class SettingsModal {
 
     // 3. Header
     const title = scene.add.text(0, -frameH / 2 + 36, '⚙️ CÀI ĐẶT & SAO LƯU TIẾN TRÌNH', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '23px',
       fontStyle: '900',
       color: '#ffd700'
@@ -60,7 +61,7 @@ export class SettingsModal {
       -frameH / 2 + 66,
       'Quản lý âm thanh, xúc giác và sao lưu dữ liệu 100% Offline (Không phụ thuộc máy chủ)',
       {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '13.5px',
         color: '#ced4da'
       }
@@ -69,7 +70,7 @@ export class SettingsModal {
 
     // Notification toast text inside modal
     const toastText = scene.add.text(0, -frameH / 2 + 96, '', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: 'bold',
       color: '#51cf66'
@@ -104,7 +105,7 @@ export class SettingsModal {
     container.add(leftBox);
 
     const leftHeading = scene.add.text(colLeftX + colW / 2, colY + 22, '🎵 ÂM THANH & RUNG', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '800',
       color: '#ffd700'
@@ -122,7 +123,7 @@ export class SettingsModal {
       let currentVal = initialVal;
 
       const rowLabel = scene.add.text(colLeftX + 20, yPos, `${icon} ${label}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '14.5px',
         color: '#f8f9fa'
       }).setOrigin(0, 0.5);
@@ -135,7 +136,7 @@ export class SettingsModal {
 
       const btnBg = scene.add.graphics();
       const btnText = scene.add.text(btnX + btnW / 2, yPos, '', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '13px',
         fontStyle: 'bold',
         color: '#ffffff'
@@ -195,7 +196,7 @@ export class SettingsModal {
     container.add(rightBox);
 
     const rightHeading = scene.add.text(colRightX + colW / 2, colY + 22, '📦 SAO LƯU TIẾN TRÌNH', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '800',
       color: '#ffd700'
@@ -222,14 +223,14 @@ export class SettingsModal {
       bg.strokeRoundedRect(bX, bY, bW, bH, 10);
 
       const text = scene.add.text(bX + bW / 2, bY + 18, btnLabel, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '14.5px',
         fontStyle: '900',
         color: '#ffffff'
       }).setOrigin(0.5);
 
       const sub = scene.add.text(bX + bW / 2, bY + 36, desc, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '11px',
         color: '#ced4da'
       }).setOrigin(0.5);
@@ -324,9 +325,9 @@ export class SettingsModal {
     const footer = scene.add.text(
       0,
       frameH / 2 - 28,
-      '🟢 Trạng Thái: 100% Offline Ready • Yokai Onet v1.0.0 • Zero-Cloud Architecture',
+      '🟢 Trạng Thái: 100% Offline Ready • Foxy Pair v1.0.0 • Zero-Cloud Architecture',
       {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '12.5px',
         color: '#adb5bd'
       }
@@ -335,7 +336,7 @@ export class SettingsModal {
 
     // 5. Close Button (✕)
     const closeBtn = scene.add.text(frameW / 2 - 26, -frameH / 2 + 24, '✕', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '26px',
       color: '#ffd700',
       fontStyle: 'bold'

@@ -52,7 +52,7 @@ export class ShopModal {
     // 3. Header Ribbon
     const headerY = -frameH / 2 + 38;
     const title = scene.add.text(-frameW / 2 + 38, headerY - 10, '🏮 TIỆM ĐẠO CỤ QUÂN NHU', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '24px',
       fontStyle: '900',
       color: '#ffd700'
@@ -64,7 +64,7 @@ export class ShopModal {
       headerY + 16,
       'Trang bị bảo bối tác chiến trước khi ra trận • Tuyệt đối không bán giữa trận đấu',
       {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '13.5px',
         fontStyle: 'bold',
         color: '#94a3b8'
@@ -72,45 +72,73 @@ export class ShopModal {
     ).setOrigin(0, 0.5);
     container.add(subTitle);
 
-    // Free Emergency Supply Button in Header Right
-    const supplyBtnW = 136;
-    const supplyBtnH = 30;
-    const supplyBtn = scene.add.container(frameW / 2 - 325, headerY);
-    const sBg = scene.add.graphics();
-    sBg.fillStyle(0x1b4332, 0.95);
-    sBg.fillRoundedRect(-supplyBtnW / 2, -supplyBtnH / 2, supplyBtnW, supplyBtnH, 8);
-    sBg.lineStyle(1.2, 0x52b788, 1);
-    sBg.strokeRoundedRect(-supplyBtnW / 2, -supplyBtnH / 2, supplyBtnW, supplyBtnH, 8);
+    // Header Right: Currency Capsule Pills (matching Main Menu style with luminous borders)
+    const diaPillW = 104;
+    const diaPillH = 32;
+    const diaPillX = frameW / 2 - 92;
 
-    const sTxt = scene.add.text(0, 0, '🎁 +5.000 Xu Tiếp Tế', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '11px',
-      fontStyle: '900',
-      color: '#d8f3dc'
-    }).setOrigin(0.5);
-    supplyBtn.add([sBg, sTxt]);
-    supplyBtn.setSize(supplyBtnW, supplyBtnH).setInteractive({ useHandCursor: true });
+    const diaPillBg = scene.add.graphics();
+    diaPillBg.fillStyle(0x13172e, 0.95);
+    diaPillBg.fillRoundedRect(diaPillX - diaPillW / 2, headerY - diaPillH / 2, diaPillW, diaPillH, 16);
+    diaPillBg.lineStyle(1.4, 0x00b4d8, 0.9);
+    diaPillBg.strokeRoundedRect(diaPillX - diaPillW / 2, headerY - diaPillH / 2, diaPillW, diaPillH, 16);
 
-    // Wallet Pills in Header Right
-    const walletCoinsText = scene.add.text(frameW / 2 - 150, headerY, `💰 ${formatCurrency(save.getCoins())} Xu`, {
-      fontFamily: FONT_UI,
-      fontSize: '15px',
-      fontStyle: '900',
-      color: '#ffd700'
-    }).setOrigin(1, 0.5);
+    const hasGemIcon = scene.textures.exists('icon_diamond');
+    const gemImg = hasGemIcon
+      ? scene.add.image(diaPillX - diaPillW / 2 + 18, headerY, 'icon_diamond').setDisplaySize(18, 18)
+      : null;
 
-    const walletDiamondsText = scene.add.text(frameW / 2 - 55, headerY, `💎 ${formatCurrency(save.getDiamonds())} KC`, {
-      fontFamily: FONT_UI,
-      fontSize: '15px',
-      fontStyle: '900',
-      color: '#00f5d4'
-    }).setOrigin(1, 0.5);
+    const walletDiamondsText = scene.add.text(
+      hasGemIcon ? diaPillX - diaPillW / 2 + 33 : diaPillX - diaPillW / 2 + 14,
+      headerY,
+      `${hasGemIcon ? '' : '💎 '}${formatCurrency(save.getDiamonds())} KC`,
+      {
+        fontFamily: FONT_UI,
+        fontSize: '13.5px',
+        fontStyle: '900',
+        color: '#00f5d4'
+      }
+    ).setOrigin(0, 0.5);
 
-    container.add([supplyBtn, walletCoinsText, walletDiamondsText]);
+    const coinPillW = 124;
+    const coinPillH = 32;
+    const coinPillX = diaPillX - diaPillW / 2 - 12 - coinPillW / 2;
+
+    const coinPillBg = scene.add.graphics();
+    coinPillBg.fillStyle(0x13172e, 0.95);
+    coinPillBg.fillRoundedRect(coinPillX - coinPillW / 2, headerY - coinPillH / 2, coinPillW, coinPillH, 16);
+    coinPillBg.lineStyle(1.4, 0xd4af37, 0.9);
+    coinPillBg.strokeRoundedRect(coinPillX - coinPillW / 2, headerY - coinPillH / 2, coinPillW, coinPillH, 16);
+
+    const hasCoinIcon = scene.textures.exists('icon_reward_coin');
+    const coinImg = hasCoinIcon
+      ? scene.add.image(coinPillX - coinPillW / 2 + 18, headerY, 'icon_reward_coin').setDisplaySize(20, 20)
+      : null;
+
+    const walletCoinsText = scene.add.text(
+      hasCoinIcon ? coinPillX - coinPillW / 2 + 34 : coinPillX - coinPillW / 2 + 14,
+      headerY,
+      `${hasCoinIcon ? '' : '💰 '}${formatCurrency(save.getCoins())} Xu`,
+      {
+        fontFamily: FONT_UI,
+        fontSize: '13.5px',
+        fontStyle: '900',
+        color: '#ffd700'
+      }
+    ).setOrigin(0, 0.5);
+
+    container.add([
+      coinPillBg,
+      ...(coinImg ? [coinImg] : []),
+      walletCoinsText,
+      diaPillBg,
+      ...(gemImg ? [gemImg] : []),
+      walletDiamondsText
+    ]);
 
     // Close button (Top-Right "✕")
     const closeTopBtn = scene.add.text(frameW / 2 - 28, headerY, '✕', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '22px',
       fontStyle: '900',
       color: '#ff758f'
@@ -127,7 +155,7 @@ export class ShopModal {
 
     // Toast feedback message
     const toastText = scene.add.text(0, -frameH / 2 + 76, '', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '14px',
       fontStyle: '900',
       color: '#51cf66'
@@ -148,8 +176,8 @@ export class ShopModal {
     };
 
     const updateWalletUI = () => {
-      walletCoinsText.setText(`💰 ${formatCurrency(save.getCoins())} Xu`);
-      walletDiamondsText.setText(`💎 ${formatCurrency(save.getDiamonds())} KC`);
+      walletCoinsText.setText(`${hasCoinIcon ? '' : '💰 '}${formatCurrency(save.getCoins())} Xu`);
+      walletDiamondsText.setText(`${hasGemIcon ? '' : '💎 '}${formatCurrency(save.getDiamonds())} KC`);
     };
 
     // Store dynamic stock labels to update counts when bought
@@ -166,29 +194,6 @@ export class ShopModal {
       if (stockLabels.bomb) stockLabels.bomb.setText(`Hiện có: ${b.bomb} búa`);
     };
 
-    // Connect Supply Button
-    supplyBtn.on('pointerdown', () => {
-      save.addCoins(5000);
-      audio.playVictory();
-      haptic.medium();
-      showToast('🎉 Đã tiếp tế thành công +5.000 Xu Vàng vào ngân khố!');
-      updateWalletUI();
-      refreshAllButtons();
-    });
-    supplyBtn.on('pointerover', () => {
-      sBg.clear();
-      sBg.fillStyle(0x2d6a4f, 1);
-      sBg.fillRoundedRect(-supplyBtnW / 2, -supplyBtnH / 2, supplyBtnW, supplyBtnH, 8);
-      sBg.lineStyle(1.5, 0x74c69d, 1);
-      sBg.strokeRoundedRect(-supplyBtnW / 2, -supplyBtnH / 2, supplyBtnW, supplyBtnH, 8);
-    });
-    supplyBtn.on('pointerout', () => {
-      sBg.clear();
-      sBg.fillStyle(0x1b4332, 0.95);
-      sBg.fillRoundedRect(-supplyBtnW / 2, -supplyBtnH / 2, supplyBtnW, supplyBtnH, 8);
-      sBg.lineStyle(1.2, 0x52b788, 1);
-      sBg.strokeRoundedRect(-supplyBtnW / 2, -supplyBtnH / 2, supplyBtnW, supplyBtnH, 8);
-    });
 
     // ==========================================
     // TOP ROW: 3 INDIVIDUAL BOOSTER CARDS WITH x1, x5, x10
@@ -266,10 +271,10 @@ export class ShopModal {
         // Soft aura glow behind the item
         itemHalo = scene.add.graphics();
         itemHalo.fillStyle(cfg.badgeColor, 0.22);
-        itemHalo.fillCircle(0, -cardH / 2 + 38, 28);
+        itemHalo.fillCircle(0, -cardH / 2 + 45, 34);
 
-        const itemImg = scene.add.image(0, -cardH / 2 + 38, itemKey);
-        itemImg.setDisplaySize(58, 58);
+        const itemImg = scene.add.image(0, -cardH / 2 + 45, itemKey);
+        itemImg.setDisplaySize(72, 72);
         itemObj = itemImg;
 
         // Subtle gentle breathing animation
@@ -285,35 +290,37 @@ export class ShopModal {
       } else {
         itemHalo = scene.add.graphics();
         itemHalo.fillStyle(cfg.badgeColor, 0.15);
-        itemHalo.fillCircle(0, -cardH / 2 + 32, 24);
+        itemHalo.fillCircle(0, -cardH / 2 + 45, 30);
         itemHalo.lineStyle(1.5, cfg.badgeColor, 0.9);
-        itemHalo.strokeCircle(0, -cardH / 2 + 32, 24);
+        itemHalo.strokeCircle(0, -cardH / 2 + 45, 30);
 
-        itemObj = scene.add.text(0, -cardH / 2 + 32, cfg.icon, {
-          fontSize: '24px'
+        itemObj = scene.add.text(0, -cardH / 2 + 45, cfg.icon, {
+          fontSize: '32px'
         }).setOrigin(0.5);
       }
 
-      const titleText = scene.add.text(0, -cardH / 2 + 73, cfg.title, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '15.5px',
+      const titleText = scene.add.text(0, -cardH / 2 + 93, cfg.title, {
+        fontFamily: FONT_UI,
+        fontSize: '16.5px',
         fontStyle: '900',
         color: '#ffffff'
       }).setOrigin(0.5);
 
-      const descText = scene.add.text(0, -cardH / 2 + 97, cfg.desc, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '11.5px',
-        color: '#cbd5e1',
+      const descText = scene.add.text(0, -cardH / 2 + 122, cfg.desc, {
+        fontFamily: FONT_UI,
+        fontSize: '13.5px',
+        fontStyle: '700',
+        color: '#f8fafc',
         align: 'center',
-        wordWrap: { width: cardW - 28 }
+        lineSpacing: 1,
+        wordWrap: { width: cardW - 22 }
       }).setOrigin(0.5);
 
       const boosters = save.getBoosters();
       const currentCount = boosters[cfg.id] || 0;
-      const stockBadge = scene.add.text(0, -cardH / 2 + 122, `Hiện có: ${currentCount} ${cfg.unit}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: '12.5px',
+      const stockBadge = scene.add.text(0, -cardH / 2 + 155, `Hiện có: ${currentCount} ${cfg.unit}`, {
+        fontFamily: FONT_UI,
+        fontSize: '13.5px',
         fontStyle: '800',
         color: '#ffd166'
       }).setOrigin(0.5);
@@ -323,12 +330,12 @@ export class ShopModal {
       const btnSingleW = 120;
       const btnSingleH = 34;
       const btnSingleX = -66;
-      const btnSingleY = -cardH / 2 + 152;
+      const btnSingleY = -cardH / 2 + 196;
 
       const btnSingle = scene.add.container(btnSingleX, btnSingleY);
       const bsBg = scene.add.graphics();
       const bsTxt = scene.add.text(0, 0, '', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '12px',
         fontStyle: '900',
         color: '#ffd700'
@@ -404,12 +411,12 @@ export class ShopModal {
       const btnPackW = 120;
       const btnPackH = 34;
       const btnPackX = 66;
-      const btnPackY = -cardH / 2 + 152;
+      const btnPackY = -cardH / 2 + 196;
 
       const btnPack = scene.add.container(btnPackX, btnPackY);
       const bpBg = scene.add.graphics();
       const bpTxt = scene.add.text(0, 0, '', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '12px',
         fontStyle: '900',
         color: '#ffffff'
@@ -420,7 +427,7 @@ export class ShopModal {
       tagBg.fillStyle(0xff0054, 1);
       tagBg.fillRoundedRect(btnPackW / 2 - 38, -btnPackH / 2 - 7, 38, 15, 4);
       const tagTxt = scene.add.text(btnPackW / 2 - 19, -btnPackH / 2, cfg.discount, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '10px',
         fontStyle: '900',
         color: '#ffffff'
@@ -494,15 +501,15 @@ export class ShopModal {
       });
 
       // Purchase Button C: Pack (x10) Full Width with -30% SUPER DISCOUNT
-      const btnPack10W = cardW - 32;
-      const btnPack10H = 42;
+      const btnPack10W = cardW - 28;
+      const btnPack10H = 40;
       const btnPack10X = 0;
-      const btnPack10Y = cardH / 2 - 32;
+      const btnPack10Y = -cardH / 2 + 246;
 
       const btnPack10 = scene.add.container(btnPack10X, btnPack10Y);
       const bp10Bg = scene.add.graphics();
       const bp10Txt = scene.add.text(0, 0, '', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '12.5px',
         fontStyle: '900',
         color: '#ffffff'
@@ -511,12 +518,12 @@ export class ShopModal {
       // Super discount tag on top edge
       const tag10Bg = scene.add.graphics();
       tag10Bg.fillStyle(0xd90429, 1);
-      tag10Bg.fillRoundedRect(btnPack10W / 2 - 86, -btnPack10H / 2 - 9, 86, 18, 5);
+      tag10Bg.fillRoundedRect(btnPack10W / 2 - 86, -btnPack10H / 2 - 7, 86, 17, 5);
       tag10Bg.lineStyle(1, 0xffd700, 0.9);
-      tag10Bg.strokeRoundedRect(btnPack10W / 2 - 86, -btnPack10H / 2 - 9, 86, 18, 5);
+      tag10Bg.strokeRoundedRect(btnPack10W / 2 - 86, -btnPack10H / 2 - 7, 86, 17, 5);
 
-      const tag10Txt = scene.add.text(btnPack10W / 2 - 43, -btnPack10H / 2, '🔥 GIẢM -30%', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+      const tag10Txt = scene.add.text(btnPack10W / 2 - 43, -btnPack10H / 2 + 1, '🔥 GIẢM -30%', {
+        fontFamily: FONT_UI,
         fontSize: '10px',
         fontStyle: '900',
         color: '#ffd700'
@@ -616,28 +623,31 @@ export class ShopModal {
     // Left Chest Icon Halo
     const chestHalo = scene.add.graphics();
     chestHalo.fillStyle(0xffb703, 0.2);
-    chestHalo.fillCircle(-bundleW / 2 + 55, 0, 36);
+    chestHalo.fillCircle(-bundleW / 2 + 56, 0, 40);
     chestHalo.lineStyle(2, 0xffd700, 0.9);
-    chestHalo.strokeCircle(-bundleW / 2 + 55, 0, 36);
+    chestHalo.strokeCircle(-bundleW / 2 + 56, 0, 40);
 
-    const chestIcon = scene.add.text(-bundleW / 2 + 55, 0, '🎁', {
-      fontSize: '38px'
-    }).setOrigin(0.5);
+    const hasLuckyBag = scene.textures.exists('icon_lucky_bag');
+    const chestIcon: Phaser.GameObjects.GameObject = hasLuckyBag
+      ? scene.add.image(-bundleW / 2 + 56, 0, 'icon_lucky_bag').setDisplaySize(72, 72)
+      : scene.add.text(-bundleW / 2 + 56, 0, '🎁', {
+          fontSize: '44px'
+        }).setOrigin(0.5);
 
     // Left Content Column
-    const bTitle = scene.add.text(-bundleW / 2 + 108, -32, 'RƯƠNG QUÂN NHU TOÀN NĂNG', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const bTitle = scene.add.text(-bundleW / 2 + 116, -32, 'RƯƠNG QUÂN NHU TOÀN NĂNG', {
+      fontFamily: FONT_UI,
       fontSize: '18px',
       fontStyle: '900',
       color: '#ffd700'
     });
 
     const bDesc = scene.add.text(
-      -bundleW / 2 + 108,
+      -bundleW / 2 + 116,
       -8,
       'Gói chuẩn bị sinh tử: 3 Bình Gợi Ý 💡 + 2 Quạt Đổi Bảng 🔀 + 1 Búa Sét Trảm Quái ⚡',
       {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '13.5px',
         fontStyle: 'bold',
         color: '#ffffff'
@@ -645,11 +655,11 @@ export class ShopModal {
     );
 
     const bBadge = scene.add.text(
-      -bundleW / 2 + 108,
+      -bundleW / 2 + 116,
       18,
       '🔥 TIẾT KIỆM 700 XU VÀNG (-16% so với giá mua lẻ)',
       {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '13px',
         fontStyle: '900',
         color: '#00f5d4'
@@ -665,7 +675,7 @@ export class ShopModal {
     const bBtn = scene.add.container(bBtnX, bBtnY);
     const bbBg = scene.add.graphics();
     const bbTxt = scene.add.text(0, 0, '', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '14px',
       fontStyle: '900',
       color: '#ffffff'

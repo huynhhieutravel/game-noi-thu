@@ -7,10 +7,8 @@ export class TextureGenerator {
    */
   public static generateAll(scene: Phaser.Scene): void {
     this.createTileBaseTextures(scene);
-    this.createYokaiCharacterTextures(scene);
     this.createModifierTextures(scene);
     this.createParticleTextures(scene);
-    this.createStagePreviewTextures(scene);
     this.createShrineModalDecorations(scene);
   }
 

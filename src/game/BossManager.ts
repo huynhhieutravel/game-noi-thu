@@ -1,4 +1,5 @@
 import { BossConfig, TileState } from '../types';
+import { CombatEngine } from './CombatEngine';
 
 export interface BossEvents {
   onDamaged?: (currentHp: number, maxHp: number, damage: number) => void;
@@ -9,6 +10,8 @@ export interface BossEvents {
     skillType?: string,
     swappedPairs?: { t1: TileState; t2: TileState }[]
   ) => void;
+  onBossAttackPlayer?: (damage: number, isEnraged: boolean, skillName: string) => void;
+  onEnrageTriggered?: () => void;
   onDefeated?: () => void;
 }
 
@@ -19,6 +22,8 @@ export class BossManager {
   private totalHeads: number;
   private actionTimer: number = 0;
   private isDefeated: boolean = false;
+  private isEnraged: boolean = false;
+  private attackPower: number = CombatEngine.DEFAULT_BASE_BOSS_ATTACK;
   private events: BossEvents;
 
   constructor(config: BossConfig, events: BossEvents = {}) {
@@ -28,6 +33,7 @@ export class BossManager {
     this.headsRemaining = this.totalHeads;
     this.events = events;
     this.actionTimer = config.actionIntervalSeconds || 7;
+    this.attackPower = (config as any).attackPower || CombatEngine.DEFAULT_BASE_BOSS_ATTACK;
   }
 
   public applyDamage(damage: number): { defeated: boolean; headCut: boolean } {
@@ -37,6 +43,12 @@ export class BossManager {
     this.currentHp = Math.max(0, this.currentHp - damage);
 
     this.events.onDamaged?.(this.currentHp, this.config.maxHp, damage);
+
+    // Check Enrage Phase (< 35% HP)
+    if (this.currentHp > 0 && !this.isEnraged && CombatEngine.checkEnrage(this.currentHp, this.config.maxHp)) {
+      this.isEnraged = true;
+      this.events.onEnrageTriggered?.();
+    }
 
     // Calculate heads based on remaining HP proportion
     const hpPerHead = this.config.maxHp / this.totalHeads;
@@ -66,16 +78,28 @@ export class BossManager {
     this.actionTimer -= deltaSeconds;
     if (this.actionTimer <= 0) {
       this.triggerBossAction(grid, rows, cols);
-      this.actionTimer = this.config.actionIntervalSeconds || 7;
+      const baseInterval = this.config.actionIntervalSeconds || 7;
+      this.actionTimer = this.isEnraged
+        ? Math.max(1.5, baseInterval * CombatEngine.ENRAGE_SPEED_MULTIPLIER)
+        : baseInterval;
     }
   }
 
   private triggerBossAction(grid: TileState[][], rows: number, cols: number): void {
-    if (this.config.skills.length === 0) return;
-
-    const skill = this.config.skills[Math.floor(Math.random() * this.config.skills.length)];
+    const hasSkills = this.config.skills && this.config.skills.length > 0;
+    const skill = hasSkills
+      ? this.config.skills[Math.floor(Math.random() * this.config.skills.length)]
+      : { type: 'normal_strike', name: 'Đòn Sấm Sét', description: 'Cự Trùm giáng đòn chí mạng' };
     const type = skill.type;
     const swappedPairs: { t1: TileState; t2: TileState }[] = [];
+
+    // Active Combat: Boss deals real damage to player Combat HP
+    this.events.onBossAttackPlayer?.(this.attackPower, this.isEnraged, skill.name);
+
+    if (!grid || grid.length <= 1) {
+      this.events.onBossSkillTriggered?.(skill.name, skill.description, type, swappedPairs);
+      return;
+    }
 
     // 1. Freeze / Lock & Web / Mist skills
     if (
@@ -87,8 +111,8 @@ export class BossManager {
       const candidates: TileState[] = [];
       for (let r = 1; r <= rows; r++) {
         for (let c = 1; c <= cols; c++) {
-          const tile = grid[r][c];
-          if (!tile.isCleared && tile.characterId && tile.modifier === 'none' && !tile.isLocked) {
+          const tile = grid[r]?.[c];
+          if (tile && !tile.isCleared && tile.characterId && tile.modifier === 'none' && !tile.isLocked) {
             candidates.push(tile);
           }
         }
@@ -117,8 +141,8 @@ export class BossManager {
       let currentObstacles = 0;
       for (let r = 1; r <= rows; r++) {
         for (let c = 1; c <= cols; c++) {
-          const tile = grid[r][c];
-          if (!tile.isCleared && (tile.modifier === 'stone' || tile.modifier === 'barricade')) {
+          const tile = grid[r]?.[c];
+          if (tile && !tile.isCleared && (tile.modifier === 'stone' || tile.modifier === 'barricade')) {
             currentObstacles++;
           }
         }
@@ -128,8 +152,8 @@ export class BossManager {
         const clearedSlots: TileState[] = [];
         for (let r = 1; r <= rows; r++) {
           for (let c = 1; c <= cols; c++) {
-            const tile = grid[r][c];
-            if (tile.isCleared) {
+            const tile = grid[r]?.[c];
+            if (tile && tile.isCleared) {
               clearedSlots.push(tile);
             }
           }
@@ -159,8 +183,8 @@ export class BossManager {
       const activeTiles: TileState[] = [];
       for (let r = 1; r <= rows; r++) {
         for (let c = 1; c <= cols; c++) {
-          const tile = grid[r][c];
-          if (!tile.isCleared && tile.characterId && tile.modifier === 'none' && !tile.isLocked) {
+          const tile = grid[r]?.[c];
+          if (tile && !tile.isCleared && tile.characterId && tile.modifier === 'none' && !tile.isLocked) {
             activeTiles.push(tile);
           }
         }
@@ -231,7 +255,30 @@ export class BossManager {
     return this.isDefeated;
   }
 
+  public isBossEnraged(): boolean {
+    return this.isEnraged;
+  }
+
+  public getAttackPower(): number {
+    return this.attackPower;
+  }
+
+  public setAttackPower(power: number): void {
+    this.attackPower = power;
+  }
+
   public getActionProgress(): number {
     return 1 - (Math.max(0, this.actionTimer) / this.config.actionIntervalSeconds);
+  }
+
+  public setHp(hp: number): void {
+    this.currentHp = Math.max(0, Math.min(this.config.maxHp, hp));
+    const hpPerHead = this.config.maxHp / this.totalHeads;
+    this.headsRemaining = Math.max(1, Math.ceil(this.currentHp / hpPerHead));
+    this.isEnraged = CombatEngine.checkEnrage(this.currentHp, this.config.maxHp);
+  }
+
+  public destroy(): void {
+    this.events = {};
   }
 }

@@ -10,12 +10,24 @@ import { GameScene } from './scenes/GameScene';
 import { MainMenuScene } from './scenes/MainMenuScene';
 import { AudioSystem } from './systems/AudioSystem';
 
-// Enhance all Phaser Text objects globally with crisp 2x resolution
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (e) => {
+    console.error('🔥 [WINDOW ERROR]:', e.message, 'at', e.filename, ':', e.lineno, e.error);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('🔥 [UNHANDLED REJECTION]:', e.reason);
+  });
+}
+
+// Enhance all Phaser Text objects globally with crisp Retina resolution
 const origText = Phaser.GameObjects.GameObjectFactory.prototype.text;
 Phaser.GameObjects.GameObjectFactory.prototype.text = function (x, y, text, style) {
   const mergedStyle = Object.assign({ resolution: 2 }, style);
   return origText.call(this, x, y, text, mergedStyle);
 };
+
+import { registerTypographyExtensions } from './styles/typography';
+registerTypographyExtensions(Phaser);
 
 const initialDims = getScreenDimensions();
 
@@ -33,7 +45,9 @@ const config: Phaser.Types.Core.GameConfig = {
   render: {
     pixelArt: false,
     antialias: true,
-    roundPixels: true
+    antialiasGL: false,
+    roundPixels: true,
+    powerPreference: 'default'
   },
   scene: [BootScene, MainMenuScene, GameScene, CollectionScene]
 };
@@ -107,6 +121,26 @@ function startGame(): void {
           setupRetinaCamera(scene);
         });
       }
+    });
+
+    const attachWebGLEventListeners = (cvs: HTMLCanvasElement | null) => {
+      if (cvs && !(cvs as any).__webglListenersAttached) {
+        (cvs as any).__webglListenersAttached = true;
+        cvs.addEventListener('webglcontextlost', (e) => {
+          e.preventDefault();
+          console.warn('⚡️ [WebGL] webglcontextlost caught gracefully to prevent process crash');
+        }, false);
+        cvs.addEventListener('webglcontextrestored', () => {
+          console.log('⚡️ [WebGL] webglcontextrestored');
+        }, false);
+      }
+    };
+
+    if (game.canvas) {
+      attachWebGLEventListeners(game.canvas);
+    }
+    game.events.once('ready', () => {
+      attachWebGLEventListeners(game.canvas);
     });
   }
 }

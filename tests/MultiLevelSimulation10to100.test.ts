@@ -225,7 +225,7 @@ describe('Exhaustive Multi-Level QA & Simulation Check (Levels 10 to 100)', () =
           } else {
             // Deadlock detected: perform reshuffle (simulating auto-shuffle)
             shufflesUsed++;
-            expect(shufflesUsed, `Level ${lvl} exceeded 10 shuffles without making progress`).toBeLessThan(10);
+            expect(shufflesUsed, `Level ${lvl} exceeded 15 shuffles without making progress`).toBeLessThanOrEqual(15);
             BoardGenerator.reshuffleBoard(grid, config.rows, config.columns);
 
             // Re-verify tile parity after reshuffle

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { TileState } from '../types';
 import { ObstacleInfoModal } from './ObstacleInfoModal';
 import { TextureGenerator } from './TextureGenerator';
+import { FONT_UI } from '../styles/typography';
 
 export class TileView extends Phaser.GameObjects.Container {
   public static readonly BASE_DEPTH: number = 5;
@@ -172,11 +173,28 @@ export class TileView extends Phaser.GameObjects.Container {
     }
 
     const isStone = this.tileState.modifier === 'stone';
+    const isFogged = this.tileState.isFogged || this.tileState.modifier === 'fog';
     const isObstacle = isStone || this.tileState.modifier === 'thorn' || this.tileState.modifier === 'barricade';
     this.bgSprite.setVisible(true);
-    this.charSprite.setVisible(!isStone && !!this.tileState.characterId);
+    this.charSprite.setVisible(!isStone && !isFogged && !!this.tileState.characterId);
 
-    if (this.tileState.modifier === 'ice') {
+    if (isFogged) {
+      const fogGraphic = this.scene.add.graphics();
+      fogGraphic.fillStyle(0x0e091b, 0.94);
+      fogGraphic.fillRoundedRect(-tileSize / 2 + 3, -tileSize / 2 + 3, tileSize - 6, tileSize - 6, 8);
+      fogGraphic.lineStyle(1.5, 0x7b2cbf, 0.85);
+      fogGraphic.strokeRoundedRect(-tileSize / 2 + 3, -tileSize / 2 + 3, tileSize - 6, tileSize - 6, 8);
+
+      const fogTxt = this.scene.add.text(0, 0, '🌫️', {
+        fontSize: `${Math.round(tileSize * 0.42)}px`
+      }).setOrigin(0.5);
+
+      const fogContainer = this.scene.add.container(0, 0, [fogGraphic, fogTxt]);
+      this.modSprite = fogContainer as any;
+      if (this.modSprite) {
+        this.add(this.modSprite);
+      }
+    } else if (this.tileState.modifier === 'ice') {
       this.modSprite = this.scene.add.image(0, 0, 'mod_ice').setDisplaySize(tileSize * 0.94, tileSize * 0.94);
       this.add(this.modSprite);
     } else if (this.tileState.modifier === 'stone') {
@@ -266,7 +284,7 @@ export class TileView extends Phaser.GameObjects.Container {
       pillBg.strokeRoundedRect(-badgeW / 2, -badgeH / 2, badgeW, badgeH, 7);
 
       const pillText = this.scene.add.text(0, 0, `${icon}${lvlStr}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '12px',
         fontStyle: '900',
         color: themeHex,
@@ -338,7 +356,7 @@ export class TileView extends Phaser.GameObjects.Container {
 
       const timeLeft = Math.ceil(this.tileState.luckyPotTimeLeft !== undefined ? this.tileState.luckyPotTimeLeft : 10);
       this.luckyTimerText = this.scene.add.text(tileSize / 2 - 6, -tileSize / 2 + 8, `${timeLeft}s`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '14px',
         fontStyle: '900',
         color: '#ffd700',
@@ -627,7 +645,7 @@ export class TileView extends Phaser.GameObjects.Container {
     bg.strokeRoundedRect(-105, -18, 210, 36, 10);
 
     const txt = this.scene.add.text(0, 0, customLabel || '⛔ VẬT CẢN (ĐÁ)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#ff595e'

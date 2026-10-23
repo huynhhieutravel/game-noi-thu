@@ -1,5 +1,5 @@
-// Yokai Onet - Offline Service Worker (Cache-First Offline Engine)
-const CACHE_NAME = 'yokai-onet-offline-v1';
+// Foxy Pair - Offline Service Worker (Cache-First Offline Engine)
+const CACHE_NAME = 'foxy-pair-offline-v1';
 
 // On install, activate immediately
 self.addEventListener('install', (event) => {

@@ -37,3 +37,21 @@ export function setupRetinaCamera(scene: Phaser.Scene): void {
   cam.setScroll(-offsetX, 0);
 }
 
+/**
+ * Safe Area Insets for mobile notch / Dynamic Island and Home Bar.
+ * In landscape mode, iPhone Dynamic Island / notch occupies left/right edges (cushioned by camera offset).
+ * Vertical insets guard against top status bar and bottom Home Indicator gesture bar.
+ */
+export const SAFE_AREA_INSETS = {
+  TOP: 14,
+  BOTTOM: 20,
+  LEFT: 44,
+  RIGHT: 44
+};
+
+export function isWithinSafeAreaY(y: number, height = 0): boolean {
+  const topEdge = y - height / 2;
+  const bottomEdge = y + height / 2;
+  return topEdge >= 0 && bottomEdge <= (GAME_HEIGHT - SAFE_AREA_INSETS.BOTTOM);
+}
+

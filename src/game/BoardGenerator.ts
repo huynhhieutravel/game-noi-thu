@@ -45,11 +45,10 @@ export class BoardGenerator {
     const totalPairs = playableSlots / 2;
     const characterList: string[] = [];
 
-    // Guarantee diverse character distribution (Classic Onet / Pikachu standard: max 2 pairs = 4 tiles per character)
-    const targetUniqueCount = Math.min(
-      Math.max(characterPool.length, Math.ceil(totalPairs / 2)),
-      totalPairs
-    );
+    // Respect exact characterPool count while ensuring it does not exceed totalPairs
+    const targetUniqueCount = characterPool.length > 0
+      ? Math.min(characterPool.length, totalPairs)
+      : Math.min(Math.ceil(totalPairs / 2), totalPairs);
 
     let expandedPool = characterPool.filter(id => !CharacterRegistry.isBoss(id));
     if (expandedPool.length < targetUniqueCount) {
@@ -528,30 +527,175 @@ export class BoardGenerator {
 
     // Find any reachable pair among clickable regular tiles first
     const clickableTiles = regularTiles.filter(t => t.modifier !== 'thorn' && t.modifier !== 'barricade' && t.modifier !== 'stone' && t.modifier !== 'ice' && t.modifier !== 'web');
-    const targetPool = clickableTiles.length >= 2 ? clickableTiles : regularTiles.length >= 2 ? regularTiles : movableTiles;
-    for (let i = 0; i < targetPool.length; i++) {
-      for (let j = i + 1; j < targetPool.length; j++) {
-        const t1 = targetPool[i];
-        const t2 = targetPool[j];
-        const path = PathFinder.findPath(boardGridAdapter, { r: t1.r, c: t1.c }, { r: t2.r, c: t2.c }, portals);
-        if (path) {
-          const matchChar = t1.characterId || pairChars[0] || 'kasa_obake';
-          t1.characterId = matchChar;
-          if (t2.characterId !== matchChar) {
-            // Find another tile with matchChar and swap with t2 to preserve exact pair parity
-            const otherPartner = regularTiles.find(t => t !== t1 && t.characterId === matchChar) ||
-                                 movableTiles.find(t => t !== t1 && t !== t2 && !specialSet.has(t) && t.characterId === matchChar);
-            if (otherPartner && otherPartner !== t2) {
+    let targetPool = clickableTiles.length >= 2 ? clickableTiles : regularTiles.length >= 2 ? regularTiles : movableTiles;
+    
+    const tryConnectPair = (pool: TileState[]): boolean => {
+      for (let i = 0; i < pool.length; i++) {
+        for (let j = i + 1; j < pool.length; j++) {
+          const t1 = pool[i];
+          const t2 = pool[j];
+          const path = PathFinder.findPath(boardGridAdapter, { r: t1.r, c: t1.c }, { r: t2.r, c: t2.c }, portals);
+          if (path) {
+            // Un-trap both tiles so findFirstAvailableMatch can immediately click and match them
+            for (const t of [t1, t2]) {
+              if (t.modifier !== 'none' && t.modifier !== 'stone') {
+                t.modifier = 'none';
+                t.modifierLevel = 0;
+                t.iceLayers = 0;
+                t.isLocked = false;
+              }
+            }
+
+            if (t1.characterId === t2.characterId) {
+              return true;
+            }
+
+            // Strategy A: Find partner of t1 outside of {t1, t2} and outside specialSet
+            const partnerOfT1 = movableTiles.find(
+              t => t !== t1 && t !== t2 && !specialSet.has(t) && t.characterId === t1.characterId
+            );
+            if (partnerOfT1) {
               const oldT2Char = t2.characterId;
-              t2.characterId = matchChar;
-              otherPartner.characterId = oldT2Char;
-            } else {
-              // Unify both tiles to matchChar or t2's character to strictly maintain parity
-              t2.characterId = matchChar;
+              t2.characterId = t1.characterId;
+              partnerOfT1.characterId = oldT2Char;
+              return true;
+            }
+
+            // Strategy B: Find partner of t2 outside of {t1, t2} and outside specialSet
+            const partnerOfT2 = movableTiles.find(
+              t => t !== t1 && t !== t2 && !specialSet.has(t) && t.characterId === t2.characterId
+            );
+            if (partnerOfT2) {
+              const oldT1Char = t1.characterId;
+              t1.characterId = t2.characterId;
+              partnerOfT2.characterId = oldT1Char;
+              return true;
+            }
+
+            // Strategy C: Find an existing pair outside {t1, t2} and swap both into (t1, t2)
+            const availableNonSpecial = movableTiles.filter(t => t !== t1 && t !== t2 && !specialSet.has(t));
+            let externalPair: [TileState, TileState] | null = null;
+            for (let a = 0; a < availableNonSpecial.length && !externalPair; a++) {
+              for (let b = a + 1; b < availableNonSpecial.length; b++) {
+                if (availableNonSpecial[a].characterId === availableNonSpecial[b].characterId) {
+                  externalPair = [availableNonSpecial[a], availableNonSpecial[b]];
+                  break;
+                }
+              }
+            }
+
+            if (externalPair) {
+              const [pA, pB] = externalPair;
+              const sharedChar = pA.characterId;
+              const oldT1 = t1.characterId;
+              const oldT2 = t2.characterId;
+              t1.characterId = sharedChar;
+              t2.characterId = sharedChar;
+              pA.characterId = oldT1;
+              pB.characterId = oldT2;
+              return true;
             }
           }
-          return true;
         }
+      }
+      return false;
+    };
+
+    if (tryConnectPair(targetPool)) {
+      return true;
+    }
+
+    // If still blocked, rescue all trapped movable tiles and retry connection
+    for (const t of movableTiles) {
+      if (t.modifier !== 'none' && t.modifier !== 'stone') {
+        t.modifier = 'none';
+        t.modifierLevel = 0;
+        t.iceLayers = 0;
+        t.isLocked = false;
+      }
+    }
+    if (tryConnectPair(movableTiles)) {
+      return true;
+    }
+
+    // 5. Ultimate Geometric Rescue: If active positions are geometrically blocked,
+    // relocate one tile of an identical pair to an empty slot that can reach its partner!
+    const activeTilePairs: [TileState, TileState][] = [];
+    const charGroups: Record<string, TileState[]> = {};
+    for (const t of movableTiles) {
+      if (t.characterId) {
+        if (!charGroups[t.characterId]) charGroups[t.characterId] = [];
+        charGroups[t.characterId].push(t);
+      }
+    }
+    for (const group of Object.values(charGroups)) {
+      for (let i = 0; i < group.length; i += 2) {
+        if (group[i] && group[i + 1]) {
+          activeTilePairs.push([group[i], group[i + 1]]);
+        }
+      }
+    }
+
+    if (activeTilePairs.length > 0) {
+      const [anchor, toRelocate] = activeTilePairs[0];
+      const emptySlots: { r: number; c: number }[] = [];
+      for (let r = 1; r <= rows; r++) {
+        for (let c = 1; c <= cols; c++) {
+          const cell = grid[r][c];
+          if (cell.isCleared && cell.modifier !== 'stone') {
+            emptySlots.push({ r, c });
+          }
+        }
+      }
+
+      // Check adjacent empty slots first (guaranteed 0 turns straight connection)
+      const dirs = [{ r: -1, c: 0 }, { r: 1, c: 0 }, { r: 0, c: -1 }, { r: 0, c: 1 }];
+      let targetEmpty: { r: number; c: number } | null = null;
+      for (const d of dirs) {
+        const nr = anchor.r + d.r;
+        const nc = anchor.c + d.c;
+        if (nr >= 1 && nr <= rows && nc >= 1 && nc <= cols) {
+          const cell = grid[nr][nc];
+          if (cell.isCleared && cell.modifier !== 'stone') {
+            targetEmpty = { r: nr, c: nc };
+            break;
+          }
+        }
+      }
+
+      // If no adjacent empty slot, search any empty slot that connects to anchor
+      if (!targetEmpty) {
+        for (const slot of emptySlots) {
+          const testPath = PathFinder.findPath(boardGridAdapter, { r: anchor.r, c: anchor.c }, slot, portals);
+          if (testPath) {
+            targetEmpty = slot;
+            break;
+          }
+        }
+      }
+
+      if (targetEmpty) {
+        const oldR = toRelocate.r;
+        const oldC = toRelocate.c;
+        const movingChar = toRelocate.characterId;
+
+        // Clear old slot
+        grid[oldR][oldC].isCleared = true;
+        grid[oldR][oldC].characterId = null;
+        grid[oldR][oldC].modifier = 'none';
+        grid[oldR][oldC].modifierLevel = 0;
+        grid[oldR][oldC].iceLayers = 0;
+        grid[oldR][oldC].isLocked = false;
+
+        // Occupy target empty slot
+        grid[targetEmpty.r][targetEmpty.c].isCleared = false;
+        grid[targetEmpty.r][targetEmpty.c].characterId = movingChar;
+        grid[targetEmpty.r][targetEmpty.c].modifier = 'none';
+        grid[targetEmpty.r][targetEmpty.c].modifierLevel = 0;
+        grid[targetEmpty.r][targetEmpty.c].iceLayers = 0;
+        grid[targetEmpty.r][targetEmpty.c].isLocked = false;
+
+        return true;
       }
     }
 

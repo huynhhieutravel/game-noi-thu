@@ -234,46 +234,62 @@ export class LootManager {
     }
   ];
 
-  // Calibrated Hardcore RPG / Gacha Drop Rates
+  // Calibrated RPG / Gacha Drop Rates
   public static readonly DROP_RATES: Record<'easy' | 'medium' | 'hard', DifficultyDropRates> = {
     easy: {
-      mainShardRate: 0.010, // 1.0% (~100 trận / mảnh)
-      subShardRate: 0.003,  // 0.3% (~330 trận / mảnh)
-      itemRate: 0.02,       // 2%
+      mainShardRate: 0.030, // 3.0%
+      subShardRate: 0.010,  // 1.0%
+      itemRate: 0.03,       // 3%
       expMultiplier: 1.0,
       coinMultiplier: 1.0
     },
     medium: {
-      mainShardRate: 0.035, // 3.5% (~28 trận / mảnh)
-      subShardRate: 0.010,  // 1.0% (~100 trận / mảnh)
-      itemRate: 0.04,       // 4%
+      mainShardRate: 0.040, // 4.0%
+      subShardRate: 0.015,  // 1.5%
+      itemRate: 0.05,       // 5%
       expMultiplier: 1.25,
       coinMultiplier: 1.2
     },
     hard: {
-      mainShardRate: 0.075, // 7.5% (~13 trận / mảnh)
-      subShardRate: 0.020,  // 2.0% (~50 trận / mảnh)
-      itemRate: 0.07,       // 7%
+      mainShardRate: 0.080, // 8.0%
+      subShardRate: 0.050,  // 5.0%
+      itemRate: 0.08,       // 8%
       expMultiplier: 1.6,
       coinMultiplier: 1.5
+    }
+  };
+
+  // Mini-Boss Stage Rates (Levels ending in 5: 5, 15, ..., 95)
+  public static readonly MINI_BOSS_RATES: Record<'easy' | 'medium' | 'hard', { mainShardRate: number; subShardRate: number }> = {
+    easy: {
+      mainShardRate: 0.040, // 4.0%
+      subShardRate: 0.015   // 1.5%
+    },
+    medium: {
+      mainShardRate: 0.080, // 8.0%
+      subShardRate: 0.030   // 3.0%
+    },
+    hard: {
+      mainShardRate: 0.120, // 12.0%
+      subShardRate: 0.050   // 5.0%
     }
   };
 
   // Boss Stage Rates (Levels ending in 0: 10, 20, ..., 100)
   public static readonly BOSS_RATES: Record<'easy' | 'medium' | 'hard', BossDropRates> = {
     easy: {
-      bossShardRate: 0.08, // 8%
+      bossShardRate: 0.12, // 12%
       bonusShardOn3Stars: 0,
       expMultiplier: 1.3
     },
     medium: {
-      bossShardRate: 0.18, // 18%
+      bossShardRate: 0.22, // 22%
       bonusShardOn3Stars: 0,
       expMultiplier: 1.6
     },
     hard: {
-      bossShardRate: 0.30, // 30%
-      bonusShardOn3Stars: 1,
+      bossShardRate: 0.35, // 35%
+      bonusShardOn3Stars: 1, // Guaranteed +1 mảnh khi đạt 3 sao chế độ Khó!
       expMultiplier: 2.0
     }
   };
@@ -370,8 +386,16 @@ export class LootManager {
     }
 
     // 6. Shard Rates
-    let mainShardRate = { easy: 0.010, medium: 0.035, hard: 0.075 };
-    let subShardRate = { easy: 0.003, medium: 0.010, hard: 0.020 };
+    let mainShardRate = {
+      easy: this.DROP_RATES.easy.mainShardRate,
+      medium: this.DROP_RATES.medium.mainShardRate,
+      hard: this.DROP_RATES.hard.mainShardRate
+    };
+    let subShardRate = {
+      easy: this.DROP_RATES.easy.subShardRate,
+      medium: this.DROP_RATES.medium.subShardRate,
+      hard: this.DROP_RATES.hard.subShardRate
+    };
 
     if (isBoss) {
       mainShardRate = {
@@ -381,8 +405,16 @@ export class LootManager {
       };
       subShardRate = { easy: 0, medium: 0, hard: 0 };
     } else if (isMiniBoss) {
-      mainShardRate = { easy: 0.020, medium: 0.050, hard: 0.100 };
-      subShardRate = { easy: 0.008, medium: 0.020, hard: 0.040 };
+      mainShardRate = {
+        easy: this.MINI_BOSS_RATES.easy.mainShardRate,
+        medium: this.MINI_BOSS_RATES.medium.mainShardRate,
+        hard: this.MINI_BOSS_RATES.hard.mainShardRate
+      };
+      subShardRate = {
+        easy: this.MINI_BOSS_RATES.easy.subShardRate,
+        medium: this.MINI_BOSS_RATES.medium.subShardRate,
+        hard: this.MINI_BOSS_RATES.hard.subShardRate
+      };
     }
 
     // 7. Rewards Matrix Calculation

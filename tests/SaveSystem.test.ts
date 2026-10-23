@@ -97,6 +97,15 @@ describe('SaveSystem', () => {
     // 2. Level Up to Tier 1 Cap (Level 10)
     save.addCoins(10000); // Give plenty of coins
     for (let i = 1; i < 10; i++) {
+      // With 0 EXP, level up must fail
+      save.setCompanionExp(compId, 0);
+      const cannotLvl = save.canLevelUpCompanion(compId);
+      expect(cannotLvl.canLevelUp).toBe(false);
+      expect(cannotLvl.reason).toContain('Kinh Nghiệm');
+
+      // Grant sufficient EXP
+      const reqExp = save.getRequiredExpForNextLevel(1, i);
+      save.setCompanionExp(compId, reqExp);
       const res = save.levelUpCompanion(compId);
       expect(res.success).toBe(true);
       expect(res.newLevel).toBe(i + 1);
@@ -220,5 +229,92 @@ describe('SaveSystem', () => {
     expect(res2.newExp).toBe(20);
     expect(save.getCompanionLevel(compId)).toBe(2);
     expect(save.getCompanionExp(compId)).toBe(20);
+  });
+
+  it('should auto-save, retrieve, and clear active game session with expiry check', () => {
+    const save = SaveSystem.getInstance();
+
+    // 1. Initially no active session
+    expect(save.getActiveSession()).toBeNull();
+
+    // 2. Save active session
+    save.saveActiveSession({
+      levelId: 'level_07',
+      difficulty: 'hard',
+      score: 1850,
+      lives: 4,
+      timeRemaining: 112,
+      timestamp: Date.now()
+    });
+
+    const active = save.getActiveSession();
+    expect(active).not.toBeNull();
+    expect(active?.levelId).toBe('level_07');
+    expect(active?.score).toBe(1850);
+    expect(active?.lives).toBe(4);
+    expect(active?.difficulty).toBe('hard');
+
+    // 3. Expired session (> 45 min) should auto-clear
+    save.saveActiveSession({
+      levelId: 'level_07',
+      difficulty: 'easy',
+      score: 500,
+      lives: 3,
+      timeRemaining: 50,
+      timestamp: Date.now() - (46 * 60 * 1000)
+    });
+    expect(save.getActiveSession()).toBeNull();
+
+    // 4. Clear active session explicitly
+    save.saveActiveSession({
+      levelId: 'level_08',
+      difficulty: 'easy',
+      score: 200,
+      lives: 5,
+      timeRemaining: 180,
+      timestamp: Date.now()
+    });
+    expect(save.getActiveSession()?.levelId).toBe('level_08');
+    save.clearActiveSession();
+    expect(save.getActiveSession()).toBeNull();
+  });
+
+  it('ADR 0018: Universal Spirit Shard economy and fallback consumption for summoning and evolution', () => {
+    const save = SaveSystem.getInstance();
+    save.resetSave();
+
+    // 1. Initial universal shards
+    expect(save.getUniversalShards()).toBe(0);
+    save.addUniversalShards(25);
+    expect(save.getUniversalShards()).toBe(25);
+
+    // 2. Summoning with partial companion shards + universal shard fallback
+    const targetComp = 'orochi_serpent';
+    save.addCompanionShards(targetComp, 12); // Needs 20, has 12 -> needs 8 from universal
+    const summonCheck = save.canSummonCompanion(targetComp);
+    expect(summonCheck.canSummon).toBe(true);
+
+    const summonRes = save.summonCompanion(targetComp);
+    expect(summonRes.success).toBe(true);
+    expect(save.isCompanionUnlocked(targetComp)).toBe(true);
+    expect(save.getCompanionShards(targetComp)).toBe(0); // 12 consumed
+    expect(save.getUniversalShards()).toBe(17); // 25 - 8 = 17 remaining
+
+    // 3. Evolution with partial companion shards + universal shard fallback
+    // Evolve from Tier 1 to Tier 2 requires 50 shards + 1000 coins + Level 10
+    save.addCoins(5000);
+    save.setCompanionLevel(targetComp, 10);
+    save.addCompanionShards(targetComp, 40); // 40 specific shards
+    save.addUniversalShards(10); // Now 17 + 10 = 27 universal shards. Needed: 50 - 40 = 10
+
+    const evoCheck = save.canEvolveCompanion(targetComp);
+    expect(evoCheck.canEvolve).toBe(true);
+    expect(evoCheck.requiredShards).toBe(50);
+
+    const evoRes = save.evolveCompanion(targetComp);
+    expect(evoRes.success).toBe(true);
+    expect(evoRes.newTier).toBe(2);
+    expect(save.getCompanionShards(targetComp)).toBe(0); // 40 specific shards consumed
+    expect(save.getUniversalShards()).toBe(17); // 27 - 10 = 17 remaining
   });
 });

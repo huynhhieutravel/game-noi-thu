@@ -26,6 +26,24 @@ export class CharacterRegistry {
     return this.getAll().filter(c => c.collection === collection);
   }
 
+  public static readonly COMPANION_IDS = [
+    'inari_kitsune',
+    'ryujin_pearl',
+    'hi_no_tori',
+    'byakko_tiger',
+    'genbu_tortoise',
+    'kirin_sacred',
+    'raiju_thunder',
+    'yatagarasu_crow',
+    'nekomata_cat',
+    'orochi_serpent'
+  ];
+
+  public static isCompanion(char: CharacterData | string): boolean {
+    const id = typeof char === 'string' ? char : char?.id;
+    return !!id && this.COMPANION_IDS.includes(id);
+  }
+
   public static isBoss(char: CharacterData | string): boolean {
     const data = typeof char === 'string' ? this.get(char) : char;
     if (!data) return false;
@@ -40,7 +58,7 @@ export class CharacterRegistry {
   }
 
   public static getNonBossByCollection(collection: string): CharacterData[] {
-    return this.getByCollection(collection).filter(c => !this.isBoss(c));
+    return this.getByCollection(collection).filter(c => !this.isBoss(c) && !this.isCompanion(c));
   }
 
   public static getRarityColor(rarity: Rarity): number {

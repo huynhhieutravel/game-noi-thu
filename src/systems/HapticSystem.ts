@@ -67,7 +67,7 @@ export class HapticSystem {
   }
 
   /**
-   * Energetic double pulse on combo >= 2 or Fever mode
+   * Energetic double pulse on combo >= 2, Fever mode, or unlock success
    */
   public combo(): void {
     if (!this.isEnabled) return;
@@ -80,8 +80,12 @@ export class HapticSystem {
     }
   }
 
+  public success(): void {
+    this.combo();
+  }
+
   /**
-   * Soft buzz when move is blocked or invalid
+   * Soft buzz when move is blocked, invalid, or warning
    */
   public error(): void {
     if (!this.isEnabled) return;
@@ -92,6 +96,10 @@ export class HapticSystem {
     } catch {
       this.vibrate(45);
     }
+  }
+
+  public warning(): void {
+    this.error();
   }
 
   /**

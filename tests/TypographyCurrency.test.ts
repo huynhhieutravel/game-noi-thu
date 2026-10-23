@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatCurrency, FONT_UI, FONT_DISPLAY, FONT_WEIGHT } from '../src/styles/typography';
+import { formatCurrency, FONT_UI, FONT_DISPLAY, FONT_WEIGHT, Typography, registerTypographyExtensions } from '../src/styles/typography';
 import { GAME_HEIGHT, GAME_WIDTH } from '../src/constants';
 
 describe('Typography & Currency Formatting System', () => {
@@ -38,12 +38,78 @@ describe('Typography & Currency Formatting System', () => {
   });
 
   it('exports standardized font family and weight tokens', () => {
+    expect(FONT_DISPLAY).toContain('Plus Jakarta Sans');
     expect(FONT_DISPLAY).toContain('Philosopher');
     expect(FONT_UI).toContain('Plus Jakarta Sans');
     expect(FONT_WEIGHT.REGULAR).toBe('400');
     expect(FONT_WEIGHT.MEDIUM).toBe('600');
     expect(FONT_WEIGHT.BOLD).toBe('700');
     expect(FONT_WEIGHT.EXTRA_BOLD).toBe('800');
+    expect(FONT_WEIGHT.BLACK).toBe('900');
+  });
+
+  it('provides complete typography token presets for all 7 variants', () => {
+    const variants = ['display', 'heading', 'title', 'subtitle', 'body', 'badge', 'caption'] as const;
+    for (const v of variants) {
+      const style = Typography.style(v);
+      expect(style.fontFamily).toBeDefined();
+      expect(style.fontSize).toBeDefined();
+      expect(style.fontStyle).toBeDefined();
+      expect(style.color).toBeDefined();
+    }
+
+    // Specific token checks
+    expect(Typography.style('display').fontSize).toBe('32px');
+    expect(Typography.style('heading').fontSize).toBe('22px');
+    expect(Typography.style('title').fontSize).toBe('17px');
+    expect(Typography.style('subtitle').fontSize).toBe('13.5px');
+    expect(Typography.style('body').fontSize).toBe('12px');
+    expect(Typography.style('badge').fontSize).toBe('11px');
+    expect(Typography.style('caption').fontSize).toBe('9.5px');
+  });
+
+  it('correctly merges style overrides without mutating base tokens', () => {
+    const customStyle = Typography.style('heading', {
+      color: '#00ffcc',
+      fontSize: '26px'
+    });
+    expect(customStyle.color).toBe('#00ffcc');
+    expect(customStyle.fontSize).toBe('26px');
+    expect(customStyle.fontFamily).toBe(FONT_DISPLAY);
+
+    // Verify base token is untouched
+    const freshStyle = Typography.style('heading');
+    expect(freshStyle.color).toBe('#ffd700');
+    expect(freshStyle.fontSize).toBe('22px');
+  });
+
+  it('safely registers and invokes uiText and displayText extensions on GameObjectFactory', () => {
+    const mockFactoryProto: any = {
+      text: (x: number, y: number, text: string, style: any) => ({ x, y, text, style })
+    };
+    const mockPhaser = {
+      GameObjects: {
+        GameObjectFactory: {
+          prototype: mockFactoryProto
+        }
+      }
+    };
+
+    registerTypographyExtensions(mockPhaser);
+    expect(typeof mockFactoryProto.uiText).toBe('function');
+    expect(typeof mockFactoryProto.displayText).toBe('function');
+
+    const createdUi = mockFactoryProto.uiText(100, 200, 'Test UI', 'title', { color: '#ff0000' });
+    expect(createdUi.x).toBe(100);
+    expect(createdUi.y).toBe(200);
+    expect(createdUi.text).toBe('Test UI');
+    expect(createdUi.style.fontSize).toBe('17px');
+    expect(createdUi.style.color).toBe('#ff0000');
+
+    const createdDisplay = mockFactoryProto.displayText(50, 60, 'Test Display', 'heading');
+    expect(createdDisplay.text).toBe('Test Display');
+    expect(createdDisplay.style.fontFamily).toBe(FONT_DISPLAY);
+    expect(createdDisplay.style.fontSize).toBe('22px');
   });
 
   it('mathematically verifies booster buttons safety air gap on 8-row grids', () => {
@@ -60,11 +126,11 @@ describe('Typography & Currency Formatting System', () => {
     const lacquerFrameBottom = boardBottom + 16; // 585px
 
     // Compact booster tray:
-    const trayY = GAME_HEIGHT - 24; // 656px
-    const btnHeight = Math.round(92 * (132 / 290)); // 42px
-    const btnTopEdge = trayY - Math.round(btnHeight / 2); // 656 - 21 = 635px
+    const trayY = GAME_HEIGHT - 44; // 636px (raised to avoid iOS home bar / Siri gesture)
+    const btnHeight = 56; // 56px enlarged tactile buttons
+    const btnTopEdge = trayY - Math.round(btnHeight / 2); // 636 - 28 = 608px
 
-    const clearAirGap = btnTopEdge - lacquerFrameBottom; // 635 - 585 = 50px
-    expect(clearAirGap).toBeGreaterThanOrEqual(45); // Guaranteed 45px+ safe distance!
+    const clearAirGap = btnTopEdge - lacquerFrameBottom; // 608 - 585 = 23px
+    expect(clearAirGap).toBeGreaterThanOrEqual(20); // Guaranteed 20px+ safe distance from board!
   });
 });

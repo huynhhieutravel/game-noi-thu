@@ -1,6 +1,7 @@
-import { COMPANION_UPGRADE_COSTS, DifficultyLevel, UserSaveData } from '../types';
+import { ActiveGameSession, COMPANION_UPGRADE_COSTS, DifficultyLevel, UserSaveData, AchievementDefinition, DailyFortuneResult, OmikujiFortuneType } from '../types';
 import relicsData from '../data/relics.json';
 import { formatCurrency } from '../styles/typography';
+import { AchievementRegistry } from '../game/AchievementRegistry';
 
 const RELIC_FORGE_MAP: Record<string, { shardsRequired: number; surplusExchangeRate: number }> = {};
 for (const r of (relicsData as any[])) {
@@ -11,11 +12,13 @@ for (const r of (relicsData as any[])) {
 }
 
 const STORAGE_KEY = 'yokai_onet_save_v2';
+const BACKUP_STORAGE_KEY = 'yokai_onet_save_backup_v2';
 
 const DEFAULT_SAVE: UserSaveData = {
   version: 2,
   coins: 10000,
   diamonds: 100,
+  universalShards: 0,
   stars: 0,
   highestLevel: 1,
   levelStars: {},
@@ -231,8 +234,15 @@ const DEFAULT_SAVE: UserSaveData = {
   badgesCollected: {},
   completedDifficulties: {},
   unlockedRealms: ['yokai'],
-  activeRealm: 'yokai'
+  activeRealm: 'yokai',
+  activeGameSession: null,
+  lastOmikujiDate: undefined,
+  omikujiStreak: 0,
+  omikujiHistory: [],
+  unlockedAchievements: {},
+  selectedTitle: 'Tập Sự Trừ Tà'
 };
+
 
 export class SaveSystem {
   private static instance: SaveSystem;
@@ -257,7 +267,19 @@ export class SaveSystem {
   public save(): void {
     try {
       if (typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+        const jsonStr = JSON.stringify(this.data);
+        localStorage.setItem(STORAGE_KEY, jsonStr);
+
+        // 🛡️ Dual-Layer Eviction Shield: Persist isolated, checksummed backup record
+        try {
+          const backupPayload = JSON.stringify({
+            version: 2,
+            timestamp: Date.now(),
+            checksum: jsonStr.length,
+            data: this.data
+          });
+          localStorage.setItem(BACKUP_STORAGE_KEY, backupPayload);
+        } catch (_) {}
       }
     } catch (e) {
       console.warn('Failed to save game data to localStorage', e);
@@ -329,9 +351,21 @@ export class SaveSystem {
     return {
       ...DEFAULT_SAVE,
       ...parsed,
-      coins: typeof parsed.coins === 'number' ? Math.max(parsed.coins, 10000) : 10000,
-      diamonds: typeof parsed.diamonds === 'number' ? Math.max(parsed.diamonds, 100) : 100,
-      highestLevel,
+      coins: (typeof parsed.coins === 'number' && Number.isFinite(parsed.coins) && parsed.coins >= 0)
+        ? Math.max(parsed.coins, 10000)
+        : 10000,
+      diamonds: (typeof parsed.diamonds === 'number' && Number.isFinite(parsed.diamonds) && parsed.diamonds >= 0)
+        ? Math.max(parsed.diamonds, 100)
+        : 100,
+      universalShards: (typeof parsed.universalShards === 'number' && Number.isFinite(parsed.universalShards) && parsed.universalShards >= 0)
+        ? parsed.universalShards
+        : 0,
+      stars: (typeof parsed.stars === 'number' && Number.isFinite(parsed.stars) && parsed.stars >= 0)
+        ? parsed.stars
+        : 0,
+      highestLevel: (typeof highestLevel === 'number' && Number.isFinite(highestLevel) && highestLevel >= 1)
+        ? highestLevel
+        : 1,
       selectedTheme: (parsed.selectedTheme && parsed.selectedTheme !== 'pikachu') ? parsed.selectedTheme : 'yokai',
       selectedWallpaper: parsed.selectedWallpaper || 'bg_night_shrine',
       companionTiers: { ...DEFAULT_SAVE.companionTiers, ...(parsed.companionTiers || {}) },
@@ -378,26 +412,173 @@ export class SaveSystem {
       badgesCollected: { ...(DEFAULT_SAVE.badgesCollected || {}), ...(parsed.badgesCollected || {}) },
       completedDifficulties,
       unlockedRealms: (Array.isArray(parsed.unlockedRealms) && parsed.unlockedRealms.length > 0) ? parsed.unlockedRealms : ['yokai'],
-      activeRealm: parsed.activeRealm || 'yokai'
+      activeRealm: parsed.activeRealm || 'yokai',
+      activeGameSession: parsed.activeGameSession || null,
+      lastOmikujiDate: typeof parsed.lastOmikujiDate === 'string' ? parsed.lastOmikujiDate : undefined,
+      omikujiStreak: typeof parsed.omikujiStreak === 'number' && Number.isFinite(parsed.omikujiStreak) ? parsed.omikujiStreak : 0,
+      omikujiHistory: Array.isArray(parsed.omikujiHistory) ? parsed.omikujiHistory : [],
+      unlockedAchievements: (typeof parsed.unlockedAchievements === 'object' && parsed.unlockedAchievements) ? parsed.unlockedAchievements : {},
+      selectedTitle: typeof parsed.selectedTitle === 'string' ? parsed.selectedTitle : 'Tập Sự Trừ Tà'
     };
   }
 
-  private load(): UserSaveData {
-    try {
-      if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
-        // Purge deprecated v1 save keys to ensure 100% clean reset
-        try {
-          localStorage.removeItem('yokai_onet_save_v1');
-        } catch (_) {}
 
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          return this.sanitize(parsed);
+  /**
+   * 🩹 Resilient Auto-Healing for Corrupted / Truncated Save JSON
+   * Recovers player progress (coins, stars, highestLevel, companions, etc.)
+   * even if power-loss or app interruption cut off localStorage writing mid-string.
+   */
+  public static tryRepairTruncatedJson(raw: string): any {
+    if (!raw || typeof raw !== 'string') return null;
+
+    // Strategy 1: Attempt structural closure
+    try {
+      let trimmed = raw.trim();
+      trimmed = trimmed.replace(/[,:"]+$/, '');
+      const openBraces = (trimmed.match(/\{/g) || []).length;
+      const closeBraces = (trimmed.match(/\}/g) || []).length;
+      const openBrackets = (trimmed.match(/\[/g) || []).length;
+      const closeBrackets = (trimmed.match(/\]/g) || []).length;
+
+      let candidate = trimmed;
+      for (let i = 0; i < (openBrackets - closeBrackets); i++) {
+        candidate += ']';
+      }
+      for (let i = 0; i < (openBraces - closeBraces); i++) {
+        candidate += '}';
+      }
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch (_) {
+      // Fall through to Strategy 2
+    }
+
+    // Strategy 2: Resilient Regex Field Salvage
+    const salvaged: any = {};
+
+    const extractNum = (key: string): number | undefined => {
+      const match = raw.match(new RegExp(`"${key}"\\s*:\\s*(-?\\d+)`));
+      if (match) {
+        const val = parseInt(match[1], 10);
+        if (!isNaN(val)) return val;
+      }
+      return undefined;
+    };
+
+    const extractStr = (key: string): string | undefined => {
+      const match = raw.match(new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`));
+      return match ? match[1] : undefined;
+    };
+
+    const coins = extractNum('coins');
+    if (coins !== undefined) salvaged.coins = coins;
+
+    const diamonds = extractNum('diamonds');
+    if (diamonds !== undefined) salvaged.diamonds = diamonds;
+
+    const stars = extractNum('stars');
+    if (stars !== undefined) salvaged.stars = stars;
+
+    const highestLevel = extractNum('highestLevel');
+    if (highestLevel !== undefined) salvaged.highestLevel = highestLevel;
+
+    const selectedTheme = extractStr('selectedTheme');
+    if (selectedTheme) salvaged.selectedTheme = selectedTheme;
+
+    const selectedWallpaper = extractStr('selectedWallpaper');
+    if (selectedWallpaper) salvaged.selectedWallpaper = selectedWallpaper;
+
+    const selectedCompanion = extractStr('selectedCompanion');
+    if (selectedCompanion) salvaged.selectedCompanion = selectedCompanion;
+
+    const activeRealm = extractStr('activeRealm');
+    if (activeRealm) salvaged.activeRealm = activeRealm;
+
+    // Salvage unlockedCompanions
+    const compMatch = raw.match(/"unlockedCompanions"\s*:\s*\[([^\]]*)\]/);
+    if (compMatch) {
+      const items = compMatch[1].match(/"([^"]+)"/g);
+      if (items) {
+        salvaged.unlockedCompanions = items.map(s => s.replace(/"/g, ''));
+      }
+    }
+
+    // Salvage levelStars
+    const levelStarsMatch = raw.match(/"levelStars"\s*:\s*\{([^}]*)\}/);
+    if (levelStarsMatch) {
+      const pairs = levelStarsMatch[1].match(/"([^"]+)"\s*:\s*(\d+)/g);
+      if (pairs) {
+        salvaged.levelStars = {};
+        for (const p of pairs) {
+          const parts = p.match(/"([^"]+)"\s*:\s*(\d+)/);
+          if (parts) {
+            salvaged.levelStars[parts[1]] = parseInt(parts[2], 10);
+          }
         }
       }
-    } catch (e) {
-      console.warn('Failed to parse save data', e);
+    }
+
+    // Salvage boosters
+    const hintMatch = raw.match(/"hint"\s*:\s*(\d+)/);
+    const shuffleMatch = raw.match(/"shuffle"\s*:\s*(\d+)/);
+    const bombMatch = raw.match(/"bomb"\s*:\s*(\d+)/);
+    if (hintMatch || shuffleMatch || bombMatch) {
+      salvaged.boosters = {
+        hint: hintMatch ? parseInt(hintMatch[1], 10) : 15,
+        shuffle: shuffleMatch ? parseInt(shuffleMatch[1], 10) : 10,
+        bomb: bombMatch ? parseInt(bombMatch[1], 10) : 10
+      };
+    }
+
+    return Object.keys(salvaged).length > 0 ? salvaged : null;
+  }
+
+  private load(): UserSaveData {
+    if (typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function') {
+      // Purge deprecated v1 save keys to ensure 100% clean reset
+      try {
+        localStorage.removeItem('yokai_onet_save_v1');
+      } catch (_) {}
+
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          return this.sanitize(parsed);
+        } catch (parseErr) {
+          console.warn('[SaveSystem] Direct JSON parse failed, triggering Resilient Auto-Healing...', parseErr);
+          const repaired = SaveSystem.tryRepairTruncatedJson(raw);
+          if (repaired) {
+            console.log('[SaveSystem] ✅ Resilient Auto-Healing successfully salvaged player progress!');
+            const sanitized = this.sanitize(repaired);
+            // Write back healed valid JSON to prevent repetitive heal cycles
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+            } catch (_) {}
+            return sanitized;
+          }
+        }
+      }
+
+      // 🛡️ Dual-Layer Eviction Shield: If primary save is missing, evicted, or unrepairable, recover from backup
+      try {
+        const backupRaw = localStorage.getItem(BACKUP_STORAGE_KEY);
+        if (backupRaw) {
+          const parsedBackup = JSON.parse(backupRaw);
+          if (parsedBackup && parsedBackup.data && typeof parsedBackup.data === 'object') {
+            console.log('[SaveSystem] 🛡️ Primary save missing/evicted! Successfully restored from Dual-Layer Backup Shield!');
+            const restored = this.sanitize(parsedBackup.data);
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(restored));
+            } catch (_) {}
+            return restored;
+          }
+        }
+      } catch (backupErr) {
+        console.warn('[SaveSystem] Backup restore failed:', backupErr);
+      }
     }
     return JSON.parse(JSON.stringify(DEFAULT_SAVE));
   }
@@ -658,17 +839,19 @@ export class SaveSystem {
     if (this.isCompanionUnlocked(companionId)) {
       return { canSummon: false, currentShards: this.getCompanionShards(companionId), requiredShards: 20, reason: 'Linh Thú đã được triệu hồi!' };
     }
-    const currentShards = this.getCompanionShards(companionId);
+    const curShards = this.getCompanionShards(companionId);
+    const uniShards = this.getUniversalShards();
+    const effectiveShards = curShards + uniShards;
     const requiredShards = 20;
-    if (currentShards < requiredShards) {
+    if (effectiveShards < requiredShards) {
       return {
         canSummon: false,
-        currentShards,
+        currentShards: curShards,
         requiredShards,
-        reason: `Cần đủ ${requiredShards} Mảnh Linh Thú để Triệu Hồi! (Hiện có: ${currentShards}/${requiredShards})`
+        reason: `Cần đủ ${requiredShards} Mảnh Linh Thú để Triệu Hồi! (Hiện có: ${curShards} Mảnh${uniShards > 0 ? ` + ${uniShards} Linh Thạch` : ''})`
       };
     }
-    return { canSummon: true, currentShards, requiredShards };
+    return { canSummon: true, currentShards: effectiveShards, requiredShards };
   }
 
   public summonCompanion(companionId: string): { success: boolean; error?: string } {
@@ -676,7 +859,14 @@ export class SaveSystem {
     if (!check.canSummon) {
       return { success: false, error: check.reason };
     }
-    this.addCompanionShards(companionId, -check.requiredShards);
+    const needed = check.requiredShards;
+    const curShards = this.getCompanionShards(companionId);
+    if (curShards >= needed) {
+      this.addCompanionShards(companionId, -needed);
+    } else {
+      this.addCompanionShards(companionId, -curShards);
+      this.useUniversalShards(needed - curShards);
+    }
     this.unlockCompanion(companionId);
     this.setCompanionTier(companionId, 1);
     this.setCompanionLevel(companionId, 1);
@@ -804,6 +994,24 @@ export class SaveSystem {
     this.save();
   }
 
+  public getUniversalShards(): number {
+    return this.data.universalShards || 0;
+  }
+
+  public addUniversalShards(count: number): void {
+    const current = this.data.universalShards || 0;
+    this.data.universalShards = Math.max(0, current + count);
+    this.save();
+  }
+
+  public useUniversalShards(count: number): boolean {
+    const current = this.data.universalShards || 0;
+    if (current < count) return false;
+    this.data.universalShards = current - count;
+    this.save();
+    return true;
+  }
+
   public getCompanionTier(companionId: string): number {
     if (!this.data.companionTiers) {
       this.data.companionTiers = {};
@@ -825,25 +1033,73 @@ export class SaveSystem {
     return 30; // Tier 3
   }
 
-  public canLevelUpCompanion(companionId: string): { canLevelUp: boolean; reason?: string; requiredCoins: number; nextLevel: number } {
+  public canLevelUpCompanion(companionId: string): {
+    canLevelUp: boolean;
+    reason?: string;
+    requiredCoins: number;
+    requiredExp: number;
+    currentExp: number;
+    nextLevel: number;
+  } {
     const tier = this.getCompanionTier(companionId);
     const curLevel = this.getCompanionLevel(companionId);
     const maxLevel = this.getMaxLevelForTier(tier);
+    const curExp = this.getCompanionExp(companionId);
+    const reqExp = this.getRequiredExpForNextLevel(tier, curLevel);
 
     if (curLevel >= maxLevel) {
       if (tier < 3) {
-        return { canLevelUp: false, reason: `Đã đạt Cấp tối đa của Bậc ${tier} (${maxLevel})! Cần Tiến Hóa Đột Phá!`, requiredCoins: 0, nextLevel: curLevel };
+        return {
+          canLevelUp: false,
+          reason: `Đã đạt Cấp tối đa của Bậc ${tier} (${maxLevel})! Cần Tiến Hóa Đột Phá!`,
+          requiredCoins: 0,
+          requiredExp: 0,
+          currentExp: curExp,
+          nextLevel: curLevel
+        };
       }
-      return { canLevelUp: false, reason: 'Đã đạt Cấp Cực Đại Thần Linh (Cấp 30)!', requiredCoins: 0, nextLevel: 30 };
+      return {
+        canLevelUp: false,
+        reason: 'Đã đạt Cấp Cực Đại Thần Linh (Cấp 30)!',
+        requiredCoins: 0,
+        requiredExp: 0,
+        currentExp: curExp,
+        nextLevel: 30
+      };
     }
 
     const requiredCoins = 80 * tier + curLevel * 25;
     const curCoins = this.getCoins();
 
-    if (curCoins < requiredCoins) {
-      return { canLevelUp: false, reason: `Cần thêm ${formatCurrency(requiredCoins - curCoins)} Xu Vàng!`, requiredCoins, nextLevel: curLevel + 1 };
+    if (curExp < reqExp) {
+      return {
+        canLevelUp: false,
+        reason: `Chưa đủ điểm Kinh Nghiệm (${formatCurrency(curExp)}/${formatCurrency(reqExp)} EXP)! Hãy mang theo Linh Thú vượt ải để tích lũy EXP.`,
+        requiredCoins,
+        requiredExp: reqExp,
+        currentExp: curExp,
+        nextLevel: curLevel + 1
+      };
     }
-    return { canLevelUp: true, requiredCoins, nextLevel: curLevel + 1 };
+
+    if (curCoins < requiredCoins) {
+      return {
+        canLevelUp: false,
+        reason: `Cần thêm ${formatCurrency(requiredCoins - curCoins)} Xu Vàng!`,
+        requiredCoins,
+        requiredExp: reqExp,
+        currentExp: curExp,
+        nextLevel: curLevel + 1
+      };
+    }
+
+    return {
+      canLevelUp: true,
+      requiredCoins,
+      requiredExp: reqExp,
+      currentExp: curExp,
+      nextLevel: curLevel + 1
+    };
   }
 
   public levelUpCompanion(companionId: string): { success: boolean; newLevel: number; error?: string } {
@@ -852,6 +1108,9 @@ export class SaveSystem {
       return { success: false, newLevel: this.getCompanionLevel(companionId), error: check.reason };
     }
     this.spendCoins(check.requiredCoins);
+    const curExp = this.getCompanionExp(companionId);
+    const remainingExp = Math.max(0, curExp - check.requiredExp);
+    this.setCompanionExp(companionId, remainingExp);
     const newLevel = this.getCompanionLevel(companionId) + 1;
     this.setCompanionLevel(companionId, newLevel);
     return { success: true, newLevel };
@@ -872,10 +1131,12 @@ export class SaveSystem {
 
     const costs = tier === 1 ? { shards: 50, coins: 1000 } : { shards: 100, coins: 2500 };
     const curShards = this.getCompanionShards(companionId);
+    const uniShards = this.getUniversalShards();
+    const effectiveShards = curShards + uniShards;
     const curCoins = this.getCoins();
 
-    if (curShards < costs.shards) {
-      return { canEvolve: false, reason: `Cần thêm ${costs.shards - curShards} Mảnh Linh Thú!`, requiredShards: costs.shards, requiredCoins: costs.coins, nextTier: tier + 1 };
+    if (effectiveShards < costs.shards) {
+      return { canEvolve: false, reason: `Cần thêm ${costs.shards - effectiveShards} Mảnh Linh Thú! (Hiện có: ${curShards} Mảnh${uniShards > 0 ? ` + ${uniShards} Linh Thạch` : ''})`, requiredShards: costs.shards, requiredCoins: costs.coins, nextTier: tier + 1 };
     }
     if (curCoins < costs.coins) {
       return { canEvolve: false, reason: `Cần thêm ${formatCurrency(costs.coins - curCoins)} Xu Vàng!`, requiredShards: costs.shards, requiredCoins: costs.coins, nextTier: tier + 1 };
@@ -889,7 +1150,14 @@ export class SaveSystem {
     if (!check.canEvolve) {
       return { success: false, newTier: this.getCompanionTier(companionId), newLevel: this.getCompanionLevel(companionId), error: check.reason };
     }
-    this.addCompanionShards(companionId, -check.requiredShards);
+    const needed = check.requiredShards;
+    const curShards = this.getCompanionShards(companionId);
+    if (curShards >= needed) {
+      this.addCompanionShards(companionId, -needed);
+    } else {
+      this.addCompanionShards(companionId, -curShards);
+      this.useUniversalShards(needed - curShards);
+    }
     this.spendCoins(check.requiredCoins);
     const newTier = this.getCompanionTier(companionId) + 1;
     this.setCompanionTier(companionId, newTier);
@@ -1097,6 +1365,41 @@ export class SaveSystem {
     return Object.values(this.data.badgesCollected).filter(Boolean).length;
   }
 
+  /**
+   * Automatically check and sync Elite & Honor Prestige Badges
+   */
+  public checkAndSyncPrestigeBadges(): string[] {
+    const newlyUnlocked: string[] = [];
+    const checks: Record<string, () => boolean> = {
+      badge_boss_slayer: () => this.isDifficultyCompleted('level_10', 'easy') || this.isAchievementUnlocked('boss_slayer_1'),
+      badge_survival_hero: () => (this.getSurvivalRecord()?.maxWaves || 0) >= 15,
+      badge_beast_awakening: () => this.getCompanionTier(this.getSelectedCompanion()) >= 3,
+      badge_zen_master: () => (this.getZenHighScore() || 0) >= 3000,
+      badge_combo_master: () => this.isAchievementUnlocked('combo_10'),
+      badge_speed_god: () => this.isAchievementUnlocked('speed_demon'),
+      badge_divine_shrine: () => this.getDailyOmikujiStreak() >= 7,
+      badge_perfect_strategist: () => this.getCollectedRelicsCount('yokai') >= 10
+    };
+
+    for (const [badgeId, cond] of Object.entries(checks)) {
+      if (!this.hasBadge(badgeId)) {
+        try {
+          if (cond()) {
+            this.collectBadge(badgeId);
+            newlyUnlocked.push(badgeId);
+          }
+        } catch {
+          // ignore any check failure
+        }
+      }
+    }
+
+    if (newlyUnlocked.length > 0) {
+      this.save();
+    }
+    return newlyUnlocked;
+  }
+
   public recordDifficultyCompleted(levelId: string, diff: 'easy' | 'medium' | 'hard'): void {
     if (!this.data.completedDifficulties) this.data.completedDifficulties = {};
     if (!this.data.completedDifficulties[levelId]) {
@@ -1259,4 +1562,360 @@ export class SaveSystem {
     this.data = JSON.parse(JSON.stringify(DEFAULT_SAVE));
     this.save();
   }
+
+  /**
+   * 🛡️ Active Game Session Persistence: Auto-saves in-progress gameplay state
+   * so players NEVER lose level progress if iOS terminates WebProcess in background.
+   */
+  public saveActiveSession(session: ActiveGameSession): void {
+    try {
+      this.data.activeGameSession = session;
+      this.save();
+    } catch (err) {
+      console.warn('[SaveSystem] Failed to save active session:', err);
+    }
+  }
+
+  public getActiveSession(): ActiveGameSession | null {
+    const session = this.data.activeGameSession;
+    if (!session || !session.levelId) return null;
+    // Expire sessions older than 45 minutes to prevent stale boards
+    if (Date.now() - session.timestamp > 45 * 60 * 1000) {
+      this.clearActiveSession();
+      return null;
+    }
+    return session;
+  }
+
+  public clearActiveSession(): void {
+    if (this.data.activeGameSession) {
+      this.data.activeGameSession = null;
+      this.save();
+    }
+  }
+
+  // ==========================================
+  // ⛩️ SHINTO OMIKUJI & 7-DAY FORTUNE SYSTEM
+  // ==========================================
+
+  public static getTodayDateString(date: Date = new Date()): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  public canClaimDailyOmikuji(): boolean {
+    const today = SaveSystem.getTodayDateString();
+    return this.data.lastOmikujiDate !== today;
+  }
+
+  public getDailyOmikujiStreak(): number {
+    return this.data.omikujiStreak || 0;
+  }
+
+  public claimDailyOmikuji(): { success: boolean; fortune?: DailyFortuneResult; streak: number; alreadyClaimed?: boolean } {
+    const today = SaveSystem.getTodayDateString();
+    if (this.data.lastOmikujiDate === today) {
+      return {
+        success: false,
+        streak: this.data.omikujiStreak || 1,
+        alreadyClaimed: true
+      };
+    }
+
+    // Determine streak
+    let streak = 1;
+    if (this.data.lastOmikujiDate) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = SaveSystem.getTodayDateString(yesterday);
+      if (this.data.lastOmikujiDate === yesterdayStr) {
+        streak = ((this.data.omikujiStreak || 0) % 7) + 1;
+      } else {
+        streak = 1;
+      }
+    }
+
+    // Roll fortune tier
+    // 20% dai_cat, 30% trung_cat, 25% tieu_cat, 15% cat, 10% mat_cat
+    const roll = Math.random();
+    let fortuneType: OmikujiFortuneType = 'trung_cat';
+    let jpTitle = '中吉';
+    let viTitle = 'Trung Cát (May Mắn Lớn)';
+    let blessing = 'Ý chí vững vàng, duyên lành đưa tới, trăm sự bình an.';
+    let coins = 1500;
+    let diamonds = 15;
+    let universalShards = 1;
+    let boosterReward: { type: 'hint' | 'shuffle' | 'bomb'; count: number } | undefined = undefined;
+
+    if (roll < 0.20) {
+      fortuneType = 'dai_cat';
+      jpTitle = '大吉';
+      viTitle = 'Đại Cát (Đại Phúc Khí)';
+      blessing = 'Thần linh che chở, vạn sự hanh thông, công thành danh toại!';
+      coins = 2500;
+      diamonds = 25;
+      universalShards = 2;
+    } else if (roll < 0.50) {
+      fortuneType = 'trung_cat';
+      jpTitle = '中吉';
+      viTitle = 'Trung Cát (May Mắn Lớn)';
+      blessing = 'Ý chí vững vàng, duyên lành đưa tới, trăm sự bình an.';
+      coins = 1500;
+      diamonds = 15;
+      universalShards = 1;
+    } else if (roll < 0.75) {
+      fortuneType = 'tieu_cat';
+      jpTitle = '小吉';
+      viTitle = 'Tiểu Cát (Cát Tường)';
+      blessing = 'Niềm vui bất ngờ, gặp dữ hóa lành, từng bước tiến bước.';
+      coins = 1000;
+      diamonds = 10;
+      universalShards = 0;
+      boosterReward = { type: 'hint', count: 2 };
+    } else if (roll < 0.90) {
+      fortuneType = 'cat';
+      jpTitle = '吉';
+      viTitle = 'Cát (An Nhiên)';
+      blessing = 'Lòng an tĩnh lặng, tâm như nước hồ, vạn vật thuận hòa.';
+      coins = 800;
+      diamonds = 5;
+      universalShards = 0;
+      boosterReward = { type: 'shuffle', count: 2 };
+    } else {
+      fortuneType = 'mat_cat';
+      jpTitle = '末吉';
+      viTitle = 'Mạt Cát (Hậu Vận Khởi)';
+      blessing = 'Gian nan thử thách, kiên trì nhẫn nại ắt đón bình minh.';
+      coins = 500;
+      diamonds = 5;
+      universalShards = 0;
+      boosterReward = { type: 'bomb', count: 2 };
+    }
+
+    const isJackpotDay7 = streak === 7;
+    if (isJackpotDay7) {
+      diamonds += 50;
+      universalShards += 5;
+    }
+
+    // Grant rewards
+    this.addCoins(coins);
+    this.addDiamonds(diamonds);
+    if (universalShards > 0) {
+      this.addUniversalShards(universalShards);
+    }
+    if (boosterReward) {
+      this.addBooster(boosterReward.type, boosterReward.count);
+    }
+
+    const fortune: DailyFortuneResult = {
+      fortuneType,
+      japaneseTitle: jpTitle,
+      vietnameseTitle: viTitle,
+      blessingText: blessing,
+      coins,
+      diamonds,
+      universalShards,
+      boosterReward,
+      isJackpotDay7
+    };
+
+    this.data.lastOmikujiDate = today;
+    this.data.omikujiStreak = streak;
+    if (!this.data.omikujiHistory) {
+      this.data.omikujiHistory = [];
+    }
+    this.data.omikujiHistory.unshift({ date: today, fortuneType });
+    if (this.data.omikujiHistory.length > 30) {
+      this.data.omikujiHistory = this.data.omikujiHistory.slice(0, 30);
+    }
+
+    // Check achievement for 7-day streak
+    if (streak >= 7) {
+      this.unlockAchievement('omikuji_streak_7');
+    }
+
+    this.save();
+    return { success: true, fortune, streak };
+  }
+
+  // ==========================================
+  // 🏆 MYTHIC HUNTER ACHIEVEMENTS & TITLES
+  // ==========================================
+
+  public getUnlockedAchievements(): Record<string, boolean> {
+    return this.data.unlockedAchievements || {};
+  }
+
+  public isAchievementUnlocked(id: string): boolean {
+    return !!(this.data.unlockedAchievements && this.data.unlockedAchievements[id]);
+  }
+
+  public unlockAchievement(id: string): { success: boolean; achievement?: AchievementDefinition; rewardedDiamonds?: number; rewardedShards?: number } {
+    if (this.isAchievementUnlocked(id)) {
+      return { success: false };
+    }
+
+    const ach = AchievementRegistry.getById(id);
+    if (!ach) {
+      return { success: false };
+    }
+
+    if (!this.data.unlockedAchievements) {
+      this.data.unlockedAchievements = {};
+    }
+    this.data.unlockedAchievements[id] = true;
+
+    // Grant rewards
+    if (ach.rewardDiamonds > 0) {
+      this.addDiamonds(ach.rewardDiamonds);
+    }
+    if (ach.rewardUniversalShards && ach.rewardUniversalShards > 0) {
+      this.addUniversalShards(ach.rewardUniversalShards);
+    }
+
+    // Auto-equip title if player has default or empty title
+    if (!this.data.selectedTitle || this.data.selectedTitle === 'Tập Sự Trừ Tà') {
+      this.data.selectedTitle = ach.playerTitleReward;
+    }
+
+    this.save();
+    return {
+      success: true,
+      achievement: ach,
+      rewardedDiamonds: ach.rewardDiamonds,
+      rewardedShards: ach.rewardUniversalShards
+    };
+  }
+
+  public getSelectedTitle(): string {
+    return this.data.selectedTitle || 'Tập Sự Trừ Tà';
+  }
+
+  public setSelectedTitle(title: string): void {
+    this.data.selectedTitle = title;
+    this.save();
+  }
+
+  public checkAndUnlockAchievements(context: {
+    maxCombo?: number;
+    levelNum?: number;
+    totalStars?: number;
+    bossId?: string;
+    isWin?: boolean;
+    timeElapsedSec?: number;
+    companionsCount?: number;
+    companionMaxTier?: number;
+    survivalWave?: number;
+    zenScore?: number;
+    relicsForged?: number;
+  }): AchievementDefinition[] {
+    const newlyUnlocked: AchievementDefinition[] = [];
+
+    const tryUnlock = (id: string) => {
+      const res = this.unlockAchievement(id);
+      if (res.success && res.achievement) {
+        newlyUnlocked.push(res.achievement);
+      }
+    };
+
+    // 1. first_win
+    if (this.data.highestLevel > 1 || (context.isWin && context.levelNum === 1)) {
+      tryUnlock('first_win');
+    }
+
+    // 2. combo_5 & 3. combo_10
+    if ((context.maxCombo || 0) >= 5) {
+      tryUnlock('combo_5');
+    }
+    if ((context.maxCombo || 0) >= 10) {
+      tryUnlock('combo_10');
+    }
+
+    // 4. first_boss & 5. boss_slayer_5
+    if (this.data.highestLevel > 10 || context.bossId === 'yamata_no_orochi_boss' || (context.levelNum === 10 && context.isWin)) {
+      tryUnlock('first_boss');
+    }
+    let bossBeatenCount = 0;
+    for (let b = 10; b <= 100; b += 10) {
+      const lid = `level_${String(b).padStart(2, '0')}`;
+      if (this.data.completedDifficulties?.[lid]?.easy || (this.data.levelStars?.[lid] || 0) > 0) {
+        bossBeatenCount++;
+      }
+    }
+    if (bossBeatenCount >= 5) {
+      tryUnlock('boss_slayer_5');
+    }
+
+    // 6, 7, 8: Stars
+    const totalStars = this.getStars();
+    if (totalStars >= 30) tryUnlock('stars_30');
+    if (totalStars >= 100) tryUnlock('stars_100');
+    if (totalStars >= 250) tryUnlock('stars_250');
+
+    // 9, 10, 11: Companions
+    const unlockedCompsCount = this.data.unlockedCompanions?.length || 1;
+    if (unlockedCompsCount >= 3 || (context.companionsCount || 0) >= 3) {
+      tryUnlock('companions_3');
+    }
+    let maxTier = 1;
+    for (const t of Object.values(this.data.companionTiers || {})) {
+      if (typeof t === 'number' && t > maxTier) maxTier = t;
+    }
+    if (context.companionMaxTier && context.companionMaxTier > maxTier) {
+      maxTier = context.companionMaxTier;
+    }
+    if (maxTier >= 2) tryUnlock('companion_tier_2');
+    if (maxTier >= 4) tryUnlock('companion_tier_4');
+
+    // 12. speed_demon
+    if (context.isWin && context.timeElapsedSec !== undefined && context.timeElapsedSec <= 35) {
+      tryUnlock('speed_demon');
+    }
+
+    // 13. survival_wave_5
+    if ((this.data.survivalMaxWaves || 0) >= 5 || (context.survivalWave || 0) >= 5) {
+      tryUnlock('survival_wave_5');
+    }
+
+    // 14. zen_master_5000
+    if ((this.data.zenHighScore || 0) >= 5000 || (context.zenScore || 0) >= 5000) {
+      tryUnlock('zen_master_5000');
+    }
+
+    // 15. relic_collector
+    if (Object.keys(this.data.relicsCollected || {}).length >= 1 || (context.relicsForged || 0) >= 1) {
+      tryUnlock('relic_collector');
+    }
+
+    // 16. omikuji_streak_7
+    if ((this.data.omikujiStreak || 0) >= 7) {
+      tryUnlock('omikuji_streak_7');
+    }
+
+    // 17. shrine_guardian_10
+    if (this.data.highestLevel > 10 || (context.levelNum === 10 && context.isWin)) {
+      tryUnlock('shrine_guardian_10');
+    }
+
+    // 18. pet_master_50
+    if (Object.keys(this.data.discoveredCharacters || {}).length >= 50) {
+      tryUnlock('pet_master_50');
+    }
+
+    // 19. survival_wave_10
+    if ((this.data.survivalMaxWaves || 0) >= 10 || (context.survivalWave || 0) >= 10) {
+      tryUnlock('survival_wave_10');
+    }
+
+    // 20. speed_god_sub30
+    if (context.isWin && context.timeElapsedSec !== undefined && context.timeElapsedSec <= 30) {
+      tryUnlock('speed_god_sub30');
+    }
+
+    return newlyUnlocked;
+  }
 }
+

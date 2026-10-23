@@ -20,6 +20,7 @@ import { QADebugPanel } from '../game/QADebugPanel';
 import { SettingsModal } from '../game/SettingsModal';
 import { LootManager, CalculatedLootResult } from '../game/LootManager';
 import { formatCurrency, FONT_UI, FONT_DISPLAY, FONT_WEIGHT } from '../styles/typography';
+import { CombatEngine, PlayerCombatStats } from '../game/CombatEngine';
 
 export class GameScene extends Phaser.Scene {
   private levelConfig!: LevelConfig;
@@ -107,7 +108,7 @@ export class GameScene extends Phaser.Scene {
   private comboText!: Phaser.GameObjects.Text;
   private feverBanner!: Phaser.GameObjects.Container;
   private feverParticles!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private audioToggleIcon!: Phaser.GameObjects.Text;
+  private audioToggleIcon!: Phaser.GameObjects.Text | Phaser.GameObjects.Image;
 
   // Boss UI
   private bossHpBar!: Phaser.GameObjects.Graphics;
@@ -118,6 +119,19 @@ export class GameScene extends Phaser.Scene {
   private bossContainer: Phaser.GameObjects.Container | null = null;
   private isBossDefeatedSequence: boolean = false;
   private isBossDefeatedThisRun: boolean = false;
+
+  // RPG Combat & Adaptive Difficulty System (ADR 0015)
+  private playerCombatStats!: PlayerCombatStats;
+  private playerCombatHp: number = 1000;
+  private playerCombatMaxHp: number = 1000;
+  private hasDivineWard: boolean = false;
+  private playerHpBarGfx: Phaser.GameObjects.Graphics | null = null;
+  private playerHpText: Phaser.GameObjects.Text | null = null;
+  private playerCombatContainer: Phaser.GameObjects.Container | null = null;
+  private playerHpCriticalTween: Phaser.Tweens.Tween | null = null;
+  private lastMisClickTime: number = 0;
+  private consecutiveMisClicks: number = 0;
+  private pulseGravityTimer: Phaser.Time.TimerEvent | null = null;
 
   // Booster UI Texts
   private hintCountText!: Phaser.GameObjects.Text;
@@ -156,17 +170,43 @@ export class GameScene extends Phaser.Scene {
   private livesText!: Phaser.GameObjects.Text;
   private lastTickSecond: number = -1;
   private gameOverReason: string = 'Hết thời gian thử thách!';
+  private pendingSavedGrid: TileState[][] | null = null;
+  private pendingBossHp?: number;
+  private pendingPlayerCombatHp?: number;
+  private onVisibilityChangeHandler: (() => void) | null = null;
+  private onPageHideHandler: (() => void) | null = null;
+  private pauseModalContainer: Phaser.GameObjects.Container | null = null;
+  private isCountdownBreatherActive: boolean = false;
+  // 7. ⏱️ Tactical Scorecard & Performance Telemetry (ADR 0020)
+  private matchStartTime: number = 0;
+  private totalPairsMatched: number = 0;
+  private companionDamageDealtThisRun: number = 0;
 
   constructor() {
     super('GameScene');
   }
 
-  public init(data: { levelId?: string; lives?: number; isZenMode?: boolean; isSurvivalMode?: boolean; bossId?: string; difficulty?: DifficultyLevel }): void {
-    this.isZenMode = !!data.isZenMode;
-    this.isSurvivalMode = !!data.isSurvivalMode;
+  public init(data: { levelId?: string; lives?: number; isZenMode?: boolean; isSurvivalMode?: boolean; bossId?: string; difficulty?: DifficultyLevel; resumeSession?: boolean }): void {
+    const save = SaveSystem.getInstance();
+    let isResuming = false;
+    let activeSession = null;
+
+    if (data.resumeSession) {
+      activeSession = save.getActiveSession();
+      if (activeSession && activeSession.levelId) {
+        isResuming = true;
+      }
+    }
+
+    if (!isResuming) {
+      save.clearActiveSession();
+    }
+
+    this.isZenMode = isResuming ? !!activeSession!.isZenMode : !!data.isZenMode;
+    this.isSurvivalMode = isResuming ? !!activeSession!.isSurvivalMode : !!data.isSurvivalMode;
     this.isBossDefeatedSequence = false;
     this.isBossDefeatedThisRun = false;
-    this.currentDifficulty = data.difficulty || 'easy';
+    this.currentDifficulty = isResuming ? (activeSession!.difficulty || 'easy') : (data.difficulty || 'easy');
     this.isRelicShardCollectedThisRun = false;
     this.isRelicShardSpawnedThisRun = false;
     this.brokenIceCount = 0;
@@ -175,17 +215,22 @@ export class GameScene extends Phaser.Scene {
     this.playerUsedShuffleCount = 0;
     this.playerUsedBoosterCount = 0;
     this.maxComboAchieved = 0;
-    const levelId = data.levelId || 'level_01';
+    this.matchStartTime = Date.now();
+    this.totalPairsMatched = 0;
+    this.companionDamageDealtThisRun = 0;
+    this.pendingBossHp = isResuming ? activeSession!.bossHp : undefined;
+    this.pendingPlayerCombatHp = isResuming ? activeSession!.playerCombatHp : undefined;
+    const levelId = isResuming ? activeSession!.levelId : (data.levelId || 'level_01');
+    const bossId = isResuming ? activeSession!.bossId : data.bossId;
 
     // Check selected theme from save system
-    const save = SaveSystem.getInstance();
     const currentTheme = save.getSelectedTheme();
     const themeChars = CharacterRegistry.getByCollection(currentTheme);
 
-    if (data.bossId) {
+    if (bossId) {
       // 👑 Khiêu Chiến Boss Trực Tiếp từ Đấu Trường 16 Boss Thế Giới
       const bList = bossesData as any[];
-      const bData = bList.find((b: any) => b.id === data.bossId || b.id === 'boss_' + data.bossId || b.id.replace('boss_', '') === data.bossId) || bList[0];
+      const bData = bList.find((b: any) => b.id === bossId || b.id === 'boss_' + bossId || b.id.replace('boss_', '') === bossId) || bList[0];
       const bossConfig: BossConfig = {
         id: bData.id,
         name: bData.name,
@@ -228,11 +273,10 @@ export class GameScene extends Phaser.Scene {
           stars: 3
         }
       };
-      this.lives = data.lives !== undefined ? data.lives : 8;
-      this.timeRemaining = this.levelConfig.timeLimit;
+      this.lives = isResuming ? (activeSession!.lives ?? 8) : (data.lives !== undefined ? data.lives : 8);
+      this.timeRemaining = isResuming ? (activeSession!.timeRemaining ?? this.levelConfig.timeLimit) : this.levelConfig.timeLimit;
     } else if (this.isSurvivalMode) {
       // 5. ❄️ Chế Độ Sinh Tồn Dâng Trào (Survival Blizzard Mode)
-      // 8 hàng x 10 cột, khởi đầu 4 hàng dưới, mỗi 10s dâng 1 hàng lên
       const nonBossThemeChars = CharacterRegistry.getNonBossByCollection(currentTheme);
       this.levelConfig = {
         id: 'survival_blizzard',
@@ -248,9 +292,9 @@ export class GameScene extends Phaser.Scene {
           .map(c => c.id),
         rewards: { stars: 3, coins: 0 }
       };
-      this.lives = 5;
+      this.lives = isResuming ? (activeSession!.lives ?? 5) : 5;
       this.timeRemaining = 999999;
-      this.survivalWave = 1;
+      this.survivalWave = (isResuming && activeSession!.survivalWave) ? activeSession!.survivalWave : 1;
       this.blizzardTimeRemaining = this.BLIZZARD_WAVE_INTERVAL;
       this.isBlizzardPushing = false;
     } else if (this.isZenMode) {
@@ -274,12 +318,13 @@ export class GameScene extends Phaser.Scene {
       this.timeRemaining = 999999;
     } else {
       this.levelConfig = LevelManager.getLevelConfig(levelId, currentTheme, this.currentDifficulty);
-      this.lives = data.lives !== undefined ? data.lives : 5;
-      this.timeRemaining = this.levelConfig.timeLimit;
+      this.lives = isResuming ? (activeSession!.lives ?? 5) : (data.lives !== undefined ? data.lives : 5);
+      this.timeRemaining = isResuming ? (activeSession!.timeRemaining ?? this.levelConfig.timeLimit) : this.levelConfig.timeLimit;
       this.elapsedTimeSeconds = 0;
     }
 
-    this.score = 0;
+    this.score = isResuming ? (activeSession!.score || 0) : 0;
+    this.pendingSavedGrid = isResuming ? (activeSession!.gridState || null) : null;
     this.lastTickSecond = -1;
     this.isGameOver = false;
     this.isVictory = false;
@@ -295,16 +340,66 @@ export class GameScene extends Phaser.Scene {
       this.load.image(`bg${lvlNum}`, `assets/stages/stage_bg_${lvlNum}.png`);
     }
 
-    // Load boss arena if this is a boss level
+    // Load boss arena & sprite if this is a boss level
     if (this.levelConfig?.id?.startsWith('boss_') || this.levelConfig?.boss) {
       const bList = bossesData as any[];
-      const bIdx = bList.findIndex((b: any) => b.id === this.levelConfig.boss?.id || 'boss_' + b.id === this.levelConfig.boss?.id);
+      const rawBossId = this.levelConfig.boss?.id || this.levelConfig?.id || '';
+      const bIdx = bList.findIndex((b: any) => 
+        b.id === rawBossId || 
+        b.id === `boss_${rawBossId}` ||
+        (b.id && rawBossId && rawBossId.includes(b.id.replace(/^boss_/, '')))
+      );
       const arenaNum = (bIdx >= 0 ? (bIdx % 10) : 0) + 1;
       const arenaKey = `boss_arena_${arenaNum}`;
       if (!this.textures.exists(arenaKey)) {
         this.load.image(arenaKey, `assets/boss_arenas/boss_arena_${arenaNum}.png`);
       }
+
+      const bossEntry = bIdx >= 0 ? bList[bIdx] : undefined;
+      const targetBossId = bossEntry?.id || (rawBossId.startsWith('boss_') ? rawBossId : `boss_${rawBossId}`);
+      const cleanId = targetBossId.replace(/^boss_/, '').replace(/_boss$/, '');
+      const bossKey = `boss_${cleanId}`;
+
+      const keysToAlias = [targetBossId, bossKey, rawBossId, `${cleanId}_boss`];
+      for (const k of keysToAlias) {
+        if (k && !this.textures.exists(k)) {
+          this.load.image(k, `assets/bosses/${bossKey}.png`);
+        }
+      }
     }
+
+    // Preload character images for current level pool and active companion ONLY
+    const charsToPreload = new Set<string>();
+    if (this.levelConfig?.characterPool) {
+      for (const charId of this.levelConfig.characterPool) {
+        charsToPreload.add(charId);
+      }
+    }
+    const save = SaveSystem.getInstance();
+    const companionId = save.getSelectedCompanion();
+    if (companionId) {
+      charsToPreload.add(companionId);
+    }
+
+    for (const charId of charsToPreload) {
+      const charKey = `char_${charId}`;
+      if (!this.textures.exists(charKey)) {
+        const charData = CharacterRegistry.get(charId);
+        const rawUrl = charData?.asset || charData?.imagePath || `assets/characters/${charId}.png`;
+        if (rawUrl) {
+          this.load.image(charKey, rawUrl.replace(/^\/+/, ''));
+        }
+      }
+    }
+  }
+
+  /**
+   * Safe no-op VRAM management. Character textures are permanently retained in texture cache
+   * to prevent WebGL Context Loss and WebContent process termination on iOS Safari/Capacitor.
+   */
+  private pruneUnusedTextures(_keepLvl: number, _activeCharPool: string[]): void {
+    // Intentionally retained: 108 character textures total only ~28MB VRAM.
+    // Dynamic deletion and re-creation in WebGL causes WebKit context loss / crashes on iOS.
   }
 
   public onObstacleDestroyed(type: string): void {
@@ -314,14 +409,29 @@ export class GameScene extends Phaser.Scene {
   }
 
   public create(): void {
+    try {
+      this.createInternal();
+    } catch (err: any) {
+      console.error('🔥 [GameScene] Critical error in create():', err);
+      try {
+        const save = SaveSystem.getInstance();
+        save.clearActiveSession();
+      } catch {}
+      this.scene.start('MainMenuScene');
+    }
+  }
+
+  private createInternal(): void {
     setupRetinaCamera(this);
     const width = GAME_WIDTH;
     const height = GAME_HEIGHT;
 
-    // Ensure all characters in current level have textures
+    // Ensure all characters in current level have textures (fallback only)
     if (this.levelConfig?.characterPool) {
       for (const charId of this.levelConfig.characterPool) {
-        TextureGenerator.ensureCharacterTexture(this, charId);
+        if (!this.textures.exists(`char_${charId}`)) {
+          TextureGenerator.ensureCharacterTexture(this, charId);
+        }
       }
     }
 
@@ -350,39 +460,68 @@ export class GameScene extends Phaser.Scene {
     this.kirinTimeHealedTotal = 0;
     this.yatagarasuIdleTimer = 0;
 
+    // Initialize Player Combat Stats (ADR 0015)
+    const activeCompId = this.save.getSelectedCompanion();
+    const compLvl = this.save.getCompanionLevel(activeCompId);
+    const compTier = this.save.getCompanionTier(activeCompId);
+    const eqRelicId = this.save.getEquippedRelicId();
+    let relicHpBonus = 0;
+    let relicDrBonus = 0;
+    if (eqRelicId) {
+      const relic = RelicManager.getInstance().getRelicById(eqRelicId);
+      if (relic) {
+        if (relic.tier === 'epic') {
+          relicHpBonus = 500;
+          relicDrBonus = 0.15;
+        } else if (relic.tier === 'rare') {
+          relicHpBonus = 250;
+          relicDrBonus = 0.07;
+        } else {
+          relicHpBonus = 100;
+          relicDrBonus = 0.03;
+        }
+      }
+    }
+
+    this.playerCombatStats = CombatEngine.calculatePlayerStats({
+      companionLevel: compLvl,
+      companionTier: compTier,
+      companionId: activeCompId,
+      relicHpBonus,
+      relicDrBonus
+    });
+    this.playerCombatMaxHp = this.playerCombatStats.maxHp;
+    this.playerCombatHp = (this.pendingPlayerCombatHp !== undefined && this.pendingPlayerCombatHp !== null)
+      ? Math.max(1, Math.min(this.playerCombatMaxHp, this.pendingPlayerCombatHp))
+      : this.playerCombatMaxHp;
+    this.hasDivineWard = false;
+    this.lastMisClickTime = 0;
+    this.consecutiveMisClicks = 0;
+
     // Reset Star Quests tracking
     this.maxComboAchieved = 0;
     this.playerUsedBoosterCount = 0;
     this.hasNotifiedComboQuest = false;
+    this.matchStartTime = Date.now();
+    this.totalPairsMatched = 0;
+    this.companionDamageDealtThisRun = 0;
 
-    // Clean up timers & tweens on scene shutdown
-    this.events.once('shutdown', () => {
-      this.endNightParadeRush();
-      if (this.nightParadeFadeTween) {
-        this.nightParadeFadeTween.stop();
-        this.nightParadeFadeTween = null;
+    // 🛡️ App Background / Tab-switch auto-saver & Auto-Pause Interruption Shield
+    this.onVisibilityChangeHandler = () => {
+      if (document.hidden) {
+        this.persistActiveSession();
+        this.triggerAutoPauseShield();
       }
-      if (this.nightParadeOverlayFadeTween) {
-        this.nightParadeOverlayFadeTween.stop();
-        this.nightParadeOverlayFadeTween = null;
-      }
-      if (this.companionPulseTween) {
-        this.companionPulseTween.stop();
-        this.companionPulseTween = null;
-      }
-      if (this.relicPulseTween) {
-        this.relicPulseTween.stop();
-        this.relicPulseTween = null;
-      }
-      if (this.feverParticles) {
-        try {
-          this.feverParticles.destroy();
-        } catch {}
-      }
-      try {
-        this.boardManager?.destroy();
-      } catch {}
-    });
+    };
+    this.onPageHideHandler = () => {
+      this.persistActiveSession();
+      this.triggerAutoPauseShield();
+    };
+    document.addEventListener('visibilitychange', this.onVisibilityChangeHandler);
+    window.addEventListener('pagehide', this.onPageHideHandler);
+
+    this.events.once('shutdown', () => this.cleanupSceneResources());
+    this.events.once('destroy', () => this.cleanupSceneResources());
 
     // 1. Crystal-clear HD Gameplay Background (Individual Stage Background for Japan stages 1-10, fallback to Shrine)
     const { width: screenW, offsetX } = getScreenDimensions();
@@ -398,13 +537,18 @@ export class GameScene extends Phaser.Scene {
       const bList = bossesData as any[];
       const bIdx = bList.findIndex((b: any) => b.id === this.levelConfig.boss?.id || 'boss_' + b.id === this.levelConfig.boss?.id);
       const arenaNum = (bIdx >= 0 ? (bIdx % 10) : 0) + 1;
-      if (this.textures.exists(`boss_arena_${arenaNum}`)) {
-        bgKey = `boss_arena_${arenaNum}`;
+      const arenaKey = `boss_arena_${arenaNum}`;
+      const arenaTex = this.textures.exists(arenaKey) ? this.textures.get(arenaKey) : null;
+      if (arenaTex && (arenaTex.getSourceImage()?.width || 0) >= 800) {
+        bgKey = arenaKey;
       }
     }
 
     if (!bgKey) {
-      if (this.textures.exists(`stage_bg_${lvlNum}`)) {
+      const stageTex = this.textures.exists(`stage_bg_${lvlNum}`) ? this.textures.get(`stage_bg_${lvlNum}`) : null;
+      if (stageTex && (stageTex.getSourceImage()?.width || 0) >= 800) {
+        bgKey = `stage_bg_${lvlNum}`;
+      } else if (this.textures.exists(`stage_bg_${lvlNum}`)) {
         bgKey = `stage_bg_${lvlNum}`;
       } else if (this.textures.exists(`bg${lvlNum}`)) {
         bgKey = `bg${lvlNum}`;
@@ -479,6 +623,12 @@ export class GameScene extends Phaser.Scene {
           this.audio.playBossHit();
           this.haptic.heavy();
         },
+        onBossAttackPlayer: (rawDamage, isEnraged, skillName) => {
+          this.handleBossAttackPlayer(rawDamage, isEnraged, skillName);
+        },
+        onEnrageTriggered: () => {
+          this.handleBossEnrageTriggered();
+        },
         onBossSkillTriggered: (skillName, desc, skillType, swappedPairs) => {
           this.triggerBossSkillCastVisual();
           const isTimeDrain = skillType === 'time_drain' || skillType === 'acid_breath' ||
@@ -520,6 +670,9 @@ export class GameScene extends Phaser.Scene {
           this.triggerBossDefeatSequence();
         }
       });
+      if (this.pendingBossHp !== undefined && this.pendingBossHp !== null) {
+        this.bossManager.setHp(this.pendingBossHp);
+      }
     } else {
       this.bossManager = null;
     }
@@ -555,6 +708,27 @@ export class GameScene extends Phaser.Scene {
           this.showNotice(`❌ Khác linh thú (-2s): ${name1} ≠ ${name2}`, 0xff758f);
         } else if (reason === 'blocked_path') {
           this.showNotice('🚧 Bị cản đường nối! (Tối đa 2 khúc gấp không bị che)', 0xffd166);
+        }
+
+        // Multi-Vector Pressure: Panic Click Penalty on Hard mode (< 350ms consecutive mis-clicks, requires 3 in a row - ADR 0018)
+        const now = Date.now();
+        const delta = this.lastMisClickTime > 0 ? (now - this.lastMisClickTime) : 9999;
+        this.lastMisClickTime = now;
+        if (delta < 350) {
+          this.consecutiveMisClicks = (this.consecutiveMisClicks || 0) + 1;
+        } else {
+          this.consecutiveMisClicks = 1;
+        }
+
+        if (!this.isZenMode && this.currentDifficulty === 'hard') {
+          const panic = CombatEngine.evaluatePanicPenalty(delta, this.consecutiveMisClicks);
+          if (panic.isPanic) {
+            this.timeRemaining = Math.max(0, this.timeRemaining - panic.timeDeductionSec);
+            this.showNotice('⚠️ CẢNH BÁO HOẢNG LOẠN! Thao tác quá vội, bị trừ thêm 2 giây!', 0xff3366);
+            this.showBonusTimePopup(-panic.timeDeductionSec);
+            this.haptic.heavy();
+            this.consecutiveMisClicks = 0;
+          }
         }
       },
       onBoardCleared: () => {
@@ -620,6 +794,39 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
+    // 🛡️ Restore saved grid if resuming active session
+    if (this.pendingSavedGrid && this.pendingSavedGrid.length > 0) {
+      this.boardManager.restoreGridState(this.pendingSavedGrid);
+      this.pendingSavedGrid = null;
+
+      // Check if any tile on restored board has Relic Shard
+      let hasRelicOnBoard = false;
+      for (const row of this.boardManager.getGridState()) {
+        for (const t of row) {
+          if (t && !t.isCleared && t.hasRelicShard) {
+            hasRelicOnBoard = true;
+            break;
+          }
+        }
+        if (hasRelicOnBoard) break;
+      }
+      if (hasRelicOnBoard) {
+        this.isRelicShardSpawnedThisRun = true;
+        this.isRelicShardCollectedThisRun = false;
+      }
+
+      this.time.delayedCall(100, () => {
+        this.updateScoreDisplay();
+        this.updateLivesDisplay();
+        if (this.bossManager) {
+          this.updateBossHpVisual(this.bossManager.getHp(), this.bossManager.getMaxHp());
+          this.updateBossHeadsVisual(this.bossManager.getHeadsRemaining(), this.bossManager.getTotalHeads());
+        }
+        this.updatePlayerCombatHpVisual();
+        this.showNotice('⚡ ĐÃ KHÔI PHỤC TIẾN TRÌNH VÁN ĐANG CHƠI!', 0x00ffcc);
+      });
+    }
+
     // Tag Relic Shard pair with calibrated rare spawn chance (1.0% - 5.0%)
     if (this.levelConfig.relicReward && !this.save.hasRelic(this.levelConfig.relicReward.id)) {
       const isBossLevel = !!(this.bossManager || this.levelConfig.levelNumber % 10 === 0 || this.levelConfig.levelNumber % 5 === 0);
@@ -649,13 +856,19 @@ export class GameScene extends Phaser.Scene {
     // 9. Build Pet Companion Pod (Bottom-Left)
     this.buildCompanionPod(width, height);
 
+    // 9.1 Build Player Combat HP Bar (Bottom-Left above Companion Pod)
+    this.buildPlayerCombatHpBar(width, height);
+
     // 10. Build Equipped Relic Pod (Bottom-Right)
     this.buildRelicPod(width, height);
 
     // 11. Frost Overlay for Time Freeze
     this.frostOverlayGraphics = this.add.graphics().setDepth(120);
 
-    // 11. QA Debug Cheats Panel
+    // 12. Setup Multi-Vector Pressure: Pulse Gravity Shift Timer
+    this.setupPulseGravityTimer();
+
+    // 13. QA Debug Cheats Panel
     this.qaDebugPanel = new QADebugPanel(this);
   }
 
@@ -665,6 +878,18 @@ export class GameScene extends Phaser.Scene {
   public triggerInstantWin(): void {
     if (this.isVictory || this.isGameOver) return;
     this.handleVictory();
+  }
+
+  public triggerBossAttackCheat(): void {
+    if (this.bossManager) {
+      this.handleBossAttackPlayer(this.bossManager.getAttackPower(), this.bossManager.isBossEnraged(), 'Đòn QA Thử Nghiệm');
+    }
+  }
+
+  public triggerEnrageCheat(): void {
+    if (this.bossManager) {
+      this.handleBossEnrageTriggered();
+    }
   }
 
   public triggerInstantLose(): void {
@@ -693,10 +918,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   public damageBoss(damage: number): void {
+    this.companionDamageDealtThisRun += damage;
     if (this.bossManager) {
       this.bossManager.applyDamage(damage);
     }
   }
+
 
   public triggerShuffleCheat(): void {
     if (this.boardManager) {
@@ -726,38 +953,69 @@ export class GameScene extends Phaser.Scene {
 
     // Back button (capsule style [ ⛩️ MENU ])
     const currentTheme = this.save.getSelectedTheme();
-    const menuIcon = currentTheme === 'pikachu' ? '⚡' : '⛩️';
+    const isPikachu = currentTheme === 'pikachu';
 
+    const menuW = 114;
+    const menuH = 38;
     const backBtnContainer = this.add.container(68, 25);
     const backBg = this.add.graphics();
-    backBg.fillStyle(0x191829, 0.92);
-    backBg.fillRoundedRect(-44, -16, 88, 32, 16);
-    backBg.lineStyle(1.2, 0x5a547a, 0.85);
-    backBg.strokeRoundedRect(-44, -16, 88, 32, 16);
+    // 1. Dark lacquer base with high opacity
+    backBg.fillStyle(0x110f22, 0.96);
+    backBg.fillRoundedRect(-menuW / 2, -menuH / 2, menuW, menuH, 19);
+    // 2. Ornate dual-border: rich vermillion crimson + crisp gold hairline
+    backBg.lineStyle(1.8, 0xff3b56, 0.88);
+    backBg.strokeRoundedRect(-menuW / 2, -menuH / 2, menuW, menuH, 19);
+    backBg.lineStyle(1.0, 0xffd166, 0.45);
+    backBg.strokeRoundedRect(-menuW / 2 + 2, -menuH / 2 + 2, menuW - 4, menuH - 4, 17);
 
-    const backTxt = this.add.text(0, 0, `${menuIcon} MENU`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    // High quality Torii Icon (or Pikachu lightning)
+    let backIcon: Phaser.GameObjects.GameObject;
+    if (isPikachu) {
+      backIcon = this.add.text(-24, 0, '⚡', { fontSize: '18px' }).setOrigin(0.5);
+    } else if (this.textures.exists('icon_torii_menu')) {
+      backIcon = this.add.image(-24, 0, 'icon_torii_menu').setDisplaySize(24, 24);
+    } else if (this.textures.exists('torii_gate')) {
+      backIcon = this.add.image(-24, 0, 'torii_gate').setDisplaySize(24, 24);
+    } else {
+      backIcon = this.add.text(-24, 0, '⛩️', { fontSize: '18px' }).setOrigin(0.5);
+    }
+
+    const backTxt = this.add.text(12, 0, 'MENU', {
+      fontFamily: FONT_UI,
       fontSize: '15.5px',
       fontStyle: '900',
-      color: '#e2e8f0'
+      color: '#ffffff',
+      stroke: '#080512',
+      strokeThickness: 3
     }).setOrigin(0.5);
 
-    const backHit = this.add.zone(0, 0, 88, 32).setInteractive({ useHandCursor: true });
+    const backHit = this.add.zone(0, 0, menuW, Math.max(menuH, 44)).setInteractive({ useHandCursor: true });
     backHit.on('pointerover', () => backBtnContainer.setScale(1.05));
     backHit.on('pointerout', () => backBtnContainer.setScale(1.0));
     backHit.on('pointerdown', () => {
       this.audio.playSelect();
-      this.endNightParadeRush();
-      this.scene.start('MainMenuScene');
+      this.haptic.light();
+      this.tweens.add({
+        targets: backBtnContainer,
+        scale: 0.92,
+        duration: 70,
+        yoyo: true,
+        onComplete: () => {
+          this.endNightParadeRush();
+          this.scene.start('MainMenuScene');
+        }
+      });
     });
-    backBtnContainer.add([backBg, backTxt, backHit]);
+    backBtnContainer.add([backBg, backIcon, backTxt, backHit]);
 
-    // Lives next to Menu button (In Zen mode: 🌸 Vô Tận)
-    this.livesText = this.add.text(142, 25, this.isSurvivalMode ? `❤️ x${this.lives}` : (this.isZenMode ? '🌸 Vô Tận' : `❤️ x${this.lives}`), {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    // Lives next to Menu button (In Zen mode: 🌸 ∞ matching timer ∞)
+    this.livesText = this.add.text(138, 25, this.isSurvivalMode ? `❤️ x${this.lives}` : (this.isZenMode ? '🌸 ∞' : `❤️ x${this.lives}`), {
+      fontFamily: FONT_UI,
       fontSize: '18px',
       fontStyle: '900',
-      color: this.isZenMode ? '#ff758f' : (this.isSurvivalMode ? '#00f5d4' : '#ff4d6d')
+      color: this.isZenMode ? '#ff758f' : (this.isSurvivalMode ? '#00f5d4' : '#ff4d6d'),
+      stroke: '#0e0b17',
+      strokeThickness: 2.5
     }).setOrigin(0, 0.5);
 
     // Star Quest Tracker Pill Button (between lives and timer bar)
@@ -776,9 +1034,12 @@ export class GameScene extends Phaser.Scene {
       stroke: '#0e0b17',
       strokeThickness: 3
     }).setOrigin(0.5);
+    if (titleText.width > 310) {
+      titleText.setScale(310 / titleText.width);
+    }
     this.levelTitleText = titleText;
 
-    const plaqueW = Math.max(300, Math.min(420, titleText.width + 64));
+    const plaqueW = Math.max(280, Math.min(380, Math.round(titleText.displayWidth + 56)));
     const plaqueH = 28;
     const plaqueX = width / 2;
     const plaqueY = 17;
@@ -862,7 +1123,7 @@ export class GameScene extends Phaser.Scene {
       ? '⏱️ 0:00 ⭐⭐⭐'
       : `⏳ ${Math.ceil(this.timeRemaining)}s`;
     this.timeText = this.add.text(timerBarX + timerBarW + 14, capY, initialTimeStr, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '18px',
       fontStyle: '900',
       color: '#00f5d4'
@@ -879,16 +1140,23 @@ export class GameScene extends Phaser.Scene {
     audioBg.lineStyle(1.5, 0x00f5d4, 0.75);
     audioBg.strokeCircle(audioBtnX, audioBtnY, audioBtnSize / 2);
 
-    this.audioToggleIcon = this.add.text(audioBtnX, audioBtnY, this.audio.getEnabled() ? '🔊' : '🔇', {
-      fontSize: '16px'
-    }).setOrigin(0.5);
+    const hasAudioTex = this.textures.exists('btn_sound_on');
+    this.audioToggleIcon = hasAudioTex
+      ? this.add.image(audioBtnX, audioBtnY, this.audio.getEnabled() ? 'btn_sound_on' : 'btn_sound_off').setDisplaySize(24, 24)
+      : this.add.text(audioBtnX, audioBtnY, this.audio.getEnabled() ? '🔊' : '🔇', {
+          fontSize: '16px'
+        }).setOrigin(0.5);
 
     const audioHit = this.add.zone(audioBtnX, audioBtnY, audioBtnSize, audioBtnSize)
       .setInteractive({ useHandCursor: true });
 
     audioHit.on('pointerdown', () => {
       const enabled = this.audio.toggle();
-      this.audioToggleIcon.setText(enabled ? '🔊' : '🔇');
+      if (hasAudioTex) {
+        (this.audioToggleIcon as Phaser.GameObjects.Image).setTexture(enabled ? 'btn_sound_on' : 'btn_sound_off').setDisplaySize(24, 24);
+      } else {
+        (this.audioToggleIcon as Phaser.GameObjects.Text).setText(enabled ? '🔊' : '🔇');
+      }
       this.haptic.light();
       if (enabled) {
         this.audio.playSelect();
@@ -906,9 +1174,12 @@ export class GameScene extends Phaser.Scene {
     setBg.lineStyle(1.5, 0xffd700, 0.75);
     setBg.strokeCircle(setBtnX, setBtnY, setBtnSize / 2);
 
-    this.add.text(setBtnX, setBtnY, '⚙️', {
-      fontSize: '16px'
-    }).setOrigin(0.5);
+    const hasSetTex = this.textures.exists('btn_settings');
+    const setIcon = hasSetTex
+      ? this.add.image(setBtnX, setBtnY, 'btn_settings').setDisplaySize(24, 24)
+      : this.add.text(setBtnX, setBtnY, '⚙️', {
+          fontSize: '16px'
+        }).setOrigin(0.5);
 
     const setHit = this.add.zone(setBtnX, setBtnY, setBtnSize, setBtnSize)
       .setInteractive({ useHandCursor: true });
@@ -920,7 +1191,11 @@ export class GameScene extends Phaser.Scene {
       SettingsModal.open(this, () => {
         this.isPaused = false;
         if (this.audioToggleIcon) {
-          this.audioToggleIcon.setText(this.audio.getEnabled() ? '🔊' : '🔇');
+          if (hasAudioTex) {
+            (this.audioToggleIcon as Phaser.GameObjects.Image).setTexture(this.audio.getEnabled() ? 'btn_sound_on' : 'btn_sound_off').setDisplaySize(24, 24);
+          } else {
+            (this.audioToggleIcon as Phaser.GameObjects.Text).setText(this.audio.getEnabled() ? '🔊' : '🔇');
+          }
         }
       });
     });
@@ -950,7 +1225,7 @@ export class GameScene extends Phaser.Scene {
 
     // Floating Combo popup text
     this.comboText = this.add.text(width / 2, 58, '', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '24px',
       fontStyle: '900',
       color: '#ff758f',
@@ -967,7 +1242,7 @@ export class GameScene extends Phaser.Scene {
     fvBg.strokeRoundedRect(-135, -16, 270, 32, 16);
 
     const fvText = this.add.text(0, 0, '⚡ FEVER MODE x3.5! ⚡', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '16px',
       fontStyle: '900',
       color: '#ffd700'
@@ -984,7 +1259,7 @@ export class GameScene extends Phaser.Scene {
     wBg.strokeRoundedRect(-185, -15, 370, 30, 15);
 
     const wTxt = this.add.text(0, 0, '⚠️ CẢNH BÁO: BĂNG DÂNG GẦN NÓC TRÊN! ⚠️', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#ff595e'
@@ -1006,7 +1281,8 @@ export class GameScene extends Phaser.Scene {
 
   private updateLivesDisplay(): void {
     if (this.livesText) {
-      this.livesText.setText(this.isZenMode ? '🌸 Vô Tận' : `❤️ x${this.lives}`);
+      const combatHpTag = (this.bossManager || this.currentDifficulty === 'hard') ? ` | 🛡️ ${Math.ceil(this.playerCombatHp)} HP` : '';
+      this.livesText.setText(this.isZenMode ? '🌸 ∞' : `❤️ x${this.lives}${combatHpTag}`);
       this.tweens.add({
         targets: this.livesText,
         scaleX: { from: 1.4, to: 1.0 },
@@ -1018,31 +1294,36 @@ export class GameScene extends Phaser.Scene {
   }
 
   private buildQuestTrackerHeaderPill(): Phaser.GameObjects.Container {
-    const pillX = 248;
+    const pillX = 268;
     const pillY = 25;
     const pillW = 120;
-    const pillH = 30;
+    const pillH = 38;
 
     const questContainer = this.add.container(pillX, pillY);
 
     const qBg = this.add.graphics();
-    qBg.fillStyle(0x191628, 0.92);
-    qBg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 15);
-    qBg.lineStyle(1.5, 0xffd700, 0.85);
-    qBg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 15);
+    qBg.fillStyle(0x191628, 0.94);
+    qBg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 19);
+    qBg.lineStyle(1.6, 0xffd700, 0.9);
+    qBg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 19);
+    qBg.lineStyle(1, 0xffd166, 0.35);
+    qBg.strokeRoundedRect(-pillW / 2 + 2, -pillH / 2 + 2, pillW - 4, pillH - 4, 17);
 
     this.questTrackerStarsText = this.add.text(0, 0, '⭐ THỬ THÁCH', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+      fontFamily: FONT_UI,
+      fontSize: '14px',
       fontStyle: '900',
-      color: '#ffd700'
+      color: '#ffd700',
+      stroke: '#0e0b17',
+      strokeThickness: 2
     }).setOrigin(0.5);
 
-    const hitZone = this.add.zone(0, 0, pillW, pillH).setInteractive({ useHandCursor: true });
-    hitZone.on('pointerover', () => questContainer.setScale(1.05));
+    const hitZone = this.add.zone(0, 0, pillW, Math.max(pillH, 44)).setInteractive({ useHandCursor: true });
+    hitZone.on('pointerover', () => questContainer.setScale(1.04));
     hitZone.on('pointerout', () => questContainer.setScale(1.0));
     hitZone.on('pointerdown', () => {
       this.audio.playSelect();
+      this.haptic.light();
       this.showQuestInfoTooltip();
     });
 
@@ -1052,7 +1333,7 @@ export class GameScene extends Phaser.Scene {
 
   private showQuestInfoTooltip(): void {
     if (this.isGameOver || this.isVictory) return;
-    const tooltip = this.add.container(236, 125).setDepth(180);
+    const tooltip = this.add.container(268, 128).setDepth(180);
 
     const bg = this.add.graphics();
     bg.fillStyle(0x19142b, 0.98);
@@ -1062,7 +1343,7 @@ export class GameScene extends Phaser.Scene {
 
     const diffName = this.currentDifficulty === 'easy' ? 'DỄ' : this.currentDifficulty === 'medium' ? 'VỪA' : 'KHÓ';
     const title = this.add.text(0, -58, `⭐ THỬ THÁCH 3 SAO (${diffName})`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#ffd700'
@@ -1091,21 +1372,30 @@ export class GameScene extends Phaser.Scene {
         isDone = this.playerUsedShuffleCount === 0;
         statusStr = `(Đổi: ${this.playerUsedShuffleCount})`;
       } else if (q.type === 'time_left') {
-        isDone = this.timeRemaining >= q.target;
-        statusStr = `(Còn: ${Math.floor(this.timeRemaining)}s/${q.target}s)`;
+        if (this.levelConfig.isStopwatch) {
+          const gold = this.levelConfig.targetGoldSeconds || 60;
+          isDone = this.elapsedTimeSeconds <= gold;
+          statusStr = `(${Math.floor(this.elapsedTimeSeconds)}s/≤${gold}s)`;
+        } else {
+          isDone = this.timeRemaining >= q.target;
+          statusStr = `(Còn: ${Math.floor(this.timeRemaining)}s/${q.target}s)`;
+        }
       } else if (q.type === 'break_ice') {
-        isDone = this.brokenIceCount >= q.target;
-        statusStr = `(${this.brokenIceCount}/${q.target})`;
+        const total = this.levelConfig.modifiers?.iceCount || 0;
+        isDone = total === 0 || this.brokenIceCount >= q.target;
+        statusStr = total === 0 ? '(Không có)' : `(${this.brokenIceCount}/${q.target})`;
       } else if (q.type === 'break_stone') {
-        isDone = this.brokenStoneCount >= q.target;
-        statusStr = `(${this.brokenStoneCount}/${q.target})`;
+        const total = this.levelConfig.modifiers?.stoneCount || 0;
+        isDone = total === 0 || this.brokenStoneCount >= q.target;
+        statusStr = total === 0 ? '(Không có)' : `(${this.brokenStoneCount}/${q.target})`;
       } else if (q.type === 'rescue_cages') {
-        isDone = this.brokenCagesCount >= q.target;
-        statusStr = `(${this.brokenCagesCount}/${q.target})`;
+        const total = this.levelConfig.modifiers?.lockCount || 0;
+        isDone = total === 0 || this.brokenCagesCount >= q.target;
+        statusStr = total === 0 ? '(Không có)' : `(${this.brokenCagesCount}/${q.target})`;
       }
 
       const qTxt = this.add.text(-150, -32 + idx * 25, `⭐ ${idx + 1}. ${q.description} ${statusStr} ${isDone ? '✓' : ''}`, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '12.5px',
         fontStyle: 'bold',
         color: isDone ? '#00f5d4' : '#ffd166',
@@ -1115,7 +1405,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     const closeTxt = this.add.text(0, 52, '(Chạm để đóng)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '12px',
       fontStyle: 'bold',
       color: '#adb5bd'
@@ -1144,10 +1434,13 @@ export class GameScene extends Phaser.Scene {
     // 1. Resolve Boss Texture Key
     let bossTexture = boss.id;
     if (!this.textures.exists(bossTexture)) {
-      if (this.textures.exists(`boss_${boss.id}`)) {
+      const clean = boss.id.replace(/^boss_/, '').replace(/_boss$/, '');
+      if (this.textures.exists(`boss_${clean}`)) {
+        bossTexture = `boss_${clean}`;
+      } else if (this.textures.exists(`${clean}_boss`)) {
+        bossTexture = `${clean}_boss`;
+      } else if (this.textures.exists(`boss_${boss.id}`)) {
         bossTexture = `boss_${boss.id}`;
-      } else if (this.textures.exists(boss.id.replace('boss_', '') + '_boss')) {
-        bossTexture = boss.id.replace('boss_', '') + '_boss';
       } else if (this.textures.exists('boss_orochi')) {
         bossTexture = 'boss_orochi';
       }
@@ -1220,11 +1513,13 @@ export class GameScene extends Phaser.Scene {
     // 3. Boss Information & Name Plate (Right of Avatar)
     const contentX = 35;
     const nameStr = `👑 TRÙM: ${boss.name} ${boss.native_name || boss.japaneseName ? `(${boss.native_name || boss.japaneseName})` : ''}`;
-    const nameText = this.add.text(contentX, -17, nameStr, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '16.5px',
+    const nameText = this.add.text(contentX, -21, nameStr, {
+      fontFamily: FONT_UI,
+      fontSize: '15px',
       fontStyle: '900',
-      color: '#ffd166'
+      color: '#ffd166',
+      stroke: '#080512',
+      strokeThickness: 2.5
     }).setOrigin(0.5);
 
     // Boss HP bar background
@@ -1238,10 +1533,13 @@ export class GameScene extends Phaser.Scene {
     this.updateBossHpVisual(this.bossManager!.getHp(), this.bossManager!.getMaxHp());
 
     this.bossHpText = this.add.text(contentX, 2, `${formatCurrency(this.bossManager!.getHp())} / ${formatCurrency(this.bossManager!.getMaxHp())} HP`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13px',
       fontStyle: '900',
-      color: '#ffffff'
+      color: '#ffffff',
+      stroke: '#080512',
+      strokeThickness: 3.5,
+      shadow: { offsetX: 0, offsetY: 1, color: '#000000', blur: 3, fill: true }
     }).setOrigin(0.5);
 
     // Parts / Heads display icons
@@ -1249,10 +1547,12 @@ export class GameScene extends Phaser.Scene {
     this.updateBossHeadsVisual(this.bossManager!.getHeadsRemaining(), this.bossManager!.getTotalHeads());
 
     this.bossWarningText = this.add.text(contentX, 39, '', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '13.5px',
       fontStyle: '900',
-      color: '#ffd166'
+      color: '#ffd166',
+      stroke: '#080512',
+      strokeThickness: 2.5
     }).setOrigin(0.5);
 
     bossContainer.add([nameText, hpBg, this.bossHpBar, this.bossHpText, this.bossHeadsContainer, this.bossWarningText]);
@@ -1265,8 +1565,15 @@ export class GameScene extends Phaser.Scene {
     const contentX = 35;
     const barWidth = 336 * pct;
 
-    this.bossHpBar.fillStyle(0xd90429, 1);
-    this.bossHpBar.fillRoundedRect(contentX - 168, -5, barWidth, 14, 7);
+    if (barWidth > 0) {
+      // Core ruby crimson fill
+      this.bossHpBar.fillStyle(0xd90429, 1);
+      this.bossHpBar.fillRoundedRect(contentX - 168, -5, barWidth, 14, 7);
+
+      // Top gloss highlight
+      this.bossHpBar.fillStyle(0xff758f, 0.45);
+      this.bossHpBar.fillRoundedRect(contentX - 168, -5, barWidth, 6, 4);
+    }
 
     if (this.bossHpText) {
       this.bossHpText.setText(`${formatCurrency(Math.max(0, Math.ceil(currentHp)))} / ${formatCurrency(maxHp)} HP`);
@@ -1343,16 +1650,96 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * 🛡️ Active Game Session Persistence: Auto-saves game metrics and board grid state
+   */
+  private persistActiveSession(): void {
+    if (this.isGameOver || this.isVictory) return;
+    try {
+      this.save.saveActiveSession({
+        levelId: this.levelConfig.id,
+        difficulty: this.currentDifficulty,
+        score: this.score,
+        lives: this.lives,
+        timeRemaining: this.timeRemaining,
+        isSurvivalMode: this.isSurvivalMode,
+        isZenMode: this.isZenMode,
+        bossId: this.levelConfig.boss?.id,
+        bossHp: this.bossManager ? this.bossManager.getHp() : undefined,
+        playerCombatHp: this.playerCombatHp,
+        survivalWave: this.isSurvivalMode ? this.survivalWave : undefined,
+        timestamp: Date.now(),
+        gridState: this.boardManager ? this.boardManager.getGridState() : undefined
+      });
+    } catch (err) {
+      console.warn('[GameScene] persistActiveSession failed:', err);
+    }
+  }
+
+  private cleanupSceneResources(): void {
+    if (this.onVisibilityChangeHandler) {
+      document.removeEventListener('visibilitychange', this.onVisibilityChangeHandler);
+      this.onVisibilityChangeHandler = null;
+    }
+    if (this.onPageHideHandler) {
+      window.removeEventListener('pagehide', this.onPageHideHandler);
+      this.onPageHideHandler = null;
+    }
+    if (this.pauseModalContainer) {
+      this.pauseModalContainer.destroy();
+      this.pauseModalContainer = null;
+    }
+    try {
+      this.tweens?.killAll();
+    } catch {}
+    try {
+      this.time?.removeAllEvents();
+    } catch {}
+    this.endNightParadeRush();
+    if (this.pulseGravityTimer) {
+      this.pulseGravityTimer.remove();
+      this.pulseGravityTimer = null;
+    }
+    if (this.nightParadeFadeTween) {
+      this.nightParadeFadeTween.stop();
+      this.nightParadeFadeTween = null;
+    }
+    if (this.nightParadeOverlayFadeTween) {
+      this.nightParadeOverlayFadeTween.stop();
+      this.nightParadeOverlayFadeTween = null;
+    }
+    if (this.companionPulseTween) {
+      this.companionPulseTween.stop();
+      this.companionPulseTween = null;
+    }
+    if (this.relicPulseTween) {
+      this.relicPulseTween.stop();
+      this.relicPulseTween = null;
+    }
+    if (this.feverParticles) {
+      try {
+        this.feverParticles.destroy();
+      } catch {}
+    }
+    try {
+      this.boardManager?.destroy();
+    } catch {}
+    try {
+      this.bossManager?.destroy();
+      this.bossManager = null;
+    } catch {}
+  }
+
   private buildBoosterTray(width: number, height: number): void {
     const saveData = this.save.getData();
-    // 3 Circular Tactical Booster Action Gems (42px) anchored at height - 24
-    // Compact spacing (58px) guarantees a massive 50px+ air gap below the board frame
-    const tray = this.add.container(width / 2, height - 24).setDepth(20);
+    // 3 Circular Tactical Booster Action Gems (56px) anchored at height - 48
+    // Raised high enough to avoid iOS Home Indicator / Siri swipe zone while keeping clear separation from board
+    const tray = this.add.container(width / 2, height - 48).setDepth(20);
 
-    const spacing = 58;
+    const spacing = 70;
 
     // 1. Hint Gem (💡 - Amber radiant glow)
-    const hintBtn = this.createBoosterButton(-spacing, 0, 42, '💡', 'Gợi Ý', `${saveData.boosters.hint}`, 0xffa200, () => {
+    const hintBtn = this.createBoosterButton(-spacing, 0, 56, '💡', 'Gợi Ý', `${saveData.boosters.hint}`, 0xffa200, () => {
       if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
       if (this.save.getData().boosters.hint <= 0) {
         this.showNotice('Hết Gợi Ý! (Kiếm thêm trong màn sau)', 0xff99c8);
@@ -1373,7 +1760,7 @@ export class GameScene extends Phaser.Scene {
     this.hintCountText = hintBtn.countText;
 
     // 2. Shuffle Gem (🔄 - Cyan electric glow)
-    const shuffleBtn = this.createBoosterButton(0, 0, 42, '🔄', 'Đổi Vị Trí', `${saveData.boosters.shuffle}`, 0x00b4d8, () => {
+    const shuffleBtn = this.createBoosterButton(0, 0, 56, '🔄', 'Đổi Vị Trí', `${saveData.boosters.shuffle}`, 0x00b4d8, () => {
       if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
       if (this.save.getData().boosters.shuffle <= 0) {
         this.showNotice('Hết Lượt Đảo! (Kiếm thêm trong màn sau)', 0xff99c8);
@@ -1391,7 +1778,7 @@ export class GameScene extends Phaser.Scene {
     this.shuffleCountText = shuffleBtn.countText;
 
     // 3. Bomb Gem (💣 - Amethyst purple glow)
-    const bombBtn = this.createBoosterButton(spacing, 0, 42, '💣', 'Phá Cặp', `${saveData.boosters.bomb}`, 0x9d4edd, () => {
+    const bombBtn = this.createBoosterButton(spacing, 0, 56, '💣', 'Phá Cặp', `${saveData.boosters.bomb}`, 0x9d4edd, () => {
       if (this.isGameOver || this.isVictory || this.isPaused || this.boardManager.isProcessing()) return;
       if (this.save.getData().boosters.bomb <= 0) {
         this.showNotice('Hết Bom! (Kiếm thêm trong màn sau)', 0xff99c8);
@@ -1414,11 +1801,25 @@ export class GameScene extends Phaser.Scene {
     tray.add([hintBtn.container, shuffleBtn.container, bombBtn.container]);
   }
 
+  /**
+   * Helper to resolve the best high-res companion texture key
+   */
+  public getCompanionTextureKey(cId: string): string {
+    if (!cId) return '';
+    if (this.textures.exists(`comp_art_${cId}`)) return `comp_art_${cId}`;
+    if (cId === 'inari_kitsune' && this.textures.exists('inari_3d_00')) return 'inari_3d_00';
+    if (cId === 'ryujin_pearl' && this.textures.exists('ryujin_3d_00')) return 'ryujin_3d_00';
+    if (cId === 'hi_no_tori' && this.textures.exists('hinotori_3d_00')) return 'hinotori_3d_00';
+    if (this.textures.exists(`char_${cId}`)) return `char_${cId}`;
+    if (cId === 'inari_kitsune' && this.textures.exists('avatar_inari')) return 'avatar_inari';
+    return '';
+  }
+
   private buildCompanionPod(width: number, height: number): void {
     const podW = 216;
-    const podH = 56;
-    const podX = 130;
-    const podY = height - 40;
+    const podH = 54;
+    const podX = 142;
+    const podY = height - 37;
 
     this.companionPod = this.add.container(podX, podY).setDepth(25);
 
@@ -1429,63 +1830,65 @@ export class GameScene extends Phaser.Scene {
     // Circular Avatar Container with glowing red halo
     const avatarHalo = this.add.graphics();
     avatarHalo.fillStyle(0x1a1226, 1);
-    avatarHalo.fillCircle(-68, 0, 24);
+    avatarHalo.fillCircle(-68, 0, 22);
     avatarHalo.lineStyle(2, 0xff3366, 0.95);
-    avatarHalo.strokeCircle(-68, 0, 24);
+    avatarHalo.strokeCircle(-68, 0, 22);
 
     // Soft aura
-    avatarHalo.fillStyle(0xff3366, 0.25);
-    avatarHalo.fillCircle(-68, 0, 28);
+    avatarHalo.fillStyle(0xff3366, 0.22);
+    avatarHalo.fillCircle(-68, 0, 26);
 
     const compId = this.companionConfig.id;
-    const skillKey = `skill_${compId}`;
-    const avatarKey = `avatar_${compId}`;
-    const charKey = `char_${compId}`;
+    const compTex = this.getCompanionTextureKey(compId);
 
-    if (compId === 'inari_kitsune' && this.textures.exists('avatar_inari')) {
-      this.companionAvatarImg = this.add.image(-68, 0, 'avatar_inari').setDisplaySize(48, 48);
-    } else if (this.textures.exists(skillKey)) {
-      this.companionAvatarImg = this.add.image(-68, 0, skillKey).setDisplaySize(46, 46);
-    } else if (this.textures.exists(avatarKey)) {
-      this.companionAvatarImg = this.add.image(-68, 0, avatarKey).setDisplaySize(44, 44);
-    } else if (this.textures.exists(charKey)) {
-      this.companionAvatarImg = this.add.image(-68, 0, charKey).setDisplaySize(44, 44);
+    if (compTex && this.textures.exists(compTex)) {
+      this.companionAvatarImg = this.add.image(-68, 0, compTex).setDisplaySize(44, 44);
     } else {
-      this.companionAvatarImg = this.add.text(-68, 0, this.companionConfig.icon, { fontSize: '24px' }).setOrigin(0.5);
+      this.companionAvatarImg = this.add.text(-68, 0, this.companionConfig.icon || '🦊', { fontSize: '22px' }).setOrigin(0.5);
     }
 
-    // Companion Name
-    this.companionNameText = this.add.text(-38, -14, `⛩️ ${this.companionConfig.name}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15.5px',
+    // Companion Name (Upper row: perfectly positioned with breathing room)
+    this.companionNameText = this.add.text(-36, -11, this.companionConfig.name, {
+      fontFamily: FONT_UI,
+      fontSize: '14px',
       fontStyle: '900',
-      color: '#ffffff'
-    });
+      color: '#ffffff',
+      stroke: '#080512',
+      strokeThickness: 2.2
+    }).setOrigin(0, 0.5);
 
-    // Energy Bar Background
+    // Energy Bar Background (Lower row: clean 8px vertical separation from name)
     const barBg = this.add.graphics();
+    const barW = 132;
+    const barH = 14;
+    const barX = -36;
+    const barY = 5;
     barBg.fillStyle(0x0e0e18, 0.95);
-    barBg.fillRoundedRect(-38, 2, 134, 15, 7.5);
+    barBg.fillRoundedRect(barX, barY, barW, barH, 7);
     barBg.lineStyle(1, 0x5a2d48, 0.85);
-    barBg.strokeRoundedRect(-38, 2, 134, 15, 7.5);
+    barBg.strokeRoundedRect(barX, barY, barW, barH, 7);
 
     // Dynamic Energy Fill
     this.companionEnergyGraphics = this.add.graphics();
 
-    // Energy Text
-    this.companionEnergyText = this.add.text(29, 9, '0% NỘ', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+    // Energy Text (Centered inside energy bar)
+    this.companionEnergyText = this.add.text(barX + barW / 2, barY + barH / 2, '0% NỘ', {
+      fontFamily: FONT_UI,
+      fontSize: '11px',
       fontStyle: '900',
-      color: '#ced4da'
+      color: '#f8fafc',
+      stroke: '#080512',
+      strokeThickness: 2.2
     }).setOrigin(0.5);
 
     // Ready Badge Text (hidden by default)
-    this.companionReadyBadge = this.add.text(29, 9, '⚡ BẤM DÙNG!', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+    this.companionReadyBadge = this.add.text(barX + barW / 2, barY + barH / 2, '⚡ BẤM DÙNG!', {
+      fontFamily: FONT_UI,
+      fontSize: '11px',
       fontStyle: '900',
-      color: '#ffd700'
+      color: '#ffd700',
+      stroke: '#080512',
+      strokeThickness: 2.2
     }).setOrigin(0.5).setVisible(false);
 
     this.companionPod.add([
@@ -1516,38 +1919,288 @@ export class GameScene extends Phaser.Scene {
   private updatePodBackground(): void {
     if (!this.companionPodBorder) return;
     const podW = 216;
-    const podH = 56;
+    const podH = 54;
     this.companionPodBorder.clear();
     this.companionPodBorder.fillStyle(0x111022, 0.96);
-    this.companionPodBorder.fillRoundedRect(-podW / 2, -podH / 2, podW, podH, 16);
+    this.companionPodBorder.fillRoundedRect(-podW / 2, -podH / 2, podW, podH, 14);
     this.companionPodBorder.lineStyle(
       this.isCompanionSkillReady ? 2.5 : 2.0,
       this.isCompanionSkillReady ? 0xffd700 : 0xff3366,
       0.95
     );
-    this.companionPodBorder.strokeRoundedRect(-podW / 2, -podH / 2, podW, podH, 16);
+    this.companionPodBorder.strokeRoundedRect(-podW / 2, -podH / 2, podW, podH, 14);
   }
 
   private updateCompanionPodVisuals(): void {
     if (!this.companionPod) return;
     this.updatePodBackground();
-    this.companionNameText.setText(`⛩️ ${this.companionConfig.name}`);
+    this.companionNameText.setText(this.companionConfig.name);
 
     // Update avatar image
     if (this.companionAvatarImg) {
       this.companionAvatarImg.destroy();
-      const texKey = `char_${this.companionConfig.id}`;
-      if (this.textures.exists('avatar_inari')) {
-        this.companionAvatarImg = this.add.image(-68, 0, 'avatar_inari').setDisplaySize(48, 48);
-      } else if (this.textures.exists(texKey)) {
-        this.companionAvatarImg = this.add.image(-68, 0, texKey).setDisplaySize(44, 44);
+      const compTex = this.getCompanionTextureKey(this.companionConfig.id);
+      if (compTex && this.textures.exists(compTex)) {
+        this.companionAvatarImg = this.add.image(-68, 0, compTex).setDisplaySize(44, 44);
       } else {
-        this.companionAvatarImg = this.add.text(-68, 0, this.companionConfig.icon, { fontSize: '24px' }).setOrigin(0.5);
+        this.companionAvatarImg = this.add.text(-68, 0, this.companionConfig.icon || '🦊', { fontSize: '22px' }).setOrigin(0.5);
       }
       this.companionPod.addAt(this.companionAvatarImg, 2);
     }
 
     this.updateCompanionEnergyUI();
+  }
+
+  private buildPlayerCombatHpBar(width: number, height: number): void {
+    const podX = 142;
+    const podY = height - 78;
+    const podW = 216;
+    const podH = 20;
+
+    this.playerCombatContainer = this.add.container(podX, podY).setDepth(26);
+
+    const bgGfx = this.add.graphics();
+    // Deep obsidian lacquer background
+    bgGfx.fillStyle(0x0a0914, 0.98);
+    bgGfx.fillRoundedRect(-podW / 2, -podH / 2, podW, podH, 7);
+    // Dual lacquer border: crisp ruby vermillion stroke + inner gold hairline
+    bgGfx.lineStyle(1.5, 0xef4444, 0.85);
+    bgGfx.strokeRoundedRect(-podW / 2, -podH / 2, podW, podH, 7);
+    bgGfx.lineStyle(1.0, 0xffd166, 0.4);
+    bgGfx.strokeRoundedRect(-podW / 2 + 1.5, -podH / 2 + 1.5, podW - 3, podH - 3, 5.5);
+
+    const trackW = 204;
+    const trackH = 12;
+    const trackGfx = this.add.graphics();
+    trackGfx.fillStyle(0x130a10, 0.96);
+    trackGfx.fillRoundedRect(-trackW / 2, -trackH / 2, trackW, trackH, 5);
+    trackGfx.lineStyle(1.0, 0x2b101c, 0.9);
+    trackGfx.strokeRoundedRect(-trackW / 2, -trackH / 2, trackW, trackH, 5);
+
+    this.playerHpBarGfx = this.add.graphics();
+
+    this.playerHpText = this.add.text(0, 0, '', {
+      fontFamily: FONT_UI,
+      fontSize: '11px',
+      fontStyle: '900',
+      color: '#ffffff',
+      stroke: '#080512',
+      strokeThickness: 3.0,
+      shadow: { offsetX: 0, offsetY: 1, color: '#000000', blur: 3, fill: true }
+    }).setOrigin(0.5);
+
+    this.playerCombatContainer.add([bgGfx, trackGfx, this.playerHpBarGfx, this.playerHpText]);
+    this.updatePlayerCombatHpVisual();
+
+    if (this.isZenMode) {
+      this.playerCombatContainer.setVisible(false);
+    }
+  }
+
+  private updatePlayerCombatHpVisual(): void {
+    if (!this.playerHpBarGfx || !this.playerHpText) return;
+    this.playerHpBarGfx.clear();
+
+    const pct = Math.max(0, Math.min(1, this.playerCombatHp / this.playerCombatMaxHp));
+    const maxBarW = 202;
+    const barW = Math.round(maxBarW * pct);
+    const barH = 10;
+    const x = -101;
+    const y = -5;
+
+    // High contrast 3-tier vitality color system:
+    // > 50%: Lush Emerald Vitality (universal RPG healthy HP)
+    // 25% - 50%: Vivid Amber Gold (caution state)
+    // < 25%: Blazing Crimson Red (critical warning state)
+    let coreColor = 0x10b981;
+    let topGleam = 0x6ee7b7;
+    let bottomShade = 0x047857;
+
+    if (pct < 0.25) {
+      coreColor = 0xef4444;
+      topGleam = 0xfca5a5;
+      bottomShade = 0x991b1b;
+    } else if (pct < 0.5) {
+      coreColor = 0xf59e0b;
+      topGleam = 0xfde68a;
+      bottomShade = 0xb45309;
+    }
+
+    if (barW > 0) {
+      // 1. Core vibrant fill
+      this.playerHpBarGfx.fillStyle(coreColor, 1.0);
+      this.playerHpBarGfx.fillRoundedRect(x, y, barW, barH, 4.5);
+
+      // 2. 3D Glass / Liquid Vitality top gloss sheen
+      this.playerHpBarGfx.fillStyle(topGleam, 0.45);
+      this.playerHpBarGfx.fillRoundedRect(x, y, barW, 4, 3.5);
+
+      // 3. Bottom bevel depth
+      this.playerHpBarGfx.fillStyle(bottomShade, 0.45);
+      this.playerHpBarGfx.fillRoundedRect(x, y + barH - 3, barW, 3, 2.5);
+    }
+
+    // Critical low HP pulsating warning
+    if (this.playerCombatContainer) {
+      if (pct < 0.25 && pct > 0) {
+        if (!this.playerHpCriticalTween) {
+          this.playerHpCriticalTween = this.tweens.add({
+            targets: this.playerCombatContainer,
+            scale: 1.04,
+            duration: 320,
+            yoyo: true,
+            repeat: -1
+          });
+        }
+      } else {
+        if (this.playerHpCriticalTween) {
+          this.playerHpCriticalTween.stop();
+          this.playerHpCriticalTween = null;
+          this.playerCombatContainer.setScale(1.0);
+        }
+      }
+    }
+
+    const drPercent = Math.round((this.playerCombatStats?.damageReduction || 0) * 100);
+    const drTag = drPercent > 0 ? ` (🛡️${drPercent}%)` : '';
+    this.playerHpText.setText(`❤️ ${Math.ceil(this.playerCombatHp)}/${this.playerCombatMaxHp} HP${drTag}`);
+
+    this.updateLivesDisplay();
+  }
+
+  private showPlayerDamagePopup(damage: number, isEnraged: boolean): void {
+    const { height } = getScreenDimensions();
+    const x = 142;
+    const y = height - 90;
+    const txt = this.add.text(x, y, `-${damage} HP`, {
+      fontFamily: FONT_UI,
+      fontSize: isEnraged ? '21px' : '17px',
+      fontStyle: '900',
+      color: isEnraged ? '#ff0055' : '#ff3366',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5).setDepth(40);
+
+    this.tweens.add({
+      targets: txt,
+      y: y - 40,
+      alpha: 0,
+      duration: 850,
+      ease: 'Power2',
+      onComplete: () => txt.destroy()
+    });
+  }
+
+  private handleBossAttackPlayer(rawDamage: number, isEnraged: boolean, skillName: string): void {
+    if (this.isGameOver || this.isVictory || this.isBossDefeatedSequence) return;
+
+    const dr = this.playerCombatStats?.damageReduction || 0;
+    const result = CombatEngine.calculateDamageReceived(
+      rawDamage,
+      dr,
+      isEnraged,
+      this.hasDivineWard
+    );
+
+    if (result.absorbed) {
+      this.hasDivineWard = false;
+      this.showNotice(`🛡️ LINH PHÙ HỘ THỂ ĐÃ CHẶN ĐÒN ĐÁNH CỦA BOSS!`, 0x00f5d4);
+      this.audio.playRelicBurst('boss');
+      this.haptic.heavy();
+      return;
+    }
+
+    const dmg = result.damageTaken;
+    this.playerCombatHp = Math.max(0, this.playerCombatHp - dmg);
+    this.updatePlayerCombatHpVisual();
+
+    // Visual feedback
+    this.cameras.main.shake(180, 0.012);
+    this.cameras.main.flash(150, 255, 30, 60);
+    this.audio.playError();
+    this.haptic.heavy();
+
+    this.showPlayerDamagePopup(dmg, isEnraged);
+
+    const enrageTag = isEnraged ? '🔥 [CUỒNG BẠO] ' : '';
+    this.showNotice(`⚠️ ${enrageTag}${skillName}: Gây -${dmg} HP!`, isEnraged ? 0xff0055 : 0xff595e);
+
+    if (this.playerCombatHp <= 0) {
+      if (this.lives > 1) {
+        this.lives--;
+        this.playerCombatHp = Math.round(this.playerCombatMaxHp * 0.5);
+        this.updatePlayerCombatHpVisual();
+        this.updateLivesDisplay();
+        this.showNotice(`💔 TỬ TRẬN! Tiêu hao 1 Mạng để hồi sinh 50% HP! (Còn ${this.lives} ❤️)`, 0xff3366);
+        this.cameras.main.flash(300, 255, 0, 0);
+      } else {
+        this.lives = 0;
+        this.updateLivesDisplay();
+        this.handleGameOver('⚔️ Bạn đã cạn kiệt HP trước đòn đánh của Cự Trùm!');
+      }
+    }
+  }
+
+  private handleBossEnrageTriggered(): void {
+    const bossCfg = this.bossManager?.getBossConfig();
+    const bossName = bossCfg?.name || 'CỰ TRÙM';
+    this.showNotice(`🔥 CẢNH BÁO CUỒNG BẠO! ${bossName.toUpperCase()} BƯỚC VÀO TRẠNG THÁI CUỒNG NỘ! (+50% Tốc Độ, +35% Sát Thương)`, 0xff0055);
+    this.cameras.main.shake(350, 0.02);
+    this.cameras.main.flash(300, 255, 0, 80);
+    this.audio.playError();
+    this.haptic.heavy();
+
+    if (this.bossSprite) {
+      this.tweens.add({
+        targets: this.bossSprite,
+        scaleX: this.bossSprite.scaleX * 1.12,
+        scaleY: this.bossSprite.scaleY * 1.12,
+        duration: 250,
+        yoyo: true,
+        repeat: 2
+      });
+    }
+
+    if (this.bossWarningText) {
+      this.bossWarningText.setText('🔥 TRẠNG THÁI CUỒNG BẠO 🔥');
+      this.bossWarningText.setColor('#ff0055');
+    }
+  }
+
+  private setupPulseGravityTimer(): void {
+    if (this.isZenMode) return;
+    if (this.currentDifficulty !== 'medium' && this.currentDifficulty !== 'hard') return;
+
+    const intervalSec = this.currentDifficulty === 'hard' ? 10 : 15;
+    this.pulseGravityTimer = this.time.addEvent({
+      delay: intervalSec * 1000,
+      loop: true,
+      callback: () => {
+        if (this.isGameOver || this.isVictory || this.isTimeFrozen || this.isBlizzardPushing) return;
+        if (!this.boardManager) return;
+
+        const pulseMovements: BoardMovement[] = ['down', 'left', 'right', 'up', 'center_row', 'center_col'];
+        const randomMove = pulseMovements[Math.floor(Math.random() * pulseMovements.length)];
+
+        const moveNames: Record<BoardMovement, string> = {
+          down: 'Trọng Lực Đáy ⬇️',
+          up: 'Lực Đẩy Ngược ⬆️',
+          left: 'Gió Thổi Trái ⬅️',
+          right: 'Gió Thổi Phải ➡️',
+          center_row: 'Hút Tâm Hàng Ngang 🎯',
+          center_col: 'Hút Tâm Cột Dọc 🎯',
+          split_vertical: 'Phân Tách Dọc ↕️',
+          split_horizontal: 'Phân Tách Ngang ↔️',
+          none: 'Tĩnh Lặng',
+          chaos: 'Hỗn Độn 🌀'
+        };
+
+        this.showNotice(`🌀 XUNG LỰC BẤN ĐỊNH: ${moveNames[randomMove] || randomMove}!`, 0x00f5d4);
+        this.boardManager.applyCustomMovement(randomMove);
+        this.audio.playSelect();
+        this.cameras.main.shake(120, 0.005);
+      }
+    });
   }
 
   private addCompanionEnergy(amount: number): void {
@@ -1583,23 +2236,23 @@ export class GameScene extends Phaser.Scene {
     if (!this.companionEnergyGraphics) return;
 
     this.companionEnergyGraphics.clear();
-    const barW = 134;
-    const barH = 12;
-    const startX = -43;
-    const startY = 3;
+    const barW = 132;
+    const barH = 14;
+    const startX = -36;
+    const startY = 5;
 
     const maxE = this.maxCompanionEnergy;
     const fillW = Math.max(0, (this.companionEnergy / maxE) * barW);
 
     if (this.isCompanionSkillReady) {
       this.companionEnergyGraphics.fillStyle(0xffd700, 1);
-      this.companionEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 6);
+      this.companionEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 7);
       this.companionEnergyText.setVisible(false);
       this.companionReadyBadge.setVisible(true);
     } else {
       this.companionEnergyGraphics.fillStyle(0xff3366, 0.95);
       if (fillW > 0) {
-        this.companionEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 6);
+        this.companionEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 7);
       }
       this.companionEnergyText.setText(`${Math.floor((this.companionEnergy / maxE) * 100)}% NỘ`);
       this.companionEnergyText.setVisible(true);
@@ -1634,13 +2287,14 @@ export class GameScene extends Phaser.Scene {
 
     const comp = this.companionConfig;
     const lvl = this.save.getCompanionLevel(comp.id);
+    const compTex = this.getCompanionTextureKey(comp.id);
 
     if (comp.id === 'inari_kitsune') {
       // 🦊 Cáo Inari: Tự động tìm & giải cứu 1-2 cặp ô kẹt sâu nhất (Tuần tự an toàn)
       const bannerSub = lvl >= 5
         ? 'Linh Hồ giáng trần giải cứu trọn vẹn 2 cặp ô hiểm hóc nhất!'
         : 'Linh Hồ giáng trần giải cứu 1 cặp ô bị kẹt sâu trên bàn cờ!';
-      this.showSkillBanner(`🦊 CÁO INARI (CẤP ${lvl}): LINH HỒ XUẤT KÍCH!`, bannerSub, comp.themeColor);
+      this.showSkillBanner(`🦊 CÁO INARI (CẤP ${lvl}): LINH HỒ XUẤT KÍCH!`, bannerSub, comp.themeColor, compTex);
       this.audio.playVictory();
 
       // Lv.3-4: Melts 1 web or ice obstacle
@@ -1668,7 +2322,8 @@ export class GameScene extends Phaser.Scene {
       this.showSkillBanner(
         `🐉 RỒNG RYUJIN (CẤP ${lvl}): NGƯNG ĐỌNG LONG CHÂU!`,
         `Bảo ngọc Long Vương đóng băng đồng hồ trong ${freezeDuration.toFixed(1)} giây!`,
-        comp.themeColor
+        comp.themeColor,
+        compTex
       );
       this.audio.playVictory();
       this.isTimeFrozen = true;
@@ -1696,7 +2351,8 @@ export class GameScene extends Phaser.Scene {
         this.bossManager
           ? `Ngọn lửa bất tử giáng ${bossDmg} sát thương thiêu đốt Boss!`
           : `Ngọn lửa bất tử thiêu rụi ${obsCount} chướng ngại vật trên bàn cờ!`,
-        comp.themeColor
+        comp.themeColor,
+        compTex
       );
 
       this.playPhoenixFlameSweep(() => {
@@ -1734,7 +2390,7 @@ export class GameScene extends Phaser.Scene {
           ? `Chém 1 cặp ô thẳng hàng + Khóa trọng lực trượt gạch trong ${lockDuration}s!`
           : 'Chém giải quyết 1 cặp ô thẳng hàng (0 khúc cua) ngay tức thì!';
 
-      this.showSkillBanner(`🐯 BẠCH HỔ BYAKKO (CẤP ${lvl}): BẠCH HỔ CUỒNG TRẢO!`, bannerDesc, comp.themeColor);
+      this.showSkillBanner(`🐯 BẠCH HỔ BYAKKO (CẤP ${lvl}): BẠCH HỔ CUỒNG TRẢO!`, bannerDesc, comp.themeColor, compTex);
       this.audio.playVictory();
 
       let straightMatch = this.boardManager.findStraightLineMatch();
@@ -1768,7 +2424,8 @@ export class GameScene extends Phaser.Scene {
       this.showSkillBanner(
         `🐢 HUYỀN VŨ GENBU (CẤP ${lvl}): KIM CANG ĐỊA THUẪN!`,
         `Đập vỡ ${smashCount} khối Đá/Khóa + Tạo Khiên Thổ chặn ${shieldCharges} lần nối sai!`,
-        comp.themeColor
+        comp.themeColor,
+        compTex
       );
       this.audio.playBossHit();
 
@@ -1780,18 +2437,27 @@ export class GameScene extends Phaser.Scene {
 
       if (shieldCharges > 0) {
         this.genbuShieldCharges = shieldCharges;
-        this.showNotice(`🛡️ Khiên Thổ kích hoạt: Bảo vệ ${shieldCharges} lần nối sai không bị trừ thời gian!`, 0x2a9d8f);
+        this.hasDivineWard = true;
+        this.showNotice(`🛡️ Khiên Thổ: Chặn 1 đòn sát thương Boss & bảo vệ ${shieldCharges} lần nối sai!`, 0x2a9d8f);
       }
     } else if (comp.id === 'kirin_sacred') {
-      // 🦌 Kỳ Lân Kirin: Thanh lọc nguyền rủa + Hồi phục thời gian + Biến Thánh Hoa (Lv.5)
+      // 🦌 Kỳ Lân Kirin: Thanh lọc nguyền rủa + Hồi phục thời gian + Hồi Combat HP + Biến Thánh Hoa (Lv.5)
       const bonusSeconds = lvl >= 4 ? 5 : lvl >= 2 ? 4 : 3;
       this.timeRemaining = Math.min(this.levelConfig.timeLimit + 30, this.timeRemaining + bonusSeconds);
       this.showBonusTimePopup(bonusSeconds);
 
+      // Heal Player Combat HP
+      if (this.playerCombatHp < this.playerCombatMaxHp) {
+        this.playerCombatHp = Math.min(this.playerCombatMaxHp, this.playerCombatHp + 400);
+        this.updatePlayerCombatHpVisual();
+        this.showNotice('🦌 Kỳ Lân ban phước hồi phục +400 Combat HP! ❤️', 0x52b788);
+      }
+
       this.showSkillBanner(
         `🦌 KỲ LÂN KIRIN (CẤP ${lvl}): CÁT TƯỜNG THANH TẨY!`,
-        `Thanh tẩy bùa nguyền rủa trên sân và hồi phục +${bonusSeconds} giây thời gian!`,
-        comp.themeColor
+        `Thanh tẩy bùa nguyền rủa trên sân, hồi +400 HP và +${bonusSeconds}s thời gian!`,
+        comp.themeColor,
+        compTex
       );
       this.audio.playVictory();
 
@@ -1820,7 +2486,8 @@ export class GameScene extends Phaser.Scene {
       this.showSkillBanner(
         `⚡ LÔI THÚ RAIJU (CẤP ${lvl}): LÔI QUANG LIÊN NỐI!`,
         `Phóng luồng điện Torii kết nối 1 cặp ô ở cự ly xa nhất${multText}!`,
-        comp.themeColor
+        comp.themeColor,
+        compTex
       );
       this.audio.playLaserZap();
 
@@ -1842,7 +2509,7 @@ export class GameScene extends Phaser.Scene {
           ? `Xua tan bóng tối ${fogDuration}s + Định vị chính xác Cổ vật Relic Shard!`
           : `Rọi ánh sáng mặt trời xua tan bóng tối và sương mù trong ${fogDuration}s!`;
 
-      this.showSkillBanner(`🦅 QUẠ YATAGARASU (CẤP ${lvl}): NHẬT QUANG SOI ĐƯỜNG!`, bannerDesc, comp.themeColor);
+      this.showSkillBanner(`🦅 QUẠ YATAGARASU (CẤP ${lvl}): NHẬT QUANG SOI ĐƯỜNG!`, bannerDesc, comp.themeColor, compTex);
       this.audio.playVictory();
 
       if (lvl >= 3) {
@@ -1866,7 +2533,8 @@ export class GameScene extends Phaser.Scene {
       this.showSkillBanner(
         `🐾 MÈO NEKOMATA (CẤP ${lvl}): HOÁN ĐỔI CÀN KHÔN!`,
         `Hoán đổi ô gạch kẹt sâu ra ngoài rìa bàn cờ + Cướp lại +${bonusSec}s thời gian!`,
-        comp.themeColor
+        comp.themeColor,
+        compTex
       );
       this.audio.playVictory();
       this.boardManager.swapDeepTileToPerimeter();
@@ -1882,7 +2550,8 @@ export class GameScene extends Phaser.Scene {
       this.showSkillBanner(
         `🐍 BÁT KỲ OROCHI (CẤP ${lvl}): BÁT ĐẦU CUỒNG NỘ!`,
         `Tăng +${pctStr}% Sát thương Boss trong ${buffDuration}s + Nghiền nát chướng ngại vật!`,
-        comp.themeColor
+        comp.themeColor,
+        compTex
       );
       this.audio.playBossHit();
 
@@ -1943,7 +2612,7 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private showSkillBanner(title: string, desc: string, color: number): void {
+  private showSkillBanner(title: string, desc: string, color: number, imageKey?: string): void {
     const banner = this.add.container(GAME_WIDTH / 2, 125).setDepth(200);
 
     const bannerW = 620;
@@ -1954,22 +2623,39 @@ export class GameScene extends Phaser.Scene {
     bg.fillRoundedRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH, 16);
     bg.lineStyle(2, color, 1);
     bg.strokeRoundedRect(-bannerW / 2, -bannerH / 2, bannerW, bannerH, 16);
+    banner.add(bg);
 
-    const titleTxt = this.add.text(0, -12, title, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const hasImage = Boolean(imageKey && this.textures.exists(imageKey));
+    if (hasImage) {
+      const avX = -bannerW / 2 + 38;
+      const avRadius = 22;
+      const avBg = this.add.graphics();
+      avBg.fillStyle(0x060813, 1);
+      avBg.fillCircle(avX, 0, avRadius);
+      avBg.lineStyle(1.8, color, 1);
+      avBg.strokeCircle(avX, 0, avRadius);
+      banner.add(avBg);
+
+      const avImg = this.add.image(avX, 0, imageKey!).setDisplaySize(38, 38);
+      banner.add(avImg);
+    }
+
+    const textOffsetX = hasImage ? 24 : 0;
+    const titleTxt = this.add.text(textOffsetX, -12, title, {
+      fontFamily: FONT_UI,
       fontSize: '17px',
       fontStyle: '900',
       color: `#${color.toString(16).padStart(6, '0')}`
     }).setOrigin(0.5);
 
-    const descTxt = this.add.text(0, 14, desc, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const descTxt = this.add.text(textOffsetX, 14, desc, {
+      fontFamily: FONT_UI,
       fontSize: '12px',
       fontStyle: 'bold',
       color: '#e2e8f0'
     }).setOrigin(0.5);
 
-    banner.add([bg, titleTxt, descTxt]);
+    banner.add([titleTxt, descTxt]);
     banner.setScale(0.85);
     banner.setAlpha(0);
 
@@ -2000,7 +2686,7 @@ export class GameScene extends Phaser.Scene {
     CompanionModal.open(this, (comp) => {
       this.companionConfig = comp;
       this.updateCompanionPodVisuals();
-      this.showNotice(`🦊 Đã chuyển sang bạn đồng hành: ${comp.name}!`, comp.themeColor);
+      this.showNotice(`✨ Đã chuyển sang bạn đồng hành: ${comp.name}!`, comp.themeColor);
       this.audio.playVictory();
     });
   }
@@ -2010,9 +2696,9 @@ export class GameScene extends Phaser.Scene {
   // ==========================================
   private buildRelicPod(width: number, height: number): void {
     const podW = 216;
-    const podH = 56;
-    const podX = width - 130;
-    const podY = height - 40;
+    const podH = 54;
+    const podX = width - 142;
+    const podY = height - 37;
 
     this.relicPod = this.add.container(podX, podY).setDepth(25);
 
@@ -2029,55 +2715,65 @@ export class GameScene extends Phaser.Scene {
     // Circular Avatar Container with tier-colored glowing halo
     const avatarHalo = this.add.graphics();
     avatarHalo.fillStyle(0x1a1226, 1);
-    avatarHalo.fillCircle(-68, 0, 24);
+    avatarHalo.fillCircle(-68, 0, 22);
     avatarHalo.lineStyle(2, tierColor.stroke, 0.95);
-    avatarHalo.strokeCircle(-68, 0, 24);
+    avatarHalo.strokeCircle(-68, 0, 22);
 
     // Soft aura
-    avatarHalo.fillStyle(tierColor.stroke, 0.25);
-    avatarHalo.fillCircle(-68, 0, 28);
+    avatarHalo.fillStyle(tierColor.stroke, 0.22);
+    avatarHalo.fillCircle(-68, 0, 26);
 
     if (relic && this.textures.exists(relic.id)) {
       this.relicAvatarImg = this.add.image(-68, 0, relic.id).setDisplaySize(44, 44);
     } else if (relic && this.textures.exists(`relic_${relic.id}`)) {
       this.relicAvatarImg = this.add.image(-68, 0, `relic_${relic.id}`).setDisplaySize(44, 44);
     } else {
-      this.relicAvatarImg = this.add.text(-68, 0, relic ? (relic.icon || '🏺') : '🔒', { fontSize: '24px' }).setOrigin(0.5);
+      this.relicAvatarImg = this.add.text(-68, 0, relic ? (relic.icon || '🏺') : '🔒', { fontSize: '22px' }).setOrigin(0.5);
     }
 
-    // Relic Name
+    // Relic Name (Upper row: aligned with breathing room and crisp stroke)
     const displayName = relic ? `🏺 ${relic.name}` : '🔒 Thần Khí (Trống)';
-    this.relicNameText = this.add.text(-43, -14, displayName, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+    this.relicNameText = this.add.text(-36, -11, displayName, {
+      fontFamily: FONT_UI,
+      fontSize: '14px',
       fontStyle: '900',
-      color: tierColor.hexStr
-    });
+      color: tierColor.hexStr,
+      stroke: '#080512',
+      strokeThickness: 2.2
+    }).setOrigin(0, 0.5);
 
-    // Energy Bar Background
+    // Energy Bar Background (Lower row: clean 8px vertical separation from name)
     const barBg = this.add.graphics();
+    const barW = 132;
+    const barH = 14;
+    const barX = -36;
+    const barY = 5;
     barBg.fillStyle(0x0e0e18, 0.95);
-    barBg.fillRoundedRect(-43, 3, 134, 12, 6);
-    barBg.lineStyle(1, tierColor.stroke, 0.45);
-    barBg.strokeRoundedRect(-43, 3, 134, 12, 6);
+    barBg.fillRoundedRect(barX, barY, barW, barH, 7);
+    barBg.lineStyle(1, tierColor.stroke, 0.55);
+    barBg.strokeRoundedRect(barX, barY, barW, barH, 7);
 
     // Dynamic Energy Fill
     this.relicEnergyGraphics = this.add.graphics();
 
-    // Energy Text
-    this.relicEnergyText = this.add.text(24, 9, relic ? '0% NỘ' : 'CHƯA CÓ', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+    // Energy Text (Centered inside energy bar)
+    this.relicEnergyText = this.add.text(barX + barW / 2, barY + barH / 2, relic ? '0% NỘ' : 'CHƯA CÓ', {
+      fontFamily: FONT_UI,
+      fontSize: '11px',
       fontStyle: '900',
-      color: '#ced4da'
+      color: '#ced4da',
+      stroke: '#080512',
+      strokeThickness: 2.2
     }).setOrigin(0.5);
 
     // Ready Badge Text (hidden by default)
-    this.relicReadyBadge = this.add.text(24, 9, '⚡ BẤM DÙNG!', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '13.5px',
+    this.relicReadyBadge = this.add.text(barX + barW / 2, barY + barH / 2, '⚡ BẤM DÙNG!', {
+      fontFamily: FONT_UI,
+      fontSize: '11px',
       fontStyle: '900',
-      color: '#ffd700'
+      color: '#ffd700',
+      stroke: '#080512',
+      strokeThickness: 2.2
     }).setOrigin(0.5).setVisible(false);
 
     this.relicPod.add([
@@ -2141,30 +2837,30 @@ export class GameScene extends Phaser.Scene {
   private updateRelicPodBackground(): void {
     if (!this.relicPodBorder) return;
     const podW = 216;
-    const podH = 56;
+    const podH = 54;
     const equippedRelicId = this.save.getEquippedRelicId();
     const relic = equippedRelicId ? RelicManager.getInstance().getRelicById(equippedRelicId) : null;
     const tierColor = relic ? RelicManager.getInstance().getTierColor(relic.tier) : { stroke: 0x4a4e69 };
 
     this.relicPodBorder.clear();
     this.relicPodBorder.fillStyle(0x111022, 0.96);
-    this.relicPodBorder.fillRoundedRect(-podW / 2, -podH / 2, podW, podH, 16);
+    this.relicPodBorder.fillRoundedRect(-podW / 2, -podH / 2, podW, podH, 14);
     this.relicPodBorder.lineStyle(
       this.isRelicSkillReady ? 2.5 : 1.8,
       this.isRelicSkillReady ? 0xffd700 : tierColor.stroke,
       this.isRelicSkillReady ? 1 : 0.75
     );
-    this.relicPodBorder.strokeRoundedRect(-podW / 2, -podH / 2, podW, podH, 16);
+    this.relicPodBorder.strokeRoundedRect(-podW / 2, -podH / 2, podW, podH, 14);
   }
 
   private updateRelicEnergyUI(): void {
     if (!this.relicEnergyGraphics) return;
 
     this.relicEnergyGraphics.clear();
-    const barW = 134;
-    const barH = 12;
-    const startX = -43;
-    const startY = 3;
+    const barW = 132;
+    const barH = 14;
+    const startX = -36;
+    const startY = 5;
 
     const equippedRelicId = this.save.getEquippedRelicId();
     const relic = equippedRelicId ? RelicManager.getInstance().getRelicById(equippedRelicId) : null;
@@ -2181,13 +2877,13 @@ export class GameScene extends Phaser.Scene {
 
     if (this.isRelicSkillReady) {
       this.relicEnergyGraphics.fillStyle(0xffd700, 1);
-      this.relicEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 6);
+      this.relicEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 7);
       this.relicEnergyText.setVisible(false);
       this.relicReadyBadge.setVisible(true);
     } else {
       this.relicEnergyGraphics.fillStyle(tierColor.stroke, 0.92);
       if (fillW > 0) {
-        this.relicEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 6);
+        this.relicEnergyGraphics.fillRoundedRect(startX, startY, fillW, barH, 7);
       }
       this.relicEnergyText.setText(`${Math.floor((this.relicEnergy / maxE) * 100)}% NỘ`);
       this.relicEnergyText.setVisible(true);
@@ -2249,10 +2945,18 @@ export class GameScene extends Phaser.Scene {
     const relic = RelicManager.getInstance().getRelicById(equippedRelicId);
     if (relic) {
       const tierColor = RelicManager.getInstance().getTierColor(relic.tier);
+      const candidateRelicKeys = [
+        relic.id,
+        `relic_${relic.id}`,
+        relic.id.replace(/^relic_/, ''),
+        `relic_${relic.id.replace(/^relic_/, '')}`
+      ];
+      const relicTex = candidateRelicKeys.find(k => this.textures.exists(k));
       this.showSkillBanner(
         `🏺 ${relic.name.toUpperCase()}: ${relic.skillName.toUpperCase()}`,
         relic.skillDesc,
-        tierColor.stroke
+        tierColor.stroke,
+        relicTex
       );
       this.audio.playRelicBurst(relic.archetype || 'boss');
 
@@ -2289,11 +2993,11 @@ export class GameScene extends Phaser.Scene {
     spriteKey?: string
   ): { container: Phaser.GameObjects.Container; countText: Phaser.GameObjects.Text } {
     const container = this.add.container(x, y);
-    const radius = 22; // 44px diameter circular action gem
+    const radius = 28; // 56px diameter circular action gem (comfortable touch target, avoids iOS home bar)
 
     // 1. Soft glowing outer neon aura
     const aura = this.add.graphics();
-    aura.fillStyle(color, 0.25);
+    aura.fillStyle(color, 0.28);
     aura.fillCircle(0, 0, radius + 4);
 
     // 2. Obsidian glass disc background
@@ -2302,45 +3006,46 @@ export class GameScene extends Phaser.Scene {
     bg.fillCircle(0, 0, radius);
 
     // 3. Vibrant neon border ring
-    bg.lineStyle(1.8, color, 0.95);
+    bg.lineStyle(2.0, color, 0.95);
     bg.strokeCircle(0, 0, radius);
 
     // 4. Inner subtle bevel highlight ring
-    bg.lineStyle(1.0, 0xffffff, 0.22);
-    bg.strokeCircle(0, 0, radius - 2.5);
+    bg.lineStyle(1.0, 0xffffff, 0.25);
+    bg.strokeCircle(0, 0, radius - 3);
 
-    // 5. Center Neon Action Icon / Sprite
+    // 5. Center Neon Action Icon / Sprite (42x42 display size for high visibility)
     let centerIcon: Phaser.GameObjects.GameObject;
     if (spriteKey && this.textures.exists(spriteKey)) {
-      centerIcon = this.add.image(0, 0, spriteKey).setDisplaySize(34, 34);
+      centerIcon = this.add.image(0, 0, spriteKey).setDisplaySize(42, 42);
     } else {
       centerIcon = this.add.text(0, 0, icon, {
-        fontSize: '20px'
+        fontSize: '24px'
       }).setOrigin(0.5);
     }
 
-    // 6. Mini Count Badge (Top-Right Pill, e.g. "15", "10")
-    const badgeW = 22;
-    const badgeH = 14;
+    // 6. Mini Count Badge (Top-Right Pill, e.g. "15", "10", "21")
+    const cleanCount = countStr.replace(/^x/, '');
+    const badgeW = Math.max(24, cleanCount.length * 8 + 8);
+    const badgeH = 16;
     const badgeX = radius - 3;
     const badgeY = -radius + 3;
 
     const badgeGfx = this.add.graphics();
     badgeGfx.fillStyle(0xd90429, 0.98); // Rich crimson / gold accent
-    badgeGfx.fillRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 6);
+    badgeGfx.fillRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 7);
     badgeGfx.lineStyle(1.2, 0xffd700, 0.95);
-    badgeGfx.strokeRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 6);
+    badgeGfx.strokeRoundedRect(badgeX - badgeW / 2, badgeY - badgeH / 2, badgeW, badgeH, 7);
 
-    const count = this.add.text(badgeX, badgeY, countStr.replace(/^x/, ''), {
+    const count = this.add.text(badgeX, badgeY, cleanCount, {
       fontFamily: FONT_UI,
-      fontSize: '9.5px',
+      fontSize: '11px',
       fontStyle: '900',
       color: '#ffffff'
     }).setOrigin(0.5);
 
     container.add([aura, bg, centerIcon, badgeGfx, count]);
     container.setSize(radius * 2, radius * 2);
-    container.setInteractive(new Phaser.Geom.Circle(0, 0, radius + 4), Phaser.Geom.Circle.Contains);
+    container.setInteractive(new Phaser.Geom.Circle(0, 0, radius + 6), Phaser.Geom.Circle.Contains);
     if (container.input) {
       container.input.cursor = 'pointer';
     }
@@ -2348,14 +3053,14 @@ export class GameScene extends Phaser.Scene {
     container.on('pointerover', () => {
       this.tweens.add({
         targets: container,
-        scaleX: 1.12,
-        scaleY: 1.12,
+        scaleX: 1.10,
+        scaleY: 1.10,
         duration: 120,
         ease: 'Back.easeOut'
       });
       aura.clear();
       aura.fillStyle(color, 0.5);
-      aura.fillCircle(0, 0, radius + 6);
+      aura.fillCircle(0, 0, radius + 8);
     });
 
     container.on('pointerout', () => {
@@ -2367,7 +3072,7 @@ export class GameScene extends Phaser.Scene {
         ease: 'Sine.easeOut'
       });
       aura.clear();
-      aura.fillStyle(color, 0.25);
+      aura.fillStyle(color, 0.28);
       aura.fillCircle(0, 0, radius + 4);
     });
 
@@ -2608,9 +3313,106 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * 🌸 High-Tactile Sakura Petal Burst (ADR 0020)
+   * Spawns delicate pink/white diamond petals radiating with physical velocity and fluttering downward.
+   */
+  private spawnSakuraPetalBurst(x: number, y: number, count: number = 10): void {
+    const colors = [0xffb7c5, 0xff758f, 0xffc2d1, 0xffffff, 0xffccd5];
+    for (let i = 0; i < count; i++) {
+      const petal = this.add.graphics();
+      const color = colors[i % colors.length];
+      petal.fillStyle(color, 0.92);
+      petal.fillEllipse(0, 0, 7, 12);
+      petal.setPosition(x, y);
+      petal.setDepth(160);
+
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+      const speed = 40 + Math.random() * 65;
+      const targetX = x + Math.cos(angle) * speed;
+      const targetY = y + Math.sin(angle) * speed + 24;
+      const targetRotation = (Math.random() - 0.5) * 4;
+
+      this.tweens.add({
+        targets: petal,
+        x: targetX,
+        y: targetY,
+        rotation: targetRotation,
+        alpha: 0,
+        scaleX: 0.4,
+        scaleY: 0.4,
+        duration: 550 + Math.random() * 250,
+        ease: 'Cubic.easeOut',
+        onComplete: () => petal.destroy()
+      });
+    }
+  }
+
+  /**
+   * ⚡ Kinetic Floating Numbers Popup (ADR 0020)
+   * Displays kinetic floating scores with parabolic easing, scale popping, and semantic colors.
+   */
+  private showMatchScorePopup(x: number, y: number, pts: number, combo: number, isCritical: boolean = false): void {
+    let text = `+${pts}`;
+    let color = '#ffd166';
+    let stroke = '#000000';
+    let fontSize = '17px';
+    let scalePop = 1.25;
+
+    if (combo >= 5) {
+      text = `+${pts} 🔥 COMBO x${combo}!`;
+      color = '#ffd166';
+      stroke = '#d90429';
+      fontSize = '19px';
+      scalePop = 1.45;
+    } else if (isCritical) {
+      text = `💥 CHÍ MẠNG +${pts}`;
+      color = '#ff4d6d';
+      stroke = '#4a0018';
+      fontSize = '18px';
+      scalePop = 1.4;
+    } else if (combo >= 2) {
+      text = `+${pts} ⚡ x${combo}`;
+      color = '#00f5d4';
+      stroke = '#03045e';
+      fontSize = '17px';
+      scalePop = 1.3;
+    }
+
+    const popup = this.add.text(x, y - 8, text, {
+      fontFamily: FONT_UI,
+      fontSize: fontSize,
+      fontStyle: '900',
+      color: color,
+      stroke: stroke,
+      strokeThickness: 3.5
+    }).setOrigin(0.5).setDepth(170);
+
+    popup.setScale(0.6);
+    this.tweens.add({
+      targets: popup,
+      scaleX: scalePop,
+      scaleY: scalePop,
+      duration: 110,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: popup,
+          y: y - 48,
+          alpha: 0,
+          scaleX: 0.85,
+          scaleY: 0.85,
+          duration: 550,
+          ease: 'Cubic.easeOut',
+          onComplete: () => popup.destroy()
+        });
+      }
+    });
+  }
+
   private showRushPointsPopup(x: number, y: number, pts: number): void {
     const popup = this.add.text(x, y - 10, `+${pts} PTS (x3 DẠ HÀNH!) 🌙`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#e0aaff',
@@ -2706,6 +3508,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleMatchSuccess(t1: TileState, t2: TileState, path?: GridPoint[], isAutoClear: boolean = false): void {
+    this.consecutiveMisClicks = 0;
     const comboData = this.comboSystem.registerMatch();
 
     // 4. ⭐ Star Quest 2: Đạt ít nhất Combo x5
@@ -2755,6 +3558,8 @@ export class GameScene extends Phaser.Scene {
       this.haptic.medium();
     }
 
+    this.totalPairsMatched++;
+
     // Sakura particle bursts at both matched tiles & midpoint
     const p1 = this.boardManager.gridToWorld(t1.r, t1.c);
     const p2 = this.boardManager.gridToWorld(t2.r, t2.c);
@@ -2764,6 +3569,12 @@ export class GameScene extends Phaser.Scene {
     this.feverParticles.explode(8, p1.x, p1.y);
     this.feverParticles.explode(8, p2.x, p2.y);
     this.feverParticles.explode(14, midX, midY);
+
+    // 🌸 High-Tactile Sakura Petal Burst (ADR 0020)
+    this.spawnSakuraPetalBurst(midX, midY, 10);
+
+    // ⚡ Kinetic Floating Numbers Popup (ADR 0020)
+    this.showMatchScorePopup(midX, midY, earnedPts, comboData.combo, this.isNightParadeActive || comboData.isFever);
 
     if (this.isNightParadeActive) {
       this.showRushPointsPopup(midX, midY, earnedPts);
@@ -2778,9 +3589,21 @@ export class GameScene extends Phaser.Scene {
 
       this.showNotice(`✨ ĐÃ TÌM THẤY: +1 MẢNH ${this.levelConfig.relicReward.name.toUpperCase()}!`, 0xffd700);
 
-      const relicIcon = this.add.text(midX, midY, this.levelConfig.relicReward.icon || '🏺', {
-        fontSize: '32px'
-      }).setOrigin(0.5).setDepth(200);
+      const candidateRelicKeys = [
+        this.levelConfig.relicReward.id,
+        `relic_${this.levelConfig.relicReward.id}`,
+        this.levelConfig.relicReward.id.replace(/^relic_/, ''),
+        `relic_${this.levelConfig.relicReward.id.replace(/^relic_/, '')}`
+      ];
+      const relicFoundKey = candidateRelicKeys.find(k => this.textures.exists(k));
+      let relicIcon: Phaser.GameObjects.GameObject;
+      if (relicFoundKey) {
+        relicIcon = this.add.image(midX, midY, relicFoundKey).setDisplaySize(38, 38).setOrigin(0.5).setDepth(200);
+      } else {
+        relicIcon = this.add.text(midX, midY, this.levelConfig.relicReward.icon || '🏺', {
+          fontSize: '32px'
+        }).setOrigin(0.5).setDepth(200);
+      }
 
       this.tweens.add({
         targets: relicIcon,
@@ -2837,11 +3660,29 @@ export class GameScene extends Phaser.Scene {
       this.audio.playVictory();
     }
 
-    // Apply Damage to Boss if boss level
+    // Apply Damage to Boss if boss level (ADR 0015 Combat Engine)
     if (this.bossManager) {
-      let bossDamage = 10 * comboData.multiplier;
-      if (comboData.isFever) bossDamage *= 1.5;
+      const dmgResult = CombatEngine.calculateMatchDamage(
+        this.playerCombatStats?.baseMatchDamage || 18,
+        comboData.combo,
+        comboData.isFever
+      );
+      let bossDamage = dmgResult.totalDamage;
+      if (this.orochiBossDamageMultiplier > 1.0) {
+        bossDamage = Math.round(bossDamage * this.orochiBossDamageMultiplier);
+      }
       this.bossManager.applyDamage(bossDamage);
+
+      // Minor healing on match
+      if (this.playerCombatHp < this.playerCombatMaxHp) {
+        this.playerCombatHp = Math.min(this.playerCombatMaxHp, this.playerCombatHp + dmgResult.healAmount);
+        this.updatePlayerCombatHpVisual();
+      }
+    }
+
+    // High combo (>= 4) unveils all fog across the board
+    if (comboData.combo >= 4 && this.boardManager) {
+      this.boardManager.unveilAllFog();
     }
 
     // 🦊 Pet Companion: Charge Energy Bar (Thanh Nộ) - Only manual player matches, never auto-cleared pairs!
@@ -2882,6 +3723,9 @@ export class GameScene extends Phaser.Scene {
     if (comboData.combo >= 5 && comboData.combo % 5 === 0) {
       this.triggerNightParadeRush(`⚡ COMBO x${comboData.combo} BÁCH QUỶ DẠ HÀNH!`);
     }
+
+    // 🛡️ Auto-save active game session after successful match
+    this.persistActiveSession();
   }
 
   private showBonusTimePopup(seconds: number = 1): void {
@@ -2889,7 +3733,7 @@ export class GameScene extends Phaser.Scene {
     const text = isPositive ? `+${seconds}s` : `${seconds}s`;
     const color = isPositive ? '#00f5d4' : '#ff3366';
     const popup = this.add.text(GAME_WIDTH / 2 + 250, 18, text, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '18px',
       fontStyle: '900',
       color,
@@ -3020,7 +3864,7 @@ export class GameScene extends Phaser.Scene {
 
     const labelText = `🎯 Đang chọn: ${char.symbol || '✨'} ${char.name}`;
     const textObj = this.add.text(0, 0, labelText, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '800',
       color: '#ffd700'
@@ -3079,7 +3923,7 @@ export class GameScene extends Phaser.Scene {
     const targetY = isBoss ? 108 : 55;
 
     const notice = this.add.text(GAME_WIDTH / 2, startY, text, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '18px',
       fontStyle: '900',
       color: `#${color.toString(16).padStart(6, '0')}`,
@@ -3109,7 +3953,7 @@ export class GameScene extends Phaser.Scene {
     const popX = this.bossSprite ? (GAME_WIDTH / 2 - 215) : (GAME_WIDTH / 2 + 35);
     const popY = this.bossSprite ? 55 : 135;
     const dmgText = this.add.text(popX, popY, `-${Math.round(dmg)} HP`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '18px',
       fontStyle: '900',
       color: '#ffd700',
@@ -3574,6 +4418,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.isVictory) return;
     this.isVictory = true;
+    this.save.clearActiveSession();
 
     this.audio.playVictory();
 
@@ -3596,10 +4441,25 @@ export class GameScene extends Phaser.Scene {
       if (q.type === 'combo') return this.maxComboAchieved >= q.target;
       if (q.type === 'no_booster') return this.playerUsedBoosterCount === 0;
       if (q.type === 'no_shuffle') return this.playerUsedShuffleCount === 0;
-      if (q.type === 'time_left') return !this.isZenMode && this.timeRemaining >= q.target;
-      if (q.type === 'break_ice') return this.brokenIceCount >= q.target;
-      if (q.type === 'break_stone') return this.brokenStoneCount >= q.target;
-      if (q.type === 'rescue_cages') return this.brokenCagesCount >= q.target;
+      if (q.type === 'time_left') {
+        if (this.levelConfig.isStopwatch) {
+          const gold = this.levelConfig.targetGoldSeconds || 60;
+          return this.elapsedTimeSeconds <= gold;
+        }
+        return !this.isZenMode && this.timeRemaining >= q.target;
+      }
+      if (q.type === 'break_ice') {
+        if ((this.levelConfig.modifiers?.iceCount || 0) === 0) return true;
+        return this.brokenIceCount >= q.target;
+      }
+      if (q.type === 'break_stone') {
+        if ((this.levelConfig.modifiers?.stoneCount || 0) === 0) return true;
+        return this.brokenStoneCount >= q.target;
+      }
+      if (q.type === 'rescue_cages') {
+        if ((this.levelConfig.modifiers?.lockCount || 0) === 0) return true;
+        return this.brokenCagesCount >= q.target;
+      }
       return true;
     };
 
@@ -3655,17 +4515,31 @@ export class GameScene extends Phaser.Scene {
     let shardsEarned = 0;
     let shardCompanionName = '';
     let shardCompanionId = '';
+    let universalShardsConverted = 0;
 
     if (lootResult.mainShardsEarned > 0) {
       shardsEarned = lootResult.mainShardsEarned;
       shardCompanionName = lootResult.mainCompanionName;
       shardCompanionId = lootResult.mainCompanionId;
-      this.save.addCompanionShards(lootResult.mainCompanionId, lootResult.mainShardsEarned);
     } else if (lootResult.subShardsEarned > 0) {
       shardsEarned = lootResult.subShardsEarned;
       shardCompanionName = lootResult.subCompanionName;
       shardCompanionId = lootResult.subCompanionId;
-      this.save.addCompanionShards(lootResult.subCompanionId, lootResult.subShardsEarned);
+    }
+
+    if (shardsEarned > 0 && shardCompanionId) {
+      // Kiểm tra nếu Linh Thú này đã đạt mức Cực Đại (Bậc 3 Cấp 30 / Level 5 - ADR 0018)
+      const tier = this.save.getCompanionTier(shardCompanionId);
+      const level = this.save.getCompanionLevel(shardCompanionId);
+      const isMax = tier >= 3 && level >= 30;
+
+      if (isMax) {
+        // Tỷ lệ quy đổi 3:1 sang Linh Thạch Vạn Năng (Universal Spirit Shards)
+        universalShardsConverted = Math.max(1, Math.floor(shardsEarned / 3));
+        this.save.addUniversalShards(universalShardsConverted);
+      } else {
+        this.save.addCompanionShards(shardCompanionId, shardsEarned);
+      }
     }
 
     // Xử lý Thẻ Vật Phẩm Hỗ Trợ (Booster) nếu rớt
@@ -3756,6 +4630,20 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    const timeElapsedSec = Math.max(1, Math.round((Date.now() - (this.matchStartTime || (Date.now() - 30000))) / 1000));
+    const newlyUnlockedAchievements = this.save.checkAndUnlockAchievements({
+      maxCombo: this.maxComboAchieved,
+      levelNum: this.levelConfig.levelNumber,
+      isWin: true,
+      timeElapsedSec,
+      bossId: (this.isBossDefeatedThisRun || this.bossManager) ? this.bossManager?.getBossConfig()?.id : undefined
+    });
+    if (newlyUnlockedAchievements && newlyUnlockedAchievements.length > 0) {
+      this.time.delayedCall(1400, () => {
+        this.showNotice?.(`🏆 MỞ KHÓA THÀNH TỰU: ${newlyUnlockedAchievements[0].title.toUpperCase()}! (+${newlyUnlockedAchievements[0].rewardDiamonds} 💎)`, 0xffd700);
+      });
+    }
+
     this.showVictoryModal(earnedCoins, earnedStars, newlyUnlockedId, timeBonus, {
       quest1: quest1Achieved,
       quest2: quest2Achieved,
@@ -3772,6 +4660,7 @@ export class GameScene extends Phaser.Scene {
       shardsEarned,
       shardCompanionName,
       shardCompanionId,
+      universalShardsConverted,
       lootResult,
       expResult,
       bossDefeated: (this.isBossDefeatedThisRun || this.bossManager) ? this.bossManager?.getBossConfig() : null,
@@ -3800,6 +4689,7 @@ export class GameScene extends Phaser.Scene {
       shardsEarned?: number;
       shardCompanionName?: string;
       shardCompanionId?: string;
+      universalShardsConverted?: number;
       lootResult?: CalculatedLootResult;
       expResult?: any;
       bossDefeated?: any;
@@ -3834,7 +4724,7 @@ export class GameScene extends Phaser.Scene {
     modal.add(card);
 
     // 1. Header: Title
-    const title = this.add.text(0, -258, '🏆 CHIẾN THẮNG HUY HOÀNG! 🏆', {
+    const title = this.add.text(0, -246, '🏆 CHIẾN THẮNG HUY HOÀNG! 🏆', {
       fontFamily: FONT_DISPLAY,
       fontSize: '32px',
       fontStyle: 'bold',
@@ -3846,8 +4736,8 @@ export class GameScene extends Phaser.Scene {
 
     // Level subtitle with Difficulty badge
     const diffBadge = this.currentDifficulty === 'easy' ? '🟢 DỄ' : this.currentDifficulty === 'medium' ? '🟡 VỪA' : '🔴 KHÓ';
-    const subTitle = this.add.text(0, -222, `${this.levelConfig.title}  •  [${diffBadge}]`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const subTitle = this.add.text(0, -210, `${this.levelConfig.title}  •  [${diffBadge}]`, {
+      fontFamily: FONT_UI,
       fontSize: '17px',
       fontStyle: 'bold',
       color: '#ced4da'
@@ -3855,13 +4745,14 @@ export class GameScene extends Phaser.Scene {
     modal.add(subTitle);
 
     // 3 Animated Stars Container
-    const starsY = -176;
+    const starsY = -150;
     const starOffsets = [-72, 0, 72];
     for (let i = 0; i < 3; i++) {
       const isEarned = i < stars;
       const starIcon = this.add.text(starOffsets[i], starsY, isEarned ? '⭐' : '☆', {
-        fontSize: '50px',
-        color: isEarned ? '#ffd700' : '#495057'
+        fontSize: '52px',
+        color: isEarned ? '#ffd700' : '#495057',
+        padding: { top: 24, bottom: 14, left: 10, right: 10 }
       }).setOrigin(0.5);
 
       if (isEarned) {
@@ -3883,31 +4774,12 @@ export class GameScene extends Phaser.Scene {
       modal.add(starIcon);
     }
 
-    // Rating Badge Pill
-    let ratingBadgeStr = '⭐ ĐẠT 1/3 SAO • CỐ LÊN!';
-    let ratingColor = '#ffd166';
-    if (isPerfect || stars === 3) {
-      ratingBadgeStr = '🌟 HOÀN HẢO 3 SAO (+50 XU THƯỞNG)! 🌟';
-      ratingColor = '#ffd700';
-    } else if (stars === 2) {
-      ratingBadgeStr = '⭐ ĐẠT 2/3 SAO • SẮP HOÀN HẢO!';
-      ratingColor = '#00f5d4';
-    }
-
-    const ratingBadge = this.add.text(0, -130, ratingBadgeStr, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '18px',
-      fontStyle: '900',
-      color: ratingColor
-    }).setOrigin(0.5);
-    modal.add(ratingBadge);
-
     // ==========================================
     // 2. LEFT PANEL: Star Quests Checklist Panel
     // ==========================================
     const qPanelW = 350;
     const qPanelH = 265;
-    const qPanelX = -260;
+    const qPanelX = -270;
     const qPanelY = 28;
 
     const panelBg = this.add.graphics();
@@ -3918,7 +4790,7 @@ export class GameScene extends Phaser.Scene {
     modal.add(panelBg);
 
     const panelTitle = this.add.text(qPanelX, qPanelY - 105, '⭐ NHIỆM VỤ 3 SAO (QUESTS)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '16.5px',
       fontStyle: '900',
       color: '#c77dff'
@@ -3933,16 +4805,16 @@ export class GameScene extends Phaser.Scene {
 
     // Quest 1
     const q1Desc = levelQuests[0]?.description || 'Dọn sạch bàn cờ trước khi hết giờ';
-    const q1Txt = this.add.text(qPanelX - 158, qPanelY - 68, `⭐ 1. ${q1Desc}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const q1Txt = this.add.text(qPanelX - 158, qPanelY - 68, `1. ${q1Desc}`, {
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: 'bold',
       color: '#f8f9fa',
-      wordWrap: { width: 240 }
+      wordWrap: { width: 285 }
     });
-    const q1Badge = this.add.text(qPanelX + 158, qPanelY - 68, '[✓ ĐẠT]', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+    const q1Badge = this.add.text(qPanelX + 158, qPanelY - 68, '✓', {
+      fontFamily: FONT_UI,
+      fontSize: '18px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(1, 0);
@@ -3951,16 +4823,16 @@ export class GameScene extends Phaser.Scene {
     // Quest 2
     const q2Ok = questStats?.quest2 ?? (stars >= 2);
     const q2Desc = levelQuests[1]?.description || 'Đạt chuỗi Combo thử thách';
-    const q2Txt = this.add.text(qPanelX - 158, qPanelY - 20, `⭐ 2. ${q2Desc}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const q2Txt = this.add.text(qPanelX - 158, qPanelY - 20, `2. ${q2Desc}`, {
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: 'bold',
       color: q2Ok ? '#f8f9fa' : '#adb5bd',
-      wordWrap: { width: 240 }
+      wordWrap: { width: 285 }
     });
-    const q2Badge = this.add.text(qPanelX + 158, qPanelY - 20, q2Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+    const q2Badge = this.add.text(qPanelX + 158, qPanelY - 20, q2Ok ? '✓' : '✕', {
+      fontFamily: FONT_UI,
+      fontSize: '18px',
       fontStyle: '900',
       color: q2Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
@@ -3969,36 +4841,83 @@ export class GameScene extends Phaser.Scene {
     // Quest 3
     const q3Ok = questStats?.quest3 ?? (stars === 3);
     const q3Desc = levelQuests[2]?.description || 'Vượt qua không dùng trợ giúp';
-    const q3Txt = this.add.text(qPanelX - 158, qPanelY + 28, `⭐ 3. ${q3Desc}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const q3Txt = this.add.text(qPanelX - 158, qPanelY + 28, `3. ${q3Desc}`, {
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: 'bold',
       color: q3Ok ? '#f8f9fa' : '#adb5bd',
-      wordWrap: { width: 240 }
+      wordWrap: { width: 285 }
     });
-    const q3Badge = this.add.text(qPanelX + 158, qPanelY + 28, q3Ok ? '[✓ ĐẠT]' : '[✕ CHƯA]', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '15px',
+    const q3Badge = this.add.text(qPanelX + 158, qPanelY + 28, q3Ok ? '✓' : '✕', {
+      fontFamily: FONT_UI,
+      fontSize: '18px',
       fontStyle: '900',
       color: q3Ok ? '#00f5d4' : '#ff758f'
     }).setOrigin(1, 0);
     modal.add([q3Txt, q3Badge]);
 
-    // Quest Tip / Note
-    const qNoteTxt = this.add.text(qPanelX, qPanelY + 95, isPerfect ? '✨ Xuất sắc! Nhận trọn vẹn điểm thưởng! ✨' : '💡 Mẹo: Chơi lại để săn trọn 3 sao!', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
+    // 2.5 Tactical Scorecard & Combat Grade (ADR 0020)
+    const timeElapsedSec = Math.max(1, Math.round((Date.now() - (this.matchStartTime || (Date.now() - 30000))) / 1000));
+    const totalPairs = Math.max(1, this.totalPairsMatched);
+    const paceSecPerPair = (timeElapsedSec / totalPairs).toFixed(1);
+    const maxCombo = questStats?.maxCombo || this.maxComboAchieved || 1;
+
+    let gradeRank = 'B';
+    let gradeColor = '#00f5d4';
+    if (stars === 3 && parseFloat(paceSecPerPair) <= 2.2 && (questStats?.boostersUsed === 0)) {
+      gradeRank = 'S+';
+      gradeColor = '#ffd700';
+    } else if (stars === 3) {
+      gradeRank = 'S';
+      gradeColor = '#ffd700';
+    } else if (stars === 2) {
+      gradeRank = 'A';
+      gradeColor = '#4cc9f0';
+    }
+
+    const scW = 328;
+    const scH = 58;
+    const scY = qPanelY + 84;
+
+    const scBg = this.add.graphics();
+    scBg.fillStyle(0x131122, 0.95);
+    scBg.fillRoundedRect(qPanelX - scW / 2, scY - scH / 2, scW, scH, 10);
+    scBg.lineStyle(1.4, gradeRank.startsWith('S') ? 0xffd700 : 0x00f5d4, 0.85);
+    scBg.strokeRoundedRect(qPanelX - scW / 2, scY - scH / 2, scW, scH, 10);
+
+    const gradeBadge = this.add.text(qPanelX - scW / 2 + 34, scY, gradeRank, {
+      fontFamily: FONT_DISPLAY,
+      fontSize: '24px',
       fontStyle: 'bold',
-      color: isPerfect ? '#ffd700' : '#ffd166'
+      color: gradeColor,
+      stroke: '#000000',
+      strokeThickness: 3
     }).setOrigin(0.5);
-    modal.add(qNoteTxt);
+
+    const scLine1 = this.add.text(qPanelX - scW / 2 + 72, scY - 12, `⚡ ${paceSecPerPair}s/cặp   •   🔥 x${maxCombo} Combo`, {
+      fontFamily: FONT_UI,
+      fontSize: '11.5px',
+      fontStyle: 'bold',
+      color: '#e2e8f0'
+    });
+
+    const compName = this.companionConfig?.name || 'Linh Thú';
+    const compDamage = this.companionDamageDealtThisRun > 0 ? `${this.companionDamageDealtThisRun} DMG` : 'Hỗ trợ';
+    const scLine2 = this.add.text(qPanelX - scW / 2 + 72, scY + 8, `🐾 ${compName}: ${compDamage}  •  ⏱️ ${timeElapsedSec}s`, {
+      fontFamily: FONT_UI,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      color: '#adb5bd'
+    });
+
+    modal.add([scBg, gradeBadge, scLine1, scLine2]);
 
     // ==========================================
     // 3. RIGHT PANEL: REWARD CARDS SHOWCASE
     // ==========================================
     const rPanelW = 520;
     const rPanelH = 265;
-    const rPanelX = 195;
+    const rPanelX = 185;
     const rPanelY = 28;
 
     const rPanelBg = this.add.graphics();
@@ -4008,21 +4927,13 @@ export class GameScene extends Phaser.Scene {
     rPanelBg.strokeRoundedRect(rPanelX - rPanelW / 2, rPanelY - rPanelH / 2, rPanelW, rPanelH, 16);
     modal.add(rPanelBg);
 
-    const rPanelTitle = this.add.text(rPanelX, rPanelY - 105, '🎁 THẺ BÀI CHIẾN LỢI PHẨM (REWARDS)', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '17.5px',
+    const rPanelTitle = this.add.text(rPanelX, rPanelY - 104, '🎁 CHIẾN LỢI PHẨM', {
+      fontFamily: FONT_UI,
+      fontSize: '18px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
     modal.add(rPanelTitle);
-
-    const rSubNote = this.add.text(rPanelX, rPanelY - 82, `❤️ Tự động hồi phục +1 sinh lực (Hiện có: ${this.lives}/10)`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14px',
-      fontStyle: 'bold',
-      color: '#ced4da'
-    }).setOrigin(0.5);
-    modal.add(rSubNote);
 
     // Assemble dynamic reward cards
     interface RewardCardItem {
@@ -4053,6 +4964,7 @@ export class GameScene extends Phaser.Scene {
       amount: `+${formatCurrency(coins)} XU`,
       sub: 'VÀNG CHIẾN LỢI',
       icon: '🪙',
+      imageKey: 'icon_reward_coin',
       borderColor: 0xffd700,
       badgeColor: 0x9a6b00,
       isHighlighted: isPerfect || nekoMult > 1
@@ -4063,27 +4975,59 @@ export class GameScene extends Phaser.Scene {
     if (shardCount > 0) {
       const shardName = questStats?.shardCompanionName || this.companionConfig.name;
       const shardId = questStats?.shardCompanionId || this.companionConfig.id;
-      const compTex = `comp_${shardId}`;
-      const charTexForComp = `char_${shardId}`;
-      const shardImageKey = this.textures.exists(compTex)
-        ? compTex
-        : (this.textures.exists(charTexForComp) ? charTexForComp : undefined);
+      
+      // Resolve companion texture properly
+      let shardImageKey: string | undefined;
+      const compTex = this.getCompanionTextureKey(shardId);
+      if (compTex && this.textures.exists(compTex)) {
+        shardImageKey = compTex;
+      } else if (this.textures.exists('icon_diamond')) {
+        shardImageKey = 'icon_diamond';
+      }
+
+      // Check drop rate percentage to show on celebratory badge tag
+      const stageLoot = LootManager.getStageLootConfig(this.levelConfig.levelNumber);
+      const diffKey = (this.currentDifficulty === 'medium' || this.currentDifficulty === 'hard') ? this.currentDifficulty : 'easy';
+      let dropPctStr = '1.0%';
+      if (stageLoot) {
+        if (shardId === stageLoot.mainCompanionId) {
+          dropPctStr = stageLoot.rewardsMatrix[diffKey]?.mainShardPct || '1.0%';
+        } else if (shardId === stageLoot.subCompanionId) {
+          dropPctStr = stageLoot.rewardsMatrix[diffKey]?.subShardPct || '0.3%';
+        }
+      }
 
       const shardTag = nekoMult > 1
-        ? `🐾 x${nekoMult} MẢNH`
-        : '💎 MẢNH THẦN THÚ';
+        ? `🐾 x${nekoMult} RỚT HIẾM!`
+        : `✨ RỚT HIẾM (${dropPctStr})`;
 
-      rewardCards.push({
-        type: 'shards',
-        title: shardTag,
-        amount: `+${shardCount} MẢNH`,
-        sub: shardName.toUpperCase(),
-        icon: '💎',
-        imageKey: shardImageKey,
-        borderColor: 0x00f5d4,
-        badgeColor: 0x007f5f,
-        isHighlighted: true
-      });
+      const totalOwnedShards = this.save.getCompanionShards(shardId);
+
+      if (questStats?.universalShardsConverted && questStats.universalShardsConverted > 0) {
+        rewardCards.push({
+          type: 'shards',
+          title: '🔮 LINH THẠCH VẠN NĂNG',
+          amount: `+${questStats.universalShardsConverted} LINH THẠCH`,
+          sub: `${shardName.toUpperCase()} ĐÃ CỰC ĐẠI\n(Kho: ${this.save.getUniversalShards()} Viên)`,
+          icon: '🔮',
+          imageKey: this.textures.exists('icon_diamond') ? 'icon_diamond' : undefined,
+          borderColor: 0x9d4edd,
+          badgeColor: 0x5a189a,
+          isHighlighted: true
+        });
+      } else {
+        rewardCards.push({
+          type: 'shards',
+          title: shardTag,
+          amount: `+${shardCount} MẢNH`,
+          sub: `${shardName.toUpperCase()}\n(Kho: ${totalOwnedShards} Mảnh)`,
+          icon: '💎',
+          imageKey: shardImageKey,
+          borderColor: 0x00f5d4,
+          badgeColor: 0x007f5f,
+          isHighlighted: true
+        });
+      }
     }
 
     // Card 2.5: Booster Item Card (If dropped by LootManager)
@@ -4107,13 +5051,16 @@ export class GameScene extends Phaser.Scene {
     if (questStats?.bossDefeated) {
       const boss = questStats.bossDefeated;
       const bossTex = `boss_${boss.id || 'orochi'}`;
+      const bossImgKey = this.textures.exists(bossTex)
+        ? bossTex
+        : (this.textures.exists('badge_boss_slayer') ? 'badge_boss_slayer' : undefined);
       rewardCards.push({
         type: 'boss',
         title: '👑 CHIẾN CÔNG BOSS',
         amount: 'HẠ GỤC TRÙM!',
         sub: boss.name.toUpperCase(),
         icon: '👹',
-        imageKey: this.textures.exists(bossTex) ? bossTex : undefined,
+        imageKey: bossImgKey,
         borderColor: 0xff595e,
         badgeColor: 0xb5179e,
         isHighlighted: true
@@ -4173,15 +5120,24 @@ export class GameScene extends Phaser.Scene {
     // Card 6: Monster Badge Card (if any)
     if (questStats?.badgeReward) {
       const badge = questStats.badgeReward;
+      const cleanBadgeName = (badge.name || '').replace(/^Huy\s*Hiệu\s*/i, '').trim();
       const tierLabel = this.currentDifficulty === 'easy' ? 'ĐỒNG' : this.currentDifficulty === 'medium' ? 'BẠC' : 'VÀNG';
+      const badgeImgKey = this.currentDifficulty === 'easy'
+        ? 'badge_bronze'
+        : this.currentDifficulty === 'medium'
+        ? 'badge_silver'
+        : 'badge_gold';
+      const badgeBorder = this.currentDifficulty === 'easy' ? 0xcd7f32 : (this.currentDifficulty === 'medium' ? 0xced4da : 0xffd700);
+      const badgeBgColor = this.currentDifficulty === 'easy' ? 0x4a2810 : (this.currentDifficulty === 'medium' ? 0x2b2d42 : 0x7f4f24);
       rewardCards.push({
         type: 'badge',
         title: '🎖️ HUY HIỆU',
-        amount: badge.name,
+        amount: cleanBadgeName,
         sub: `HẠNG ${tierLabel}`,
         icon: '🛡️',
-        borderColor: 0x00f5d4,
-        badgeColor: 0x3f37c9
+        imageKey: this.textures.exists(badgeImgKey) ? badgeImgKey : undefined,
+        borderColor: badgeBorder,
+        badgeColor: badgeBgColor
       });
     }
 
@@ -4193,6 +5149,7 @@ export class GameScene extends Phaser.Scene {
         amount: `+${formatCurrency(timeBonus)} PTS`,
         sub: 'ĐIỂM TỐC ĐỘ',
         icon: '⏱️',
+        imageKey: 'icon_reward_speed',
         borderColor: 0x4cc9f0,
         badgeColor: 0x1d3557
       });
@@ -4213,14 +5170,16 @@ export class GameScene extends Phaser.Scene {
       const cardContainer = this.add.container(cPosX, cPosY);
 
       // Card Base
+      const isShardsCard = cData.type === 'shards';
       const cBg = this.add.graphics();
-      cBg.fillStyle(cData.isHighlighted ? 0x221326 : 0x141224, 0.96);
+      const cardFillColor = isShardsCard ? 0x0c2528 : (cData.isHighlighted ? 0x221326 : 0x141224);
+      cBg.fillStyle(cardFillColor, 0.96);
       cBg.fillRoundedRect(-cardItemW / 2, -cardItemH / 2, cardItemW, cardItemH, 14);
       cBg.lineStyle(cData.isHighlighted ? 2.5 : 1.8, cData.borderColor, 0.95);
       cBg.strokeRoundedRect(-cardItemW / 2, -cardItemH / 2, cardItemW, cardItemH, 14);
 
       // Subtle inner frame
-      cBg.lineStyle(1.0, cData.borderColor, 0.35);
+      cBg.lineStyle(1.0, cData.borderColor, isShardsCard ? 0.6 : 0.35);
       cBg.strokeRoundedRect(-cardItemW / 2 + 3, -cardItemH / 2 + 3, cardItemW - 6, cardItemH - 6, 11);
 
       // Header Tag Badge
@@ -4231,42 +5190,47 @@ export class GameScene extends Phaser.Scene {
       tagBg.fillRoundedRect(-tagW / 2, -cardItemH / 2 + 6, tagW, tagH, 6);
 
       const tagTxt = this.add.text(0, -cardItemH / 2 + 18, cData.title, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: maxShowCards === 4 ? '11.5px' : '13px',
+        fontFamily: FONT_UI,
+        fontSize: maxShowCards === 4 ? '11px' : '12.5px',
         fontStyle: '900',
-        color: '#ffffff'
+        color: '#ffffff',
+        padding: { top: 2, bottom: 2, left: 4, right: 4 }
       }).setOrigin(0.5);
 
       // Card Graphic/Visual in Center
       let centerVisual: Phaser.GameObjects.GameObject;
-      const visualSize = maxShowCards === 4 ? 54 : 64;
+      const visualSize = maxShowCards === 4 ? 60 : 70;
       if (cData.imageKey && this.textures.exists(cData.imageKey)) {
-        centerVisual = this.add.image(0, -6, cData.imageKey).setDisplaySize(visualSize, visualSize);
+        centerVisual = this.add.image(0, -2, cData.imageKey).setDisplaySize(visualSize, visualSize);
       } else {
-        centerVisual = this.add.text(0, -6, cData.icon || '🎁', {
-          fontSize: maxShowCards === 4 ? '38px' : '44px'
+        centerVisual = this.add.text(0, -2, cData.icon || '🎁', {
+          fontSize: maxShowCards === 4 ? '42px' : '48px',
+          padding: { top: 6, bottom: 6, left: 6, right: 6 }
         }).setOrigin(0.5);
       }
 
       // Bottom Main Amount / Name
-      const amtTxt = this.add.text(0, 42, cData.amount || '', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: maxShowCards === 4 ? '15.5px' : '18px',
+      const amtStr = cData.amount || '';
+      const isLongAmt = amtStr.length > 10;
+      const amtFontSize = maxShowCards === 4
+        ? (isLongAmt ? '12.5px' : '15px')
+        : (isLongAmt ? '14.5px' : '18px');
+      const amtY = 50;
+
+      const amtTxt = this.add.text(0, amtY, amtStr, {
+        fontFamily: FONT_UI,
+        fontSize: amtFontSize,
         fontStyle: '900',
         color: `#${cData.borderColor.toString(16).padStart(6, '0')}`,
         stroke: '#000000',
-        strokeThickness: 3.0
+        strokeThickness: 3.0,
+        align: 'center',
+        wordWrap: { width: cardItemW - 14, useAdvancedWrap: true },
+        lineSpacing: -2,
+        padding: { top: 2, bottom: 2, left: 4, right: 4 }
       }).setOrigin(0.5);
 
-      // Bottom Sublabel
-      const subTxt = this.add.text(0, 64, cData.sub || '', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
-        fontSize: maxShowCards === 4 ? '12px' : '13px',
-        fontStyle: '800',
-        color: '#e0e1dd'
-      }).setOrigin(0.5);
-
-      cardContainer.add([cBg, tagBg, tagTxt, centerVisual, amtTxt, subTxt]);
+      cardContainer.add([cBg, tagBg, tagTxt, centerVisual, amtTxt]);
 
       // Interactive hover scale
       cardContainer.setSize(cardItemW, cardItemH).setInteractive({ useHandCursor: true });
@@ -4277,7 +5241,7 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: cardContainer, scaleX: 1.0, scaleY: 1.0, duration: 120 });
       });
 
-      // Staggered Pop-in animation with taiko & haptic (single run, then stays still)
+      // Staggered Pop-in animation with taiko & haptic
       cardContainer.setScale(0);
       this.tweens.add({
         targets: cardContainer,
@@ -4286,8 +5250,26 @@ export class GameScene extends Phaser.Scene {
         duration: 340,
         ease: 'Back.easeOut',
         onStart: () => {
-          this.audio.playSelect();
+          if (isShardsCard) {
+            this.audio.playRelicBurst('shrine');
+          } else {
+            this.audio.playSelect();
+          }
           this.haptic.light();
+        },
+        onComplete: () => {
+          // Subtle breathing pulse for rare shards hero drop card
+          if (isShardsCard) {
+            this.tweens.add({
+              targets: cardContainer,
+              scaleX: 1.035,
+              scaleY: 1.035,
+              duration: 800,
+              yoyo: true,
+              repeat: -1,
+              ease: 'Sine.easeInOut'
+            });
+          }
         }
       });
 
@@ -4301,34 +5283,54 @@ export class GameScene extends Phaser.Scene {
       const expR = questStats.expResult;
       const lootR = questStats.lootResult;
       const expBoxY = 188;
-      const expBoxW = 740;
-      const expBoxH = 36;
+      const expBoxW = 890;
+      const expBoxH = 38;
 
       const expContainer = this.add.container(0, expBoxY);
       modal.add(expContainer);
 
       const expBg = this.add.graphics();
       expBg.fillStyle(0x131122, 0.95);
-      expBg.fillRoundedRect(-expBoxW / 2, -expBoxH / 2, expBoxW, expBoxH, 10);
+      expBg.fillRoundedRect(-expBoxW / 2, -expBoxH / 2, expBoxW, expBoxH, 12);
       expBg.lineStyle(1.4, expR.leveledUp ? 0xffd700 : 0x00f5d4, expR.leveledUp ? 1 : 0.7);
-      expBg.strokeRoundedRect(-expBoxW / 2, -expBoxH / 2, expBoxW, expBoxH, 10);
+      expBg.strokeRoundedRect(-expBoxW / 2, -expBoxH / 2, expBoxW, expBoxH, 12);
       expContainer.add(expBg);
 
-      // Icon & Companion Name
-      const compIcon = this.companionConfig.icon || '🦊';
-      const compLabel = `${compIcon} ${this.companionConfig.name.toUpperCase()} (CẤP ${expR.newLevel})`;
-      const compTxt = this.add.text(-expBoxW / 2 + 18, 0, compLabel, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+      // Companion 3D/HD Avatar Disc & Name
+      const compId = this.companionConfig.id;
+      const compTex = this.getCompanionTextureKey(compId);
+      const avRadius = 14;
+      const avCenterX = -expBoxW / 2 + 22;
+      const avCenterY = 0;
+
+      const avBg = this.add.graphics();
+      avBg.fillStyle(0x0a0c16, 1);
+      avBg.fillCircle(avCenterX, avCenterY, avRadius);
+      avBg.lineStyle(1.6, expR.leveledUp ? 0xffd700 : 0x00f5d4, 0.95);
+      avBg.strokeCircle(avCenterX, avCenterY, avRadius);
+      expContainer.add(avBg);
+
+      if (compTex && this.textures.exists(compTex)) {
+        const compImg = this.add.image(avCenterX, avCenterY, compTex).setDisplaySize(26, 26);
+        expContainer.add(compImg);
+      } else {
+        const compIconTxt = this.add.text(avCenterX, avCenterY, this.companionConfig.icon || '🦊', { fontSize: '16px' }).setOrigin(0.5);
+        expContainer.add(compIconTxt);
+      }
+
+      const compLabel = `${this.companionConfig.name.toUpperCase()} (CẤP ${expR.newLevel})`;
+      const compTxt = this.add.text(avCenterX + avRadius + 8, 0, compLabel, {
+        fontFamily: FONT_UI,
         fontSize: '13px',
         fontStyle: '900',
         color: '#ffd700'
       }).setOrigin(0, 0.5);
       expContainer.add(compTxt);
 
-      // EXP Bar Graphic
-      const barX = 18;
-      const barW = 320;
+      // EXP Bar Graphic (Centered symmetrically between companion name and EXP info)
+      const barW = 340;
       const barH = 14;
+      const barX = 20 - barW / 2;
       const barGfx = this.add.graphics();
       barGfx.fillStyle(0x232538, 1);
       barGfx.fillRoundedRect(barX, -barH / 2, barW, barH, 5);
@@ -4342,17 +5344,17 @@ export class GameScene extends Phaser.Scene {
       fillGfx.fillRoundedRect(barX, -barH / 2, barW * expFrac, barH, 5);
       expContainer.add(fillGfx);
 
-      // EXP text info
+      // EXP text info (Right aligned inside container)
       const expText = expR.leveledUp
         ? `🌟 LEVEL UP! CẤP ${expR.newLevel} (+${lootR.expEarned} EXP)`
         : `+${lootR.expEarned} EXP • (${expR.newExp}/${expR.requiredExp})`;
 
-      const expTxt = this.add.text(barX + barW + 16, 0, expText, {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+      const expTxt = this.add.text(expBoxW / 2 - 18, 0, expText, {
+        fontFamily: FONT_UI,
         fontSize: '12.5px',
         fontStyle: '900',
         color: expR.leveledUp ? '#ffd700' : '#ffffff'
-      }).setOrigin(0, 0.5);
+      }).setOrigin(1, 0.5);
       expContainer.add(expTxt);
 
       if (expR.leveledUp) {
@@ -4383,7 +5385,7 @@ export class GameScene extends Phaser.Scene {
       nBg.strokeRoundedRect(-150, -24, 300, 48, 14);
 
       const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH CHIẾN DỊCH! 👑' : 'TIẾP TỤC HÀNH TRÌNH ➔', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '17px',
         fontStyle: '900',
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
@@ -4391,6 +5393,7 @@ export class GameScene extends Phaser.Scene {
       nextBtn.add([nBg, nTxt]);
       nextBtn.setSize(300, 48).setInteractive({ useHandCursor: true });
       nextBtn.on('pointerdown', () => {
+        nextBtn.disableInteractive();
         this.audio.playSelect();
         if (isFinalLevel) {
           this.scene.start('MainMenuScene');
@@ -4411,7 +5414,7 @@ export class GameScene extends Phaser.Scene {
       mBg.strokeRoundedRect(-120, -24, 240, 48, 14);
 
       const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '16.5px',
         fontStyle: '800',
         color: '#ced4da'
@@ -4433,7 +5436,7 @@ export class GameScene extends Phaser.Scene {
       nBg.strokeRoundedRect(-125, -24, 250, 48, 14);
 
       const nTxt = this.add.text(0, 0, isFinalLevel ? '🏆 HOÀN THÀNH!' : 'TIẾP TỤC ➔', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '17px',
         fontStyle: '900',
         color: isFinalLevel ? '#1a1c29' : '#ffffff'
@@ -4441,6 +5444,7 @@ export class GameScene extends Phaser.Scene {
       nextBtn.add([nBg, nTxt]);
       nextBtn.setSize(250, 48).setInteractive({ useHandCursor: true });
       nextBtn.on('pointerdown', () => {
+        nextBtn.disableInteractive();
         this.audio.playSelect();
         if (isFinalLevel) {
           this.scene.start('MainMenuScene');
@@ -4461,7 +5465,7 @@ export class GameScene extends Phaser.Scene {
       rBg.strokeRoundedRect(-130, -24, 260, 48, 14);
 
       const rTxt = this.add.text(0, 0, '🔄 CHƠI LẠI (SĂN 3⭐)', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '16.5px',
         fontStyle: '900',
         color: '#ffd166'
@@ -4469,6 +5473,7 @@ export class GameScene extends Phaser.Scene {
       replayBtn.add([rBg, rTxt]);
       replayBtn.setSize(260, 48).setInteractive({ useHandCursor: true });
       replayBtn.on('pointerdown', () => {
+        replayBtn.disableInteractive();
         this.audio.playSelect();
         this.scene.restart({ levelId: this.levelConfig.id, lives: this.lives, difficulty: this.currentDifficulty });
       });
@@ -4483,7 +5488,7 @@ export class GameScene extends Phaser.Scene {
       mBg.strokeRoundedRect(-95, -24, 190, 48, 14);
 
       const mTxt = this.add.text(0, 0, 'VỀ MENU 🏠', {
-        fontFamily: 'Plus Jakarta Sans, sans-serif',
+        fontFamily: FONT_UI,
         fontSize: '16px',
         fontStyle: '800',
         color: '#ced4da'
@@ -4506,6 +5511,7 @@ export class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
     this.isGameOver = true;
     this.gameOverReason = reason;
+    this.save.clearActiveSession();
 
     this.audio.playError();
     const width = GAME_WIDTH;
@@ -4534,15 +5540,15 @@ export class GameScene extends Phaser.Scene {
     card.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
     modal.add(card);
 
-    const title = this.add.text(0, -100, 'GAME OVER!', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const title = this.add.text(0, -100, '💀 THẤT TRẬN!', {
+      fontFamily: FONT_UI,
       fontSize: '28px',
       fontStyle: '900',
       color: '#e63946'
     }).setOrigin(0.5);
 
     const reasonText = this.add.text(0, -60, this.gameOverReason, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '16.5px',
       fontStyle: 'bold',
       color: '#ffd166',
@@ -4560,7 +5566,7 @@ export class GameScene extends Phaser.Scene {
     rBg.strokeRoundedRect(-140, -24, 280, 48, 14);
 
     const rTxt = this.add.text(0, 0, 'THỬ LẠI MÀN NÀY 🔄', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '17px',
       fontStyle: '900',
       color: '#ffffff'
@@ -4569,6 +5575,7 @@ export class GameScene extends Phaser.Scene {
     retryBtn.setSize(280, 48);
     retryBtn.setInteractive({ useHandCursor: true });
     retryBtn.on('pointerdown', () => {
+      retryBtn.disableInteractive();
       this.audio.playSelect();
       this.scene.restart({ levelId: this.levelConfig.id, lives: 10, difficulty: this.currentDifficulty });
     });
@@ -4582,7 +5589,7 @@ export class GameScene extends Phaser.Scene {
     mBg.strokeRoundedRect(-140, -24, 280, 48, 14);
 
     const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '16.5px',
       fontStyle: '800',
       color: '#adb5bd'
@@ -4622,14 +5629,14 @@ export class GameScene extends Phaser.Scene {
     modal.add(card);
 
     const title = this.add.text(0, -138, '❄️ BÃO TUYẾT DÂNG TRÀO!', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '22px',
       fontStyle: '900',
       color: '#00f5d4'
     }).setOrigin(0.5);
 
     const reasonText = this.add.text(0, -110, this.gameOverReason, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '14.5px',
       fontStyle: 'bold',
       color: '#ffd166',
@@ -4648,7 +5655,7 @@ export class GameScene extends Phaser.Scene {
     modal.add(statBox);
 
     const waveText = this.add.text(0, -62, `SỐNG SÓT: ĐỢT ${this.survivalWave}`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '18px',
       fontStyle: '900',
       color: '#00f5d4'
@@ -4668,9 +5675,9 @@ export class GameScene extends Phaser.Scene {
       color: isNewRecord ? '#ffb703' : '#ced4da'
     }).setOrigin(0.5);
 
-    const coinsText = this.add.text(0, 10, `+${formatCurrency(earnedCoins)} 💰 Ngân lượng nhận được`, {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
-      fontSize: '14.5px',
+    const coinsText = this.add.text(0, 10, `+${formatCurrency(earnedCoins)} XU 🪙`, {
+      fontFamily: FONT_UI,
+      fontSize: '15px',
       fontStyle: '900',
       color: '#ffd700'
     }).setOrigin(0.5);
@@ -4684,8 +5691,8 @@ export class GameScene extends Phaser.Scene {
     rBg.fillRoundedRect(-120, -21, 240, 42, 14);
     rBg.lineStyle(1.5, 0x00f5d4, 1);
     rBg.strokeRoundedRect(-120, -21, 240, 42, 14);
-    const rTxt = this.add.text(0, 0, 'THỬ LẠI SINH TỒN ❄️🔄', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+    const rTxt = this.add.text(0, 0, 'THỬ LẠI ❄️', {
+      fontFamily: FONT_UI,
       fontSize: '15px',
       fontStyle: '900',
       color: '#ffffff'
@@ -4694,6 +5701,7 @@ export class GameScene extends Phaser.Scene {
     retryBtn.setSize(240, 42);
     retryBtn.setInteractive({ useHandCursor: true });
     retryBtn.on('pointerdown', () => {
+      retryBtn.disableInteractive();
       this.audio.playSelect();
       this.scene.restart({ isSurvivalMode: true, lives: 5 });
     });
@@ -4705,7 +5713,7 @@ export class GameScene extends Phaser.Scene {
     mBg.fillStyle(0x232538, 1);
     mBg.fillRoundedRect(-120, -19, 240, 38, 12);
     const mTxt = this.add.text(0, 0, 'VỀ TRANG CHỦ 🏠', {
-      fontFamily: 'Plus Jakarta Sans, sans-serif',
+      fontFamily: FONT_UI,
       fontSize: '14.5px',
       fontStyle: '800',
       color: '#adb5bd'
@@ -4718,5 +5726,240 @@ export class GameScene extends Phaser.Scene {
       this.scene.start('MainMenuScene');
     });
     modal.add(menuBtn);
+  }
+
+  /**
+   * 🛡️ ADR 0019: Auto-Pause Interruption Shield
+   * Automatically freezes gameplay and renders a modal pause gate when app is backgrounded.
+   */
+  public triggerAutoPauseShield(): void {
+    if (this.isGameOver || this.isVictory || this.isPaused || this.isCountdownBreatherActive) return;
+
+    this.isPaused = true;
+    try {
+      this.audio.playSelect();
+    } catch (_) {}
+
+    if (this.pauseModalContainer) {
+      this.pauseModalContainer.destroy();
+      this.pauseModalContainer = null;
+    }
+
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+    const { width: screenW } = getScreenDimensions();
+
+    const container = this.add.container(width / 2, height / 2).setDepth(350);
+    this.pauseModalContainer = container;
+
+    // Dark backdrop (blocks all touch events behind)
+    const backdrop = this.add.graphics();
+    backdrop.fillStyle(0x060814, 0.88);
+    backdrop.fillRect(-screenW / 2, -height / 2, screenW, height);
+    backdrop.setInteractive(
+      new Phaser.Geom.Rectangle(-screenW / 2, -height / 2, screenW, height),
+      Phaser.Geom.Rectangle.Contains
+    );
+    container.add(backdrop);
+
+    // Ornate Japanese Lacquer Frame (460 x 280)
+    const cardW = 460;
+    const cardH = 280;
+    const cardGfx = this.add.graphics();
+
+    cardGfx.fillStyle(0x0c0f1d, 0.98);
+    cardGfx.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+    cardGfx.lineStyle(1.8, 0xd4af37, 0.9);
+    cardGfx.strokeRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 20);
+
+    // Inner gold border
+    cardGfx.lineStyle(1, 0x85662a, 0.5);
+    cardGfx.strokeRoundedRect(-cardW / 2 + 6, -cardH / 2 + 6, cardW - 12, cardH - 12, 16);
+
+    // Header Icon & Title
+    const titleText = this.add.text(0, -76, '⏸️ TRÒ CHƠI TẠM DỪNG', {
+      fontFamily: FONT_UI,
+      fontSize: '22px',
+      fontStyle: '900',
+      color: '#ffd700',
+      letterSpacing: 0.8
+    }).setOrigin(0.5);
+
+    // Level status info
+    const rawDigits = (this.levelConfig?.id || '').replace(/\D/g, '');
+    const lvlNum = this.levelConfig?.levelNumber || (rawDigits ? parseInt(rawDigits, 10) : 1);
+    const diffLabel = (this.currentDifficulty || 'easy').toUpperCase();
+    const lvlInfoText = this.add.text(0, -36, `MÀN ${lvlNum}  •  ${diffLabel}  •  ⏱️ ${Math.max(0, Math.ceil(this.timeRemaining))}s`, {
+      fontFamily: FONT_UI,
+      fontSize: '14px',
+      fontStyle: '800',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+
+    // Button 1: [ ▶ TIẾP TỤC ] (Emerald green with 3-2-1 countdown)
+    const resumeBtnW = 260;
+    const resumeBtnH = 44;
+    const resumeBtnY = 22;
+    const resumeGfx = this.add.graphics();
+    resumeGfx.fillStyle(0x059669, 0.95);
+    resumeGfx.fillRoundedRect(-resumeBtnW / 2, resumeBtnY - resumeBtnH / 2, resumeBtnW, resumeBtnH, 12);
+    resumeGfx.lineStyle(1.6, 0x34d399, 1);
+    resumeGfx.strokeRoundedRect(-resumeBtnW / 2, resumeBtnY - resumeBtnH / 2, resumeBtnW, resumeBtnH, 12);
+
+    const resumeText = this.add.text(0, resumeBtnY, '▶ TIẾP TỤC', {
+      fontFamily: FONT_UI,
+      fontSize: '16px',
+      fontStyle: '900',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+
+    const resumeZone = this.add.zone(0, resumeBtnY, resumeBtnW, resumeBtnH).setInteractive({ useHandCursor: true });
+    resumeZone.on('pointerdown', () => {
+      this.audio.playSelect();
+      this.haptic.light();
+      if (this.pauseModalContainer) {
+        this.pauseModalContainer.destroy();
+        this.pauseModalContainer = null;
+      }
+      this.startCountdownBreather();
+    });
+
+    // Button 2: [ 🔄 CHƠI LẠI ]
+    const retryBtnW = 124;
+    const retryBtnH = 36;
+    const subBtnY = 82;
+    const retryBtnX = -68;
+    const retryGfx = this.add.graphics();
+    retryGfx.fillStyle(0xd97706, 0.9);
+    retryGfx.fillRoundedRect(retryBtnX - retryBtnW / 2, subBtnY - retryBtnH / 2, retryBtnW, retryBtnH, 10);
+    retryGfx.lineStyle(1.2, 0xfbbf24, 0.9);
+    retryGfx.strokeRoundedRect(retryBtnX - retryBtnW / 2, subBtnY - retryBtnH / 2, retryBtnW, retryBtnH, 10);
+
+    const retryText = this.add.text(retryBtnX, subBtnY, '🔄 Chơi Lại', {
+      fontFamily: FONT_UI,
+      fontSize: '12.5px',
+      fontStyle: '800',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+
+    const retryZone = this.add.zone(retryBtnX, subBtnY, retryBtnW, retryBtnH).setInteractive({ useHandCursor: true });
+    retryZone.on('pointerdown', () => {
+      this.audio.playSelect();
+      this.haptic.medium();
+      if (this.pauseModalContainer) {
+        this.pauseModalContainer.destroy();
+        this.pauseModalContainer = null;
+      }
+      this.isPaused = false;
+      this.cleanupSceneResources();
+      this.scene.restart({
+        levelId: this.levelConfig.id,
+        lives: 10,
+        difficulty: this.currentDifficulty,
+        isSurvivalMode: this.isSurvivalMode,
+        isZenMode: this.isZenMode
+      });
+    });
+
+    // Button 3: [ ⛩️ VỀ MENU ]
+    const menuBtnW = 124;
+    const menuBtnH = 36;
+    const menuBtnX = 68;
+    const menuGfx = this.add.graphics();
+    menuGfx.fillStyle(0x374151, 0.9);
+    menuGfx.fillRoundedRect(menuBtnX - menuBtnW / 2, subBtnY - menuBtnH / 2, menuBtnW, menuBtnH, 10);
+    menuGfx.lineStyle(1.2, 0x9ca3af, 0.9);
+    menuGfx.strokeRoundedRect(menuBtnX - menuBtnW / 2, subBtnY - menuBtnH / 2, menuBtnW, menuBtnH, 10);
+
+    const menuText = this.add.text(menuBtnX, subBtnY, '⛩️ Menu', {
+      fontFamily: FONT_UI,
+      fontSize: '12.5px',
+      fontStyle: '800',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+
+    const menuZone = this.add.zone(menuBtnX, subBtnY, menuBtnW, menuBtnH).setInteractive({ useHandCursor: true });
+    menuZone.on('pointerdown', () => {
+      this.audio.playSelect();
+      this.haptic.light();
+      if (this.pauseModalContainer) {
+        this.pauseModalContainer.destroy();
+        this.pauseModalContainer = null;
+      }
+      this.isPaused = false;
+      this.cleanupSceneResources();
+      this.scene.start('MainMenuScene');
+    });
+
+    container.add([
+      cardGfx, titleText, lvlInfoText,
+      resumeGfx, resumeText, resumeZone,
+      retryGfx, retryText, retryZone,
+      menuGfx, menuText, menuZone
+    ]);
+  }
+
+  /**
+   * 🛡️ ADR 0019: 3-2-1 Breather countdown before releasing active board timer
+   */
+  private startCountdownBreather(): void {
+    this.isCountdownBreatherActive = true;
+    const width = GAME_WIDTH;
+    const height = GAME_HEIGHT;
+
+    const countContainer = this.add.container(width / 2, height / 2).setDepth(360);
+    const countText = this.add.text(0, 0, '3', {
+      fontFamily: FONT_UI,
+      fontSize: '72px',
+      fontStyle: '900',
+      color: '#ffd700',
+      stroke: '#000000',
+      strokeThickness: 6
+    }).setOrigin(0.5);
+    countContainer.add(countText);
+
+    let current = 3;
+    const tick = () => {
+      try {
+        this.audio.playSelect();
+        this.haptic.light();
+      } catch (_) {}
+
+      countText.setText(current > 0 ? String(current) : 'CHIẾN!');
+      countText.setColor(current > 0 ? '#ffd700' : '#34d399');
+      countText.setScale(1.5);
+      countText.setAlpha(0.6);
+
+      this.tweens.add({
+        targets: countText,
+        scale: 1,
+        alpha: 1,
+        duration: 300,
+        ease: 'Back.easeOut',
+        onComplete: () => {
+          if (current > 1) {
+            current--;
+            this.time.delayedCall(450, tick);
+          } else if (current === 1) {
+            current--;
+            this.time.delayedCall(400, tick);
+          } else {
+            this.tweens.add({
+              targets: countContainer,
+              alpha: 0,
+              scale: 1.2,
+              duration: 220,
+              onComplete: () => {
+                countContainer.destroy();
+                this.isCountdownBreatherActive = false;
+                this.isPaused = false;
+              }
+            });
+          }
+        }
+      });
+    };
+
+    tick();
   }
 }

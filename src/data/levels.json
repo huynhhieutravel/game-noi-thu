@@ -77,21 +77,21 @@
     "badgeRewards": [
       {
         "id": "badge_kasa_obake",
-        "name": "Huy Hiệu Ma Dù",
+        "name": "Ma Dù",
         "characterId": "kasa_obake",
         "tier": 1,
         "rarity": "common"
       },
       {
         "id": "badge_nurikabe",
-        "name": "Huy Hiệu Bức Tường Ma",
+        "name": "Bức Tường Ma",
         "characterId": "nurikabe",
         "tier": 2,
         "rarity": "uncommon"
       },
       {
         "id": "badge_aka_oni",
-        "name": "Huy Hiệu Xích Quỷ",
+        "name": "Xích Quỷ",
         "characterId": "aka_oni",
         "tier": 3,
         "rarity": "rare"
@@ -154,22 +154,22 @@
         "id": "q1",
         "type": "clear",
         "target": 1,
-        "description": "Dọn sạch bàn cờ",
+        "description": "Dọn sạch bàn cờ trước khi hết giờ",
         "icon": "🎯"
       },
       {
         "id": "q2",
-        "type": "break_ice",
-        "target": 2,
-        "description": "Phá hủy toàn bộ 2 tầng tơ nhện",
-        "icon": "🕸️"
+        "type": "combo",
+        "target": 4,
+        "description": "Đạt chuỗi Combo liên tiếp x4",
+        "icon": "⚡"
       },
       {
         "id": "q3",
-        "type": "combo",
-        "target": 5,
-        "description": "Đạt chuỗi Combo liên tiếp x5",
-        "icon": "⚡"
+        "type": "no_booster",
+        "target": 0,
+        "description": "Không dùng bất kỳ Trợ giúp nào",
+        "icon": "✨"
       }
     ],
     "relicReward": {
@@ -184,21 +184,21 @@
     "badgeRewards": [
       {
         "id": "badge_sunakake_baba",
-        "name": "Huy Hiệu Bà Bà Cát",
+        "name": "Bà Bà Cát",
         "characterId": "sunakake_baba",
         "tier": 1,
         "rarity": "common"
       },
       {
         "id": "badge_zashiki_warashi",
-        "name": "Huy Hiệu Phúc Đồng",
+        "name": "Phúc Đồng",
         "characterId": "zashiki_warashi",
         "tier": 2,
         "rarity": "uncommon"
       },
       {
         "id": "badge_umibozu",
-        "name": "Huy Hiệu Thần Biển Hải Phường",
+        "name": "Thần Biển Hải Phường",
         "characterId": "umibozu",
         "tier": 3,
         "rarity": "rare"
@@ -291,21 +291,21 @@
     "badgeRewards": [
       {
         "id": "badge_kappa",
-        "name": "Huy Hiệu Hà Bá",
+        "name": "Hà Bá",
         "characterId": "kappa_cucumber",
         "tier": 1,
         "rarity": "common"
       },
       {
         "id": "badge_nekomata",
-        "name": "Huy Hiệu Mèo Hai Đuôi",
+        "name": "Mèo Hai Đuôi",
         "characterId": "nekomata_calico",
         "tier": 2,
         "rarity": "uncommon"
       },
       {
         "id": "badge_obake_shita",
-        "name": "Huy Hiệu Ma Thè Lưỡi",
+        "name": "Ma Thè Lưỡi",
         "characterId": "obake_shita",
         "tier": 3,
         "rarity": "rare"
@@ -399,21 +399,21 @@
     "badgeRewards": [
       {
         "id": "badge_amabie",
-        "name": "Huy Hiệu Thần Tiên Amabie",
+        "name": "Thần Tiên Amabie",
         "characterId": "amabie",
         "tier": 1,
         "rarity": "common"
       },
       {
         "id": "badge_kawauso",
-        "name": "Huy Hiệu Rái Cá Tinh",
+        "name": "Rái Cá Tinh",
         "characterId": "kawauso",
         "tier": 2,
         "rarity": "uncommon"
       },
       {
         "id": "badge_inari_kitsune",
-        "name": "Huy Hiệu Cáo Inari",
+        "name": "Cáo Inari",
         "characterId": "inari_kitsune",
         "tier": 3,
         "rarity": "rare"
@@ -482,10 +482,10 @@
       },
       {
         "id": "q2",
-        "type": "rescue_cages",
-        "target": 1,
-        "description": "Mở thành công Ổ khóa phong ấn",
-        "icon": "🗝️"
+        "type": "break_stone",
+        "target": 2,
+        "description": "Phá vỡ ít nhất 2 tảng đá cản trở",
+        "icon": "🪨"
       },
       {
         "id": "q3",
@@ -507,21 +507,21 @@
     "badgeRewards": [
       {
         "id": "badge_kijimuna",
-        "name": "Huy Hiệu Mộc Tinh",
+        "name": "Mộc Tinh",
         "characterId": "kijimuna",
         "tier": 1,
         "rarity": "common"
       },
       {
         "id": "badge_bake_danuki",
-        "name": "Huy Hiệu Hồ Ly Biến Hóa",
+        "name": "Hồ Ly Biến Hóa",
         "characterId": "bake_danuki",
         "tier": 2,
         "rarity": "uncommon"
       },
       {
         "id": "badge_komainu",
-        "name": "Huy Hiệu Thạch Sư",
+        "name": "Thạch Sư",
         "characterId": "komainu",
         "tier": 3,
         "rarity": "rare"
@@ -594,10 +594,10 @@
       },
       {
         "id": "q2",
-        "type": "break_ice",
-        "target": 4,
-        "description": "Phá tan toàn bộ 4 khối băng giá",
-        "icon": "❄️"
+        "type": "break_stone",
+        "target": 2,
+        "description": "Phá vỡ ít nhất 2 tảng đá cản trở",
+        "icon": "🪨"
       },
       {
         "id": "q3",
@@ -619,21 +619,21 @@
     "badgeRewards": [
       {
         "id": "badge_yuki_onna",
-        "name": "Huy Hiệu Nữ Chúa Tuyết",
+        "name": "Nữ Chúa Tuyết",
         "characterId": "yuki_onna",
         "tier": 1,
         "rarity": "uncommon"
       },
       {
         "id": "badge_jorogumo",
-        "name": "Huy Hiệu Chúa Nhện",
+        "name": "Chúa Nhện",
         "characterId": "jorogumo",
         "tier": 2,
         "rarity": "rare"
       },
       {
         "id": "badge_shuten_doji",
-        "name": "Huy Hiệu Tửu Thôn Đồng Tử",
+        "name": "Tửu Thôn Đồng Tử",
         "characterId": "shuten_doji",
         "tier": 3,
         "rarity": "epic"
@@ -731,21 +731,21 @@
     "badgeRewards": [
       {
         "id": "badge_karasu_hime",
-        "name": "Huy Hiệu Ô Nha Công Chúa",
+        "name": "Ô Nha Công Chúa",
         "characterId": "karasu_hime",
         "tier": 1,
         "rarity": "uncommon"
       },
       {
         "id": "badge_wanyuudo",
-        "name": "Huy Hiệu Luân Nhập Đạo",
+        "name": "Luân Nhập Đạo",
         "characterId": "wanyuudo",
         "tier": 2,
         "rarity": "rare"
       },
       {
         "id": "badge_raijin_god",
-        "name": "Huy Hiệu Lôi Thần Tôn",
+        "name": "Lôi Thần Tôn",
         "characterId": "raijin_god",
         "tier": 3,
         "rarity": "epic"
@@ -778,7 +778,7 @@
       "obake_shita",
       "komainu",
       "kamaitachi",
-      "inari_kitsune",
+      "kappa_cucumber",
       "tengu_peeker"
     ],
     "timeLimit": 120,
@@ -849,21 +849,21 @@
     "badgeRewards": [
       {
         "id": "badge_bakezori",
-        "name": "Huy Hiệu Dép Ma Thảo Hài",
+        "name": "Dép Ma Thảo Hài",
         "characterId": "bakezori",
         "tier": 1,
         "rarity": "common"
       },
       {
         "id": "badge_rokurokubi",
-        "name": "Huy Hiệu Phi Đầu Quỷ",
+        "name": "Phi Đầu Quỷ",
         "characterId": "rokurokubi",
         "tier": 2,
         "rarity": "rare"
       },
       {
         "id": "badge_fujin_god",
-        "name": "Huy Hiệu Phong Thần Tôn",
+        "name": "Phong Thần Tôn",
         "characterId": "fujin_god",
         "tier": 3,
         "rarity": "epic"
@@ -966,21 +966,21 @@
     "badgeRewards": [
       {
         "id": "badge_same_ronin",
-        "name": "Huy Hiệu Sa Ngư Lãng Khách",
+        "name": "Sa Ngư Lãng Khách",
         "characterId": "same_ronin",
         "tier": 1,
         "rarity": "uncommon"
       },
       {
         "id": "badge_suiryu",
-        "name": "Huy Hiệu Thủy Long",
+        "name": "Thủy Long",
         "characterId": "suiryu",
         "tier": 2,
         "rarity": "rare"
       },
       {
         "id": "badge_kyuubi_kitsune",
-        "name": "Huy Hiệu Cửu Vĩ Thiên Hồ",
+        "name": "Cửu Vĩ Thiên Hồ",
         "characterId": "kyuubi_kitsune",
         "tier": 3,
         "rarity": "legendary"
@@ -1114,21 +1114,21 @@
     "badgeRewards": [
       {
         "id": "badge_orochi_fang",
-        "name": "Huy Hiệu Nanh Vuốt Đại Xà",
+        "name": "Nanh Vuốt Đại Xà",
         "characterId": "yamata_no_orochi_boss",
         "tier": 1,
         "rarity": "rare"
       },
       {
         "id": "badge_ryujin_pearl",
-        "name": "Huy Hiệu Ngọc Long Thần",
+        "name": "Ngọc Long Thần",
         "characterId": "ryujin_pearl",
         "tier": 2,
         "rarity": "epic"
       },
       {
         "id": "badge_orochi_supreme",
-        "name": "Huy Hiệu Bát Kỳ Bá Vương",
+        "name": "Bát Kỳ Bá Vương",
         "characterId": "yamata_no_orochi_boss",
         "tier": 3,
         "rarity": "legendary"
